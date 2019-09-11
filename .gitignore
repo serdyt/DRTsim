@@ -537,3 +537,7 @@ __pycache__
 /.idea/modules.xml
 /.idea/workspace.xml
 /example.db
+/input/long.xml
+/input/population_example.xml
+/input/test.xml
+/data/population.json
