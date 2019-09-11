@@ -7,6 +7,8 @@ Created on Wed Dec 19 14:58:25 2018
 """
 
 from typing import List
+from datetime import timedelta as td
+from datetime import datetime
 import logging
 
 
@@ -16,15 +18,19 @@ class Plan(object):
 
 
 class Activity(object):
+    """Activity that is performed by a person.
+    Person moves to a next activity after end_time is reached.
+
+    Parameters
+    ----------
+    type_ : <ActivityType>
+    coord : <Coord>
+    start_time : <int> seconds from 00:00
+    end_time : <int> seconds from 00:00
+    """
 
     def __init__(self, type_, coord, start_time=None, end_time=None):
-        """
-        type_       <ActivityType>
-        coord       <Coord>
-        start_time  <int> seconds from 00:00
-        end_time    <int> seconds from 00:00
-        """
-        
+        """docstring"""
         if start_time is None and end_time is None:
             raise Exception("Sanity check: both activity times are None")
         self.type = type_
@@ -32,10 +38,25 @@ class Activity(object):
         self.start_time = start_time
         self.end_time = end_time
 
+    def __str__(self):
+        return 'An ' + str(self.type) + ' at ' + str(self.coord)
+
 
 class Leg(object):
+    """Leg of a trip. For example, "walk - bus - walk" trip has three legs.
+    Used to store trip legs from OTP.
+
+    Parameters
+    ----------
+    mode : <str> mode of transport
+    start_coord : <coord> coordinate of an origin
+    end_coord : <coord> coordinate of a destination
+    distance : <int> meters
+    duration : <int> seconds
+    steps : <list> of utils.Step
     """
-    TODO:assignment of mode as a string is confusing, remove it
+    """
+    TODO:assignment of mode as a string is confusing, remove it, or use constant
     """
     def __init__(self):
         self.mode = None
@@ -193,11 +214,25 @@ class JspritRoute(object):
 
 
 class Coord(object):
-    def __init__(self, lat=None, lon=None):
-        if lat is None or lon is None:
+    """Coordinate.
+
+    Parameters
+    ----------
+    lat : <float> latitude
+    lon : <float> longitude
+    latlon : <list> list with both lat and long. Latitude first!
+    """
+    def __init__(self, lat=None, lon=None, latlon=None):
+        if latlon is not None:
+            if len(latlon) != 2:
+                raise Exception("Wrong coordinate latlon format. Should be a list of two floats.")
+            self.lat = latlon[0]
+            self.lon = latlon[1]
+        elif lat is None or lon is None:
             raise Exception("Coordinates not provided")
-        self.lat = lat
-        self.lon = lon
+        else:
+            self.lat = lat
+            self.lon = lon
         
     def __str__(self):
         return str(self.lat) + ',' + str(self.lon)
@@ -237,3 +272,12 @@ def get_time_of_act_start(acts, index, time):
     # for _, act in zip(range(index), acts):
     #     local_time += act.duration
     return time + sum([a.duration for a in acts[:index]])
+
+
+def seconds_from_str(string):
+    """Converts a string of format '%H:%M:%S' into seconds from the beginning of a day
+    """
+    if string is None:
+        return None
+    t = datetime.strptime(string, '%H:%M:%S')
+    return td(hours=t.hour, minutes=t.minute, seconds=t.second).total_seconds()

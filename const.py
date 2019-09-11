@@ -86,6 +86,20 @@ class ActivityType(Enum):
     HOME = 'HOME'
     WORK = 'WORK'
 
+    def __str__(self):
+        return self.name
+
+    @staticmethod
+    def contains(other):
+        return other in ActivityType.__dict__
+
+    @staticmethod
+    def get_activity(string):
+        if ActivityType.contains(string):
+            return ActivityType.__getitem__(string)
+        else:
+            raise Exception('unsupported mode {}'.format(string))
+
 
 class PersAttr(Enum):
     ID = 'ID'

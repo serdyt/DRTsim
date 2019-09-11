@@ -23,6 +23,7 @@ from service import ServiceProvider
 from const import OtpMode, LegMode
 from jsprit_utils import jsprit_tdm_interface
 from db_utils import db_conn
+from const import CapacityDimensions as CD
 
 
 class Top(Component):
@@ -77,11 +78,13 @@ config = {
     'otp.tdm_file': '/home/ai6644/Malmo/Tools/DRTsim/data/time_distance_matrix_otp.csv',
 
     'person.default_attr.walking_speed': 1.2,
-    'person.default_attr.dimensions': {'seats': 1},
+    'person.default_attr.dimensions': {CD.SEATS: 1},
     'person.default_attr.driving_license': True,
     'person.default_attr.boarding_time': 30,
     'person.default_attr.leaving_time': 10,
     'person.default_attr.maxWalkDistance': 10,
+
+    'population.input_file': 'data/population.json',
     }
 # consoleHandler = logging.StreamHandler()
 consoleLog = logging.getLogger()
