@@ -541,3 +541,7 @@ __pycache__
 /input/population_example.xml
 /input/test.xml
 /data/population.json
+/.idea/
+/docs/
+time_distance_matrix.db
+profile.prof

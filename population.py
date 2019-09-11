@@ -13,21 +13,19 @@ import json
 from desmod.component import Component
 import behaviour
 import mode_choice
-import sys
 
 from utils import Activity, Coord, seconds_from_str
 from const import ActivityType as actType
 from const import maxLat, minLat, maxLon, minLon
 from const import CapacityDimensions as CD
-#from const import Mode as mode
-#from utils import get_sec
 
 consoleLog = logging.getLogger()
 consoleLog.setLevel(level=logging.DEBUG)
 
 
 class PopulationGenerator(object):
-    """Generator stores only currently active persons. Inactive are written
+    """TODO: not implemented feature
+    Generator stores only currently active persons. Inactive are written
     back to the database to save memory.
     """
     def __init__(self):
