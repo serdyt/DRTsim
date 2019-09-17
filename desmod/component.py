@@ -63,7 +63,7 @@ component could, for example, be used as a connection object.
 
 """
 
-import logging
+# import logging
 
 
 class ConnectError(Exception):
@@ -315,14 +315,14 @@ class Component(object):
         """Hook called after result is composed by descendant components."""
         pass
 
-    @staticmethod
-    def setup_logger(name, log_file, level=logging.DEBUG):
-        """Function setup as many loggers as you want"""
-    
-        handler = logging.FileHandler(log_file)
-    
-        logger = logging.getLogger(name)
-        logger.setLevel(level)
-        logger.addHandler(handler)
-    
-        return logger
+    # @staticmethod
+    # def setup_logger(name, log_file, level=logging.DEBUG):
+    #     """Function setup as many loggers as you want"""
+    #
+    #     handler = logging.FileHandler(log_file)
+    #
+    #     logger = logging.getLogger(name)
+    #     logger.setLevel(level)
+    #     logger.addHandler(handler)
+    #
+    #     return logger

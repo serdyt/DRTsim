@@ -13,17 +13,18 @@ import csv
 import os
 import time
 
-from const import OtpMode
+from population import Person
+from const import OtpMode, LegMode
 from utils import Trip, Leg, Coord, Step, trunc_microseconds, DrtAct, JspritSolution
 from db_utils import db_conn
 from jsprit_utils import jsprit_tdm_interface, jsprit_vrp_interface
 
 import logging
-logging.getLogger("requests").setLevel(logging.INFO)
-logging.getLogger("urllib3").setLevel(logging.INFO)
+
+log = logging.getLogger(__name__)
 
 
-class default_routing(object):
+class DefaultRouting(object):
     
     def __init__(self, service):
 
@@ -33,12 +34,15 @@ class default_routing(object):
         self.service = service
         self.coord_to_geoid = {}
 
-    def otp_request(self, person, mode):
+    def otp_request(self, person: Person, mode: str):
 
         trips = []
         payload = Payload(attributes={'fromPlace': str(person.curr_activity.coord),
                                       'toPlace': str(person.next_activity.coord),
-                                      'time': trunc_microseconds(str(td(seconds=person.curr_activity.end_time))),
+                                      'time': trunc_microseconds(str(
+                                          td(seconds=person.curr_activity.end_time -
+                                                     self.env.config.get('traditional_transport.planning_in_advance'))
+                                      )),
                                       'date': self.env.config.get('date'),
                                       'mode': mode,
                                       'maxWalkDistance': 2000},
@@ -68,7 +72,7 @@ class default_routing(object):
 
         jresp = resp.json()
         if 'error' in jresp.keys():
-            logging.warning('{}\nfor {}'.format(jresp.get('error').get('msg'), jresp.get('requestParameters')))
+            log.warning('{}\nfor {}'.format(jresp.get('error').get('msg'), jresp.get('requestParameters')))
             """TODO: add procedure to proceed when no routing options are available"""
             return None
 
@@ -92,6 +96,8 @@ class default_routing(object):
                 leg.mode = raw_leg.get('mode')
                 leg.steps = [self.step_from_raw(s) for s in raw_leg.get('steps')]
                 trip.append_leg(leg)
+
+                trip.main_mode = trip.main_mode_from_legs()
             trips.append(trip)
 
         return trips
@@ -114,7 +120,7 @@ class default_routing(object):
         # run jsprit
         start = time.time()
         os.system('/usr/lib/jvm/java-8-openjdk-amd64/bin/java -Dfile.encoding=UTF-8 -classpath /home/ai6644/Malmo/Tools/jsprit/jsprit-examples/target/classes:/home/ai6644/Malmo/Tools/jsprit/jsprit-core/target/classes:/home/ai6644/.m2/repository/org/apache/commons/commons-math3/3.4/commons-math3-3.4.jar:/home/ai6644/.m2/repository/org/slf4j/slf4j-api/1.7.21/slf4j-api-1.7.21.jar:/home/ai6644/Malmo/Tools/jsprit/jsprit-analysis/target/classes:/home/ai6644/.m2/repository/org/jfree/jfreechart/1.0.19/jfreechart-1.0.19.jar:/home/ai6644/.m2/repository/org/jfree/jcommon/1.0.23/jcommon-1.0.23.jar:/home/ai6644/.m2/repository/org/graphstream/gs-core/1.3/gs-core-1.3.jar:/home/ai6644/.m2/repository/org/graphstream/pherd/1.0/pherd-1.0.jar:/home/ai6644/.m2/repository/org/graphstream/mbox2/1.0/mbox2-1.0.jar:/home/ai6644/.m2/repository/org/graphstream/gs-ui/1.3/gs-ui-1.3.jar:/home/ai6644/.m2/repository/org/graphstream/gs-algo/1.3/gs-algo-1.3.jar:/home/ai6644/.m2/repository/org/apache/commons/commons-math/2.1/commons-math-2.1.jar:/home/ai6644/.m2/repository/org/scala-lang/scala-library/2.10.1/scala-library-2.10.1.jar:/home/ai6644/Malmo/Tools/jsprit/jsprit-io/target/classes:/home/ai6644/.m2/repository/commons-configuration/commons-configuration/1.9/commons-configuration-1.9.jar:/home/ai6644/.m2/repository/commons-lang/commons-lang/2.6/commons-lang-2.6.jar:/home/ai6644/.m2/repository/commons-logging/commons-logging/1.1.1/commons-logging-1.1.1.jar:/home/ai6644/.m2/repository/xerces/xercesImpl/2.11.0/xercesImpl-2.11.0.jar:/home/ai6644/.m2/repository/xml-apis/xml-apis/1.4.01/xml-apis-1.4.01.jar:/home/ai6644/.m2/repository/org/apache/logging/log4j/log4j-slf4j-impl/2.0.1/log4j-slf4j-impl-2.0.1.jar:/home/ai6644/.m2/repository/org/apache/logging/log4j/log4j-api/2.0.1/log4j-api-2.0.1.jar:/home/ai6644/.m2/repository/org/apache/logging/log4j/log4j-core/2.0.1/log4j-core-2.0.1.jar com.graphhopper.jsprit.examples.DRT_test')
-        print('But it takes {}ms of system time'.format(time.time() - start))
+        # log.info('It takes {}ms of system at_time'.format(time.time() - start))
         # read jsprit output file
         solution = jsprit_vrp_interface.read_vrp_solution(self.env.config.get('jsprit.vrp_solution'))  # type: JspritSolution
 
@@ -139,6 +145,7 @@ class default_routing(object):
         # TODO: this covers only the scenario when DRT is the only leg.
         #  We need to find the exact trip in this list of acts
         trip.set_duration(acts[-1].arrival_time - acts[0].end_time)
+        # TODO: calculate distance for all the changed trips (need to call OTP to extract the distance)
         trip.set_main_mode(OtpMode.DRT)
         trip.legs = [Leg()]
         trip.legs[0].mode = OtpMode.DRT
@@ -175,10 +182,10 @@ class default_routing(object):
                     return route
         return None
 
-    def get_drt_route_details(self, coord_start, coord_end, time):
+    def get_drt_route_details(self, coord_start, coord_end, at_time):
         payload = Payload(attributes={'fromPlace': str(coord_start),
                                       'toPlace': str(coord_end),
-                                      'time': trunc_microseconds(str(td(seconds=time))),
+                                      'time': trunc_microseconds(str(td(seconds=at_time))),
                                       'date': self.env.config.get('date'),
                                       'mode': OtpMode.CAR},
                           config=self.env.config)
@@ -191,7 +198,7 @@ class default_routing(object):
         return trip
 
     def _calculate_time_distance_matrix(self, vehicle_coords, return_coords, persons_coords):
-        """Saves time distance matrix to the file for jsprit.
+        """Saves at_time distance matrix to the file for jsprit.
 
         :param vehicle_coords:
         :param persons_coords:
@@ -269,7 +276,7 @@ class default_routing(object):
     def _process_tdm_in_database(self, start_coords, end_coords, coords_to_process_with_otp=None):
         """Checks in database if coordinates were already saved in database.
 
-        For each start location check if time-distance were already calculated and stored in database.
+        For each start location check if at_time-distance were already calculated and stored in database.
         If not, add location pairs for processing with OTP.
 
         :param start_coords:

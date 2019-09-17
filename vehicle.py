@@ -11,10 +11,17 @@ from population import Person
 from const import CapacityDimensions as CD
 from const import VehicleCost as VC
 
+log = logging.getLogger(__name__)
+
 
 class VehicleType(object):
 
     def __init__(self, attrib):
+        """
+        Parameters
+        ----------
+        attrib: dictionary that should provide at least 'id'. But also non-default capacity_dimensions and costs
+        """
         if 'id' not in attrib.keys():
             raise Exception('vehicle type should have id')
 
@@ -43,11 +50,13 @@ class Vehicle(Component):
         self.id = attrib.get('id')
         self.capacity_dimensions = copy.deepcopy(vehicle_type.capacity_dimensions)
         self.passengers = []
+        # TODO: implement Act or Activity for vehicles with route, start_time, end_time similar to Jsprit_route
         self._route = []
         # Stores when vehicle has began an act (part of a route). It is used to calculate position with act's steps
         self.act_start_time = 0
 
         self.vehicle_kilometers = 0
+        self.ride_time = 0
         self.delivered_travelers = 0
 
         self.rerouted = self.env.event()
@@ -81,6 +90,17 @@ class Vehicle(Component):
                 return self.get_act(-1)
         return None
 
+    def get_result(self, result):
+        if 'delivered_travelers' not in result.keys():
+            result['delivered_travelers'] = []
+        if 'vehicle_kilometers' not in result.keys():
+            result['vehicle_kilometers'] = []
+        if 'ride_time' not in result.keys():
+            result['ride_time'] = []
+
+        result['delivered_travelers'] = result.get('delivered_travelers') + [self.delivered_travelers]
+        result['vehicle_kilometers'] = result.get('vehicle_kilometers') + [self.vehicle_kilometers]
+        result['ride_time'] = result.get('ride_time') + [self.ride_time]
 
     def run(self):
         """
@@ -102,28 +122,39 @@ class Vehicle(Component):
                 # TODO: rerouted routine, assuming that route is already modified
 
             elif reached_destination.triggered:
-                # TODO: log the event
-                act = self.pop_act()
+                # TODO: log the events
+                act = self.pop_act()  # type: DrtAct
+                # TODO: add vehicle kilometers when first act is rerouted
                 self.vehicle_kilometers += act.distance
+                self.ride_time += act.duration
                 self.coord = act.coord
+                self.act_start_time = self.env.now
+
+                if len(self.passengers) != 0:
+                    self.update_executed_passengers_routes(act.steps)
 
                 if act.type == act.DROP_OFF or act.type == act.DELIVERY:
-                    logging.info('Vehicle {} delivered person {} at {}'.format(self.id, act.person.id, self.env.now))
+                    log.info('Vehicle {} delivered person {} at {}'.format(self.id, act.person.id, self.env.now))
                     self._drop_off_travelers([act.person])
                 elif act.type == act.PICK_UP:
-                    logging.info('Vehicle {} picked up person {} at {}'.format(self.id, act.person.id, self.env.now))
+                    log.info('Vehicle {} picked up person {} at {}'.format(self.id, act.person.id, self.env.now))
                     self._pickup_travelers([act.person])
-                    # Change the related delivery act type, so that it is rerouted correctly
+                    # When a person request a trip, person is a shipment with PICK_UP and DROP_OFF acts
+                    # When a person boards we need to change it to delivery act for jsprit to reroute it correctly
                     delivery_act = [a for a in self.get_route_without_return() if a.person.id == act.person.id]
                     delivery_act[0].type = DrtAct.DELIVERY
 
     def _drop_off_travelers(self, persons):
         """Remove person from the list of current passengers and calculate statistics"""
         self.passengers = [p for p in self.passengers if p not in persons]
+
         for person in persons:
             for dimension in person.dimensions.items():
                 self.capacity_dimensions[dimension[0]] += dimension[1]
-            person.delivered.succeed()
+            if person.drt_executed is None:
+                log.error('{} drt_executed event has not been created'.format(person))
+            person.drt_executed.succeed()
+
         n = len(persons)
         self.delivered_travelers += n
 
@@ -137,22 +168,26 @@ class Vehicle(Component):
                 if self.capacity_dimensions[dimension[0]] < 0:
                     raise Exception('Person has boarded to a vehicle while it has not enough space')
 
-    def get_coord_time(self, time):
-        """Finds a position and time where a vehicle can be rerouted after param: time
-        :return: coord, time
+    def update_executed_passengers_routes(self, executed_steps):
+        for person in self.passengers:
+            person.update_actual_trip(executed_steps)
+
+    def get_coord_time(self, at_time):
+        """Finds a position and at_time where a vehicle can be rerouted after param: at_time
+        :return: coord, at_time
         """
         # TODO: calculate euclidean distance between previous and next steps coordinates to find a current position
 
         # if vehicle has no route, return its current position
         if len(self.get_route_with_return()) == 0:
-            return self.coord, time
+            return self.coord, at_time
 
         # if vehicle is on the route, go through all the steps to find where it should be at the specified time
         passed_time = self.act_start_time
         for act in self._route:
-            if passed_time + act.duration >= time:
-                return act.get_position_by_time(passed_time, time)
+            if passed_time + act.duration >= at_time:
+                return act.get_position_by_time(passed_time, at_time)
             else:
                 passed_time += act.duration
-        # if vehicle has no activity at `time`, return coord,time pair from its latest activity
-        return self.get_act(-1).coord, time
+        # if vehicle has no activity at `at_time`, return coord,time pair from its latest activity
+        return self.get_act(-1).coord, at_time

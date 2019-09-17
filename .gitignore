@@ -545,3 +545,4 @@ __pycache__
 /docs/
 time_distance_matrix.db
 profile.prof
+/data/

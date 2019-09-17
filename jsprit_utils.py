@@ -129,12 +129,12 @@ class VRPReadWriter(object):
             self._write_shipment_step(shipment_element, 'pickup', person.curr_activity.coord,
                                       coord_to_geoid.get(person.curr_activity.coord),
                                       person.boarding_time,
-                                      person.curr_activity.end_time, person.next_activity.start_time
+                                      person.get_tw_left(), person.get_tw_right()
                                       )
             self._write_shipment_step(shipment_element, 'delivery', person.next_activity.coord,
                                       coord_to_geoid.get(person.next_activity.coord),
                                       person.leaving_time,
-                                      person.curr_activity.end_time, person.next_activity.start_time
+                                      person.get_tw_left(), person.get_tw_right()
                                       )
             self._write_capacity_dimensions(shipment_element, person.dimensions.items())
 

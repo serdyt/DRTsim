@@ -10,7 +10,11 @@ from typing import List
 from datetime import timedelta as td
 from datetime import datetime
 import logging
+import copy
 
+from const import OtpMode, LegMode
+
+log = logging.getLogger(__name__)
 
 class Plan(object):
     def __init__(self):
@@ -29,7 +33,7 @@ class Activity(object):
     end_time : <int> seconds from 00:00
     """
 
-    def __init__(self, type_, coord, start_time=None, end_time=None):
+    def __init__(self, type_, coord, start_time=None, end_time=None, zone=None):
         """docstring"""
         if start_time is None and end_time is None:
             raise Exception("Sanity check: both activity times are None")
@@ -37,6 +41,7 @@ class Activity(object):
         self.coord = coord
         self.start_time = start_time
         self.end_time = end_time
+        self.zone = zone
 
     def __str__(self):
         return 'An ' + str(self.type) + ' at ' + str(self.coord)
@@ -58,13 +63,13 @@ class Leg(object):
     """
     TODO:assignment of mode as a string is confusing, remove it, or use constant
     """
-    def __init__(self):
-        self.mode = None
-        self.start_coord = None
-        self.end_coord = None
-        self.distance = None
-        self.duration = None
-        self.steps = None
+    def __init__(self, mode=None, start_coord=None, end_coord=None, distance=None, duration=None, steps=None):
+        self.mode = mode
+        self.start_coord = start_coord
+        self.end_coord = end_coord
+        self.distance = distance
+        self.duration = duration
+        self.steps = steps
         
     # def set_distance(self, distance):
     #     self.distance = distance
@@ -97,7 +102,7 @@ class Step(object):
 class Trip(object):
     """A list of legs and a total trip duration
     """
-    legs = None  # type: List[Leg]
+    legs = ...  # type: List[Leg]
 
     def __init__(self):
         self.legs = []
@@ -105,9 +110,29 @@ class Trip(object):
         self.distance = None
         self.main_mode = None
 
-    def get_modes(self):
+    def get_leg_modes(self):
         """Returns a list of modes from the legs"""
         return [l.mode for l in self.legs]
+
+    def main_mode_from_legs(self):
+        leg_modes = self.get_leg_modes()
+
+        # otpmodes = OtpMode.get_all_modes()
+        # for otpmode, mode_name in zip(otpmodes, OtpMode._DICT):
+        #     if set(leg_modes).issubset(otpmode.split(',')):
+        #         return otpmode
+
+        if LegMode.CAR in leg_modes:
+            return OtpMode.CAR
+        elif LegMode.BUS in leg_modes or LegMode.SUBWAY in leg_modes or LegMode.TRAM in leg_modes or LegMode.RAIL in leg_modes:
+            return OtpMode.TRANSIT
+        elif LegMode.BICYCLE in leg_modes:
+            return OtpMode.BICYCLE
+        elif LegMode.WALK in leg_modes:
+            return OtpMode.BICYCLE
+        else:
+            log.error('Main mode unrecognized. Returning None. Kick the developer to make a proper function.')
+            return None
 
     def set_duration(self, dur):
         self.duration = dur
@@ -122,7 +147,10 @@ class Trip(object):
         self.legs.append(leg)
         
     def __str__(self):
-        return 'Trip with {} takes {:.0f} distance {:.0f}'.format(self.get_modes(), self.duration, self.distance)
+        return 'Trip with {} takes {:.0f} distance {:.0f}'.format(self.main_mode, self.duration, self.distance)
+
+    def __repr__(self):
+        return 'Trip with {} takes {} distance {}'.format(self.main_mode, self.duration, self.distance)
 
     # def find_main_mode(self):
     #     modes = [leg.mode for leg in self.legs]
@@ -188,19 +216,86 @@ class DrtAct(ActType):
         self.distance = distance
         self.steps = steps
 
+    def __repr__(self):
+        return 'Person {}, duration {}, distance {}'.format(self.person.id, self.duration, self.distance)
+
+    def get_deep_copy(self):
+        return DrtAct(type_=copy.deepcopy(self.type),
+                      person=self.person,
+                      duration=copy.deepcopy(self.duration),
+                      coord=copy.deepcopy(self.coord),
+                      distance=copy.deepcopy(self.distance),
+                      steps=copy.deepcopy(self.steps)
+                      )
+
+    def remove_disembark_step(self):
+        """Removes boarding or getting of step from an act
+        If the last step of an act has zero distance, it is boarding or getting off a vehicle.
+        Opposite to also add_embark_step
+        """
+        if self.steps[-1].distance == 0 and self.steps[-1].duration != 0:
+            self.duration -= self.steps[-1].duration
+            self.steps.pop(-1)
+
+    def remove_embark_step(self):
+        """Removes boarding or getting of step from an act
+        If the last step of an act has zero distance, it is boarding or getting off a vehicle.
+        Opposite to also add_embark_step
+        """
+        if self.steps[0].distance == 0 and self.steps[0].duration != 0:
+            self.duration -= self.steps[0].duration
+            self.steps.pop(0)
+
+    def add_disembark_step(self, embark_time):
+        """Adds a step for boarding or getting off a vehicle. Step has zero distance.
+         Opposite to remove_embark_step
+        """
+        self.duration += embark_time
+        self.steps.append(Step(self.steps[-1].end_coord, 0, embark_time))
+
+    def add_embark_step(self, embark_time, embark_coord):
+        """Adds a step for boarding or getting off a vehicle. Step has zero distance.
+         Opposite to remove_embark_step
+        """
+        self.duration += embark_time
+        self.steps = [Step(embark_coord, 0, embark_time)] + self.steps
+
+    def get_passed_steps(self, current_time, by_time):
+        """Finds step that vehicle will cover by by_time
+        Parameters
+        ----------
+        current_time: <int> seconds. Current time of the simulation: self.env.now
+        by_time: <int> seconds. At what point of time we search a step.
+
+        Returns
+        -------
+        steps: List[Step] A step directly after a step at at_time. Vehicle can be rerouted only at that point.
+        """
+        steps = []
+        if len(self.steps) == 0:
+            return []
+        else:
+            for c_step, n_step in zip(self.steps, self.steps[1:] + [self.steps[-1]]):
+                current_time += c_step.duration
+                steps.append(c_step)
+                if current_time >= by_time:
+                    return steps
+        raise Exception('There is not enough of steps at_time to fill the act')
+
     def get_position_by_time(self, current_time, time):
         if len(self.steps) == 0:
             return self.coord, current_time + self.duration
         else:
             # steps store starting location and duration of a step,
-            # so at time current_time + duration vehicle would be at the next step
+            # so at current_time + duration vehicle would be at the next step
+            # TODO: wait a second, why do we have [-1] step as both current and next steps?!
             for c_step, n_step in zip(self.steps, self.steps[1:] + [self.steps[-1]]):
                 current_time += c_step.duration
                 if current_time >= time:
                     return n_step.end_coord, current_time
         # as jsprit may send vehicles long before the request time,
         # vehicle could have rode the route and waiting at pickup point
-        raise Exception('There is not enough of steps time to fill the act')
+        raise Exception('There is not enough of steps at_time to fill the act')
 
 
 class JspritRoute(object):

@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Fri Dec 21 15:17:18 2018
 
-@author: ai6644
-"""
+import logging
+from simpy import Event
+from statemachine import StateMachine, State
+import population
+
+log = logging.getLogger(__name__)
 
 """If you call each statemachine transaction function as an env.process,
 and you need to yield at least once in it. Otherwise simpy trows an error
 """
 
-import logging
-from simpy import Event
 
-from statemachine import StateMachine, State
+class DefaultBehaviour(StateMachine):
 
-class default_behaviour(StateMachine):
-
+    person = ...  #: population.Person
     initial = State('initial', initial=True)
     activity = State('activity')
     planing = State('planing')
@@ -28,6 +27,7 @@ class default_behaviour(StateMachine):
     plan = activity.to(planing)
     choose = planing.to(choosing)
     execute_trip = choosing.to(trip)
+    reactivate = trip.to(activity)
     finalize = trip.to(final)
 
     unplannable = planing.to(final)
@@ -40,14 +40,14 @@ class default_behaviour(StateMachine):
         self.env = self.person.env
 
     def on_activate(self):
-        timeout = int((self.person.curr_activity.end_time - self.env.now))
-        logging.info('{} activating at {}'.format(self.person.scope, self.person.env.now))
+        timeout = self.person.get_planning_time()
+        # log.info('{} activating at {}'.format(self.person.scope, self.person.env.now))
         yield self.person.env.timeout(timeout)
         self.env.process(self.plan())
         
     def on_plan(self):
         yield Event(self.env).succeed()
-        if self.person.trip is None:
+        if self.person.planned_trip is None:
             alternatives = self.person.serviceProvider.request(self.person)
             if len(alternatives) == 0:
                 self.unplannable()
@@ -61,14 +61,28 @@ class default_behaviour(StateMachine):
         """Chooses one of the alternatives according to config.person.mode_choice
         """
         yield Event(self.env).succeed()
-        self.person.mode_choice.choose(self.person.alternatives)
+        self.person.planned_trip = self.person.mode_choice.choose(self.person.alternatives)
+        self.person.init_actual_trip()
         self.person.serviceProvider.start_trip(self.person)
+        # TODO: after choosing, a traveler should wait for beginning of a trip
         self.env.process(self.execute_trip())
 
     def on_execute_trip(self):
-        yield Event(self.env).succeed()
+        self.env.process(self.person.serviceProvider.execute_trip(self.person))
         yield self.person.delivered
-        self.env.process(self.finalize())
+        self.person.reset_delivery()
+        self.person.log_executed_trip()
+        if self.person.change_activity() == -1:
+            self.env.process(self.finalize())
+        else:
+            self.env.process(self.reactivate())
+
+    def on_reactivate(self):
+        yield Event(self.env).succeed()
+        timeout = self.person.get_planning_time()
+        # log.info('{} activating at {}'.format(self.person.scope, self.person.env.now))
+        yield self.person.env.timeout(timeout)
+        self.env.process(self.plan())
         # self.finalize()
         
     def on_finalize(self):
@@ -77,6 +91,8 @@ class default_behaviour(StateMachine):
 
     def on_unplannable(self):
         yield Event(self.env).succeed()
+        log.critical('{} going from {} to {} received none alternative. Ignoring the person.'
+                         .format(self.person, self.person.curr_activity.coord, self.person.next_activity.coord))
 
     def on_trip_exception(self):
         raise NotImplementedError()

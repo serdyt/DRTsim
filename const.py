@@ -29,9 +29,26 @@ class LegMode(object):
     _DICT = ['CAR', 'WALK', 'BUS', 'RAIL', 'BICYCLE', 'TRAM', 'SUBWAY',
              'CAR_PARK', 'BICYCLE_PARK', 'BICYCLE_RENT', 'DRT']
 
+    _MAIN_MODES = ['CAR', 'BICYCLE', 'BUS', 'RAIL', 'WALK']
+
     @staticmethod
     def get_all_modes():
         return [LegMode.__dict__.get(item) for item in LegMode._DICT]
+
+    @staticmethod
+    def get_main_modes():
+        return [LegMode.__dict__.get(item) for item in LegMode._MAIN_MODES]
+
+    @staticmethod
+    def contains(other):
+        return other in LegMode._DICT
+
+    @staticmethod
+    def get_mode(string):
+        if LegMode.contains(string):
+            return LegMode
+        else:
+            raise Exception('unsupported mode {}'.format(string))
 
 
 class OtpMode(object):
@@ -50,11 +67,17 @@ class OtpMode(object):
     DRT = 'DRT'
 
     _DICT = ['CAR', 'WALK', 'TRANSIT', 'BUS', 'RAIL', 'BICYCLE', 'BICYCLE_TRANSIT', 'PARK_RIDE', 'KISS_RIDE',
-            'BIKE_RIDE', 'RENTED_BICYCLE', 'TRANSIT_RENTED_BICYCLE', 'DRT']
+             'BIKE_RIDE', 'RENTED_BICYCLE', 'TRANSIT_RENTED_BICYCLE', 'DRT']
+
+    _MAIN_MODES = ['CAR', 'BICYCLE', 'TRANSIT', 'WALK']
 
     @staticmethod
     def get_all_modes():
         return [OtpMode.__dict__.get(item) for item in OtpMode._DICT]
+
+    @staticmethod
+    def get_main_modes():
+        return [OtpMode.__dict__.get(item) for item in OtpMode._MAIN_MODES]
 
     @staticmethod
     def contains(other):
@@ -63,7 +86,7 @@ class OtpMode(object):
     @staticmethod
     def get_mode(string):
         if OtpMode.contains(string):
-            return OtpMode
+            return OtpMode.__getattribute__(OtpMode(), string)
         else:
             raise Exception('unsupported mode {}'.format(string))
 

@@ -5,8 +5,10 @@ import random
 
 from const import OtpMode, LegMode
 
+log = logging.getLogger(__name__)
 
-class default_mode_choice(object):
+
+class DefaultModeChoice(object):
 
     def __init__(self, person):
         self.env = person.env
@@ -23,16 +25,17 @@ class default_mode_choice(object):
 
         if len(filtered_alternatives) != 0:
             self.mnl(filtered_alternatives)
-            self.person.trip = self.montecarlo(filtered_alternatives)
+            return self.montecarlo(filtered_alternatives)
 
     def satisfies_hard_restrictions(self, trip):
         if not self.person.driving_license and trip.main_mode in [OtpMode.CAR, OtpMode.PARK_RIDE]:
-            logging.debug('{} does not have a licence to go by car'.format(self.person.scope))
+            log.debug('{} does not have a licence to go by car'.format(self.person.scope))
             return False
         else:
             return True
 
-    def calc_utility(self, trip):
+    @staticmethod
+    def calc_utility(trip):
         """Pretty much random numbers so far
         TODO: make a model class to be added to config
         """
