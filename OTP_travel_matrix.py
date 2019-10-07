@@ -15,6 +15,9 @@ use it on server with OTP_script_test.py
 
 import csv
 import sys
+import logging
+
+log = logging.getLogger(__name__)
 
 router = otp.getRouter('skane')
 
@@ -43,13 +46,18 @@ with open(file_name, 'r') as file:
         req.setOrigin(float(row[1]), float(row[2]))
         req.setDestination(float(row[4]), float(row[5]))
         path = router.plan2(req)
-
-        # TODO: if a coordinate cannot be linked to a graph, this script will just skip over it
-        # but jsprit would take the missing entry in time-distance matrix as an opportunity to teleport a vehicle
         if path is None:
-            print(row[0], row[3], 'Cannot be routed')
-            matrixCsv.addRow([row[0], row[3], sys.float_info.max, sys.float_info.max])
+            print('Trivial path found from {},{} to {},{}. Setting 0 length and duration'.format(row[1], row[2], row[4], row[5]))
+            matrixCsv.addRow([row[0], row[3], 0, 0])
             continue
+            # matrixCsv.addRow([row[0], row[3], 0, 0])
+            # log.warning('Trivial path found from {},{} to {},{}. Setting 0 length and duration'.format(row[1], row[2], row[4], row[5]))
+
+
+        # if path is None:
+        #     print(row[0], row[3], 'Cannot be routed')
+        #     matrixCsv.addRow([row[0], row[3], sys.float_info.max, sys.float_info.max])
+        #     continue
         dist = 0
         for state, forward_state in zip(path.states[:-1], path.states[1:]):
             if forward_state.getBackEdge() is not None:

@@ -25,10 +25,10 @@ class SqliteConnector(object):
     def _create_tdm(self):
         self.cur.execute('''CREATE TABLE {}
                             (
-                                from_lat real, from_lon real,
-                                to_lat real, to_lon real,
-                                distance real,
-                                time real,
+                                from_lat float, from_lon float,
+                                to_lat float, to_lon float,
+                                distance float,
+                                time float,
                                 PRIMARY KEY (from_lon, from_lat, to_lon, to_lat)
                             );'''.format(self.TDM))
 

@@ -58,7 +58,7 @@ class Population(Component):
             pers_id = 0
             i = 0
             for json_pers in persons:
-                if i > 5:
+                if i > 100:
                     break
                 attributes = {'age': 22, 'id': pers_id}
                 pers_id = pers_id + 1
@@ -116,6 +116,10 @@ class Population(Component):
             self.person_list.append(Person(parent=self, attributes=attributes, activities=activities))
         
         log.info("Population size {0}".format(len(self.person_list)))
+
+    def get_person(self, id):
+        ids = [p.id for p in self.person_list]
+        return self.person_list[ids.index(id)]
 
 
 class Person(Component):
@@ -214,8 +218,8 @@ class Person(Component):
         self.drt_executed = self.env.event()
 
     def __str__(self):
-        return 'Person id ' + str(self.id) + ' at ' + str(self.curr_activity.coord) + \
-               ' in zone ' + str(self.curr_activity.zone)
+        return 'Person {} going from {} to {}'\
+            .format(self.id, self.curr_activity.coord, self.next_activity.coord)
 
     def log_executed_trip(self):
         # find a trip by a car - it is a direct alternative
@@ -237,7 +241,7 @@ class Person(Component):
         """
         drt_acts = [act for act in drt_route if act.person == self]
         start_act_idx = drt_route.index(drt_acts[0])
-        end_act_idx = drt_route.index(drt_acts[1])
+        end_act_idx = drt_route.index(drt_acts[-1])
         persons_route = drt_route[start_act_idx+1:end_act_idx+1]
 
         self.planned_trip.set_distance(sum([act.distance for act in persons_route]))

@@ -53,6 +53,7 @@ class Top(Component):
     def connect_children(self):
         for person in self.population.person_list:
             self.connect(person, 'serviceProvider')
+        self.connect(self.serviceProvider, 'population')
             
     def post_simulate(self):
         print('Total {} persons'.format(len(self.population.person_list)))
@@ -145,6 +146,9 @@ if __name__ == '__main__':
     stream_handler.setFormatter(formatter)
     root.addHandler(stream_handler)
 
+    # suppress the log of http request library
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
+
     log.info("Starting the simulation")
 
     import time
@@ -169,7 +173,7 @@ if __name__ == '__main__':
 
     print('delivered travelers per vehicle {}'.format(sum(delivered_travelers) / len(delivered_travelers)))
     print('Vehicle kilometers {}'.format(sum(vehicle_kilometers) / 1000))
-    print('delivered travelers per Vehicle kilometers {}'.format(sum(delivered_travelers) / sum(vehicle_kilometers) / 1000))
+    print('delivered travelers per Vehicle kilometers {}'.format(sum(delivered_travelers) / (sum(vehicle_kilometers) / 1000)))
 
     print(delivered_travelers)
     print(vehicle_kilometers)

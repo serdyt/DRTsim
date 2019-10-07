@@ -2,9 +2,12 @@
 import csv
 import xml.etree.ElementTree as ET
 # from lxml import etree as ET
+import logging
 
 from utils import JspritSolution, JspritAct, JspritRoute
 from utils import DrtAct
+
+log = logging.getLogger(__name__)
 
 
 class TDMReadWrite(object):
@@ -109,7 +112,7 @@ class VRPReadWriter(object):
         # Writing services
         services_element = ET.SubElement(root, 'services')
         for person in service_persons:
-            # if a person is in a vehicle it must be delivered
+            # if a person is in a vehicle, it must be delivered
             service_element = ET.SubElement(services_element, 'service', attrib={
                                                                                  'id': str(person.id),
                                                                                  'type': 'delivery'
@@ -119,8 +122,8 @@ class VRPReadWriter(object):
             ET.SubElement(service_element, 'duration').text = str(person.leaving_time)
             self._write_capacity_dimensions(service_element, person.dimensions.items())
             self._write_time_windows(service_element,
-                                     person.curr_activity.end_time,
-                                     person.next_activity.start_time)
+                                     person.get_tw_left(),
+                                     person.get_tw_right())
 
         # Writing shipments
         shipments_element = ET.SubElement(root, 'shipments')
@@ -147,11 +150,13 @@ class VRPReadWriter(object):
             ET.SubElement(route_element, 'driverId').text = 'noDriver'
             ET.SubElement(route_element, 'vehicleId').text = str(vehicle.id)
             ET.SubElement(route_element, 'start').text = str(coord_time[1])
-            for act in vehicle.get_route_without_return():  # type: DrtAct
+            for act in vehicle.get_acts_for_initial_route():  # type: DrtAct
                 if act.type == DrtAct.DELIVERY:
                     id_tag = 'serviceId'
-                else:
+                elif act.type in [DrtAct.PICK_UP, DrtAct.DROP_OFF]:
                     id_tag = 'shipmentId'
+                else:
+                    log.error('Got unexpected act.type {} during the conversion for jsprit vrp.xml'.format(act.type))
                 act_element = ET.SubElement(route_element, 'act',
                                             attrib={'type': DrtAct.get_string_from_type(act.type)})
                 ET.SubElement(act_element, id_tag).text = str(int(act.person.id))

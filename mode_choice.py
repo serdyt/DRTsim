@@ -71,6 +71,11 @@ class DefaultModeChoice(object):
             raise Exception('Probability is not 1, but {}'.format(sum([trip.prob for trip in alternatives])))
         r = random.uniform(0, 1)
         c = 0.0
+
+        for a in alternatives:
+            if a.main_mode == OtpMode.DRT:
+                return a
+
         for trip in alternatives:
             c += trip.prob
             if c > r:

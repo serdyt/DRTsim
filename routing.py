@@ -12,12 +12,14 @@ from datetime import timedelta as td
 import csv
 import os
 import time
+import json
 
 from population import Person
 from const import OtpMode, LegMode
 from utils import Trip, Leg, Coord, Step, trunc_microseconds, DrtAct, JspritSolution
 from db_utils import db_conn
 from jsprit_utils import jsprit_tdm_interface, jsprit_vrp_interface
+from exceptions import *
 
 import logging
 
@@ -41,7 +43,7 @@ class DefaultRouting(object):
                                       'toPlace': str(person.next_activity.coord),
                                       'time': trunc_microseconds(str(
                                           td(seconds=person.curr_activity.end_time -
-                                                     self.env.config.get('traditional_transport.planning_in_advance'))
+                                             self.env.config.get('traditional_transport.planning_in_advance'))
                                       )),
                                       'date': self.env.config.get('date'),
                                       'mode': mode,
@@ -49,9 +51,9 @@ class DefaultRouting(object):
                           config=self.env.config)
 
         resp = requests.get(self.url, params=payload.get_payload())
+
         parsed_trips = self.parse_otp_response(resp)
-        if parsed_trips is None:
-            return []
+
         for trip in parsed_trips:
             trip.set_main_mode(mode)
         trips += parsed_trips
@@ -73,8 +75,12 @@ class DefaultRouting(object):
         jresp = resp.json()
         if 'error' in jresp.keys():
             log.warning('{}\nfor {}'.format(jresp.get('error').get('msg'), jresp.get('requestParameters')))
-            """TODO: add procedure to proceed when no routing options are available"""
-            return None
+            if jresp.get('error').get('id') == 409:
+                raise OTPTrivialPath(jresp.get('error').get('msg'), jresp.get('requestParameters'))
+            elif jresp.get('error').get('id') == 404:
+                raise OTPNoPath(jresp.get('error').get('msg'), jresp.get('requestParameters'))
+            else:
+                raise OTPGeneralRouting('Unexpected error. Shutting simulation down.', jresp)
 
         itineraries = jresp.get('plan').get('itineraries')
 
@@ -111,14 +117,17 @@ class DefaultRouting(object):
         # jsprit ignores actual coordinates when it uses tdm. we need to assign a unique ID to each coordinate
         self._prepare_geoid(current_vehicle_coords + persons_coords + return_vehicle_coords)
 
-        self._calculate_time_distance_matrix(current_vehicle_coords, return_vehicle_coords, persons_coords)
+        try:
+            self._calculate_time_distance_matrix(current_vehicle_coords, return_vehicle_coords, persons_coords)
+        # TODO: catch the exceptions for TDM
+        except:sdfsdf
 
         jsprit_vrp_interface.write_vrp(self.env.config.get('jsprit.vrp_file'),
                                        self.service.vehicle_types, self.service.vehicles, vehicle_coords_times,
                                        shipment_persons, service_persons, self.coord_to_geoid)
 
         # run jsprit
-        start = time.time()
+        # start = time.time()
         os.system('/usr/lib/jvm/java-8-openjdk-amd64/bin/java -Dfile.encoding=UTF-8 -classpath /home/ai6644/Malmo/Tools/jsprit/jsprit-examples/target/classes:/home/ai6644/Malmo/Tools/jsprit/jsprit-core/target/classes:/home/ai6644/.m2/repository/org/apache/commons/commons-math3/3.4/commons-math3-3.4.jar:/home/ai6644/.m2/repository/org/slf4j/slf4j-api/1.7.21/slf4j-api-1.7.21.jar:/home/ai6644/Malmo/Tools/jsprit/jsprit-analysis/target/classes:/home/ai6644/.m2/repository/org/jfree/jfreechart/1.0.19/jfreechart-1.0.19.jar:/home/ai6644/.m2/repository/org/jfree/jcommon/1.0.23/jcommon-1.0.23.jar:/home/ai6644/.m2/repository/org/graphstream/gs-core/1.3/gs-core-1.3.jar:/home/ai6644/.m2/repository/org/graphstream/pherd/1.0/pherd-1.0.jar:/home/ai6644/.m2/repository/org/graphstream/mbox2/1.0/mbox2-1.0.jar:/home/ai6644/.m2/repository/org/graphstream/gs-ui/1.3/gs-ui-1.3.jar:/home/ai6644/.m2/repository/org/graphstream/gs-algo/1.3/gs-algo-1.3.jar:/home/ai6644/.m2/repository/org/apache/commons/commons-math/2.1/commons-math-2.1.jar:/home/ai6644/.m2/repository/org/scala-lang/scala-library/2.10.1/scala-library-2.10.1.jar:/home/ai6644/Malmo/Tools/jsprit/jsprit-io/target/classes:/home/ai6644/.m2/repository/commons-configuration/commons-configuration/1.9/commons-configuration-1.9.jar:/home/ai6644/.m2/repository/commons-lang/commons-lang/2.6/commons-lang-2.6.jar:/home/ai6644/.m2/repository/commons-logging/commons-logging/1.1.1/commons-logging-1.1.1.jar:/home/ai6644/.m2/repository/xerces/xercesImpl/2.11.0/xercesImpl-2.11.0.jar:/home/ai6644/.m2/repository/xml-apis/xml-apis/1.4.01/xml-apis-1.4.01.jar:/home/ai6644/.m2/repository/org/apache/logging/log4j/log4j-slf4j-impl/2.0.1/log4j-slf4j-impl-2.0.1.jar:/home/ai6644/.m2/repository/org/apache/logging/log4j/log4j-api/2.0.1/log4j-api-2.0.1.jar:/home/ai6644/.m2/repository/org/apache/logging/log4j/log4j-core/2.0.1/log4j-core-2.0.1.jar com.graphhopper.jsprit.examples.DRT_test')
         # log.info('It takes {}ms of system at_time'.format(time.time() - start))
         # read jsprit output file
@@ -193,7 +202,8 @@ class DefaultRouting(object):
         resp = requests.get(self.url, params=payload.get_payload())
         # If OTP returns more than one route, take the first one
         # TODO: may be we want to take the fastest option
-        trip = self.parse_otp_response(resp)[0]
+        trips = self.parse_otp_response(resp)
+        trip = trips[0]
         trip.set_main_mode(OtpMode.DRT)
         return trip
 
@@ -223,7 +233,11 @@ class DefaultRouting(object):
             multipart_form_data = {'scriptfile': ('OTP_travel_matrix.py', open('OTP_travel_matrix.py', 'rb'))}
             r = requests.post(url=self.env.config.get('service.router_scripting_address'), files=multipart_form_data)
             # raise an exception if script returned an error
-            r.raise_for_status()
+            try:
+                r.raise_for_status()
+            except requests.exceptions.HTTPError as e:
+                log.critical('OTP could not build a TDM. {}'.format(e))
+                raise OTPException('OTP could not build a TDM.', e)
 
             # Save OTP time-distance matrix to the database for future use
             otp_tdm_file = open(self.env.config.get('otp.tdm_file'), 'r')

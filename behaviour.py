@@ -4,6 +4,7 @@
 import logging
 from simpy import Event
 from statemachine import StateMachine, State
+from exceptions import *
 import population
 
 log = logging.getLogger(__name__)
@@ -48,14 +49,14 @@ class DefaultBehaviour(StateMachine):
     def on_plan(self):
         yield Event(self.env).succeed()
         if self.person.planned_trip is None:
-            alternatives = self.person.serviceProvider.request(self.person)
-            if len(alternatives) == 0:
-                self.unplannable()
-            else:
+            try:
+                alternatives = self.person.serviceProvider.request(self.person)
                 self.person.alternatives = alternatives
-                self.env.process(self.choose())
-        else:
-            self.env.process(self.choose())
+            except (OTPTrivialPath, OTPUnreachable) as e:
+                log.error('{}'.format(e.msg))
+                log.error('Excluding person from simulation. {}'.format(self.person))
+                self.env.process(self.unplannable())
+        self.env.process(self.choose())
 
     def on_choose(self):
         """Chooses one of the alternatives according to config.person.mode_choice
@@ -65,6 +66,7 @@ class DefaultBehaviour(StateMachine):
         self.person.init_actual_trip()
         self.person.serviceProvider.start_trip(self.person)
         # TODO: after choosing, a traveler should wait for beginning of a trip
+        # But that would break the current routing as start tim may be updated by other requests
         self.env.process(self.execute_trip())
 
     def on_execute_trip(self):
@@ -91,8 +93,8 @@ class DefaultBehaviour(StateMachine):
 
     def on_unplannable(self):
         yield Event(self.env).succeed()
-        log.critical('{} going from {} to {} received none alternative. Ignoring the person.'
-                         .format(self.person, self.person.curr_activity.coord, self.person.next_activity.coord))
+        log.critical('{} going from {} to {} received none alternatives. Ignoring the person.'
+                     .format(self.person, self.person.curr_activity.coord, self.person.next_activity.coord))
 
     def on_trip_exception(self):
         raise NotImplementedError()

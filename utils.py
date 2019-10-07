@@ -98,6 +98,16 @@ class Step(object):
         self.distance = distance
         self.duration = duration
 
+    @staticmethod
+    def get_empty_step(coord):
+        return Step(coord=coord, distance=0, duration=0)
+
+    def __str__(self):
+        return 'Step distance {}, duration {}'.format(self.distance, self.duration)
+
+    def __repr__(self):
+        return self.__str__()
+
 
 class Trip(object):
     """A list of legs and a total trip duration
@@ -109,6 +119,13 @@ class Trip(object):
         self.duration = None
         self.distance = None
         self.main_mode = None
+
+    def set_empty_trip(self, mode, coord_start, coord_end):
+        self.set_duration(0)
+        self.set_distance(0)
+        self.main_mode = mode
+        self.legs = [Leg(mode=mode, start_coord=coord_start, end_coord=coord_end, distance=0, duration=0,
+                         steps=[Step(coord_end, 0, 0)])]
 
     def get_leg_modes(self):
         """Returns a list of modes from the legs"""
@@ -169,7 +186,8 @@ class Trip(object):
 class ActType(object):
     PICK_UP = 0
     DROP_OFF = 1
-    DELIVERY = 3
+    DELIVERY = 2
+    DRIVE = 3
     WAIT = 4
     RETURN = 5
 
@@ -188,8 +206,16 @@ class ActType(object):
         return {ActType.PICK_UP: 'pickupShipment',
                 ActType.DROP_OFF: 'deliverShipment',
                 ActType.DELIVERY: 'delivery',
-                ActType.RETURN: 'return',
+                ActType.RETURN: 'drive',
+                ActType.WAIT: 'wait',
+                ActType.DRIVE: 'return'
                 }[act_type]
+
+    def __str__(self):
+        return self.get_string_from_type(self.type)
+
+    def __repr__(self):
+        return self.__str__()
 
 
 class JspritAct(ActType):
@@ -200,10 +226,22 @@ class JspritAct(ActType):
         self.end_time = end_time
         self.arrival_time = arrival_time
 
+    def get_duration(self):
+        return self.end_time - self.arrival_time
+
+    def __str__(self):
+        return 'Person{}, end_time {}, arrival_time {}' \
+            .format(self.person_id, self.end_time, self.arrival_time)
+
+    def __str__(self):
+        return 'Person{}, end_time {}, arrival_time {}' \
+            .format(self.person_id, self.end_time, self.arrival_time)
+
 
 class DrtAct(ActType):
 
-    def __init__(self, type_=None, person=None, duration=None, coord=None, distance=None, steps=None):
+    def __init__(self, start_coord, type_=None, person=None, duration=None, end_coord=None, distance=None,
+                 start_time=None, end_time=None, steps=None):
         """
 
         :type person: Person
@@ -212,19 +250,29 @@ class DrtAct(ActType):
         super(DrtAct, self).__init__(type_)
         self.person = person
         self.duration = duration
-        self.coord = coord
+        self.end_coord = end_coord
         self.distance = distance
+        self.start_time = start_time
+        self.start_coord = start_coord
+        self.end_time = end_time
         self.steps = steps
 
+    def __str__(self):
+        return 'Person {}, type {}, duration {}, distance {}, start_time {}, end_time {}'\
+            .format(self.person.id, self.type, self.duration, self.distance, self.start_time, self.end_time)
+
     def __repr__(self):
-        return 'Person {}, duration {}, distance {}'.format(self.person.id, self.duration, self.distance)
+        return self.__str__()
 
     def get_deep_copy(self):
         return DrtAct(type_=copy.deepcopy(self.type),
                       person=self.person,
                       duration=copy.deepcopy(self.duration),
-                      coord=copy.deepcopy(self.coord),
+                      end_coord=copy.deepcopy(self.end_coord),
                       distance=copy.deepcopy(self.distance),
+                      start_time=copy.deepcopy(self.start_time),
+                      start_coord=copy.deepcopy(self.start_coord),
+                      end_time=copy.deepcopy(self.end_time),
                       steps=copy.deepcopy(self.steps)
                       )
 
@@ -260,18 +308,20 @@ class DrtAct(ActType):
         self.duration += embark_time
         self.steps = [Step(embark_coord, 0, embark_time)] + self.steps
 
-    def get_passed_steps(self, current_time, by_time):
+    def add_wait_step(self, duration):
+        self.steps.append(Step(self.steps[-1].end_coord, 0, duration))
+
+    def get_passed_steps(self, by_time):
         """Finds step that vehicle will cover by by_time
         Parameters
         ----------
-        current_time: <int> seconds. Current time of the simulation: self.env.now
-        by_time: <int> seconds. At what point of time we search a step.
 
         Returns
         -------
         steps: List[Step] A step directly after a step at at_time. Vehicle can be rerouted only at that point.
         """
         steps = []
+        current_time = self.start_time
         if len(self.steps) == 0:
             return []
         else:
@@ -282,9 +332,11 @@ class DrtAct(ActType):
                     return steps
         raise Exception('There is not enough of steps at_time to fill the act')
 
-    def get_position_by_time(self, current_time, time):
+    # TODO: remove this if not used. Implemented it at self.env.now in Vehicle
+    def get_position_by_time(self, time):
+        current_time = self.start_time
         if len(self.steps) == 0:
-            return self.coord, current_time + self.duration
+            return self.end_coord, current_time + self.duration
         else:
             # steps store starting location and duration of a step,
             # so at current_time + duration vehicle would be at the next step
@@ -331,6 +383,9 @@ class Coord(object):
         
     def __str__(self):
         return str(self.lat) + ',' + str(self.lon)
+
+    def __repr__(self):
+        return self.__str__()
 
     def __eq__(self, other):
         return self.lat == other.lat and self.lon == other.lon
