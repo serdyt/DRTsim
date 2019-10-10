@@ -1,7 +1,6 @@
 
 import logging
 import math
-import random
 
 from const import OtpMode, LegMode
 
@@ -26,6 +25,8 @@ class DefaultModeChoice(object):
         if len(filtered_alternatives) != 0:
             self.mnl(filtered_alternatives)
             return self.montecarlo(filtered_alternatives)
+        else:
+            return None
 
     def satisfies_hard_restrictions(self, trip):
         if not self.person.driving_license and trip.main_mode in [OtpMode.CAR, OtpMode.PARK_RIDE]:
@@ -39,7 +40,7 @@ class DefaultModeChoice(object):
         """Pretty much random numbers so far
         TODO: make a model class to be added to config
         """
-        VOT = {LegMode.CAR: 0.010,
+        vot = {LegMode.CAR: 0.010,
                LegMode.BUS: 0.005,
                LegMode.RAIL: 0.005,
                LegMode.TRAM: 0.005,
@@ -51,15 +52,16 @@ class DefaultModeChoice(object):
                }
         try:
             if len(trip.legs) > 0:
-                s = sum([leg.duration/1000*VOT.get(leg.mode) for leg in trip.legs])
+                s = sum([leg.duration/1000*vot.get(leg.mode) for leg in trip.legs])
             else:
-                s = trip.duration/1000*VOT.get(trip.main_mode)
+                s = trip.duration/1000*vot.get(trip.main_mode)
         except RuntimeError:
             print([leg.mode for leg in trip.legs])
-            raise Exception('wrong math')
+            raise Exception('wrong math in MNL')
         return s
 
-    def mnl(self, alternatives):
+    @staticmethod
+    def mnl(alternatives):
         s = sum([math.exp(trip.utility) for trip in alternatives])
         for trip in alternatives:
             trip.prob = math.exp(trip.utility) / s
@@ -69,11 +71,14 @@ class DefaultModeChoice(object):
         if sum([trip.prob for trip in alternatives]) < 0.99999998:
             print(alternatives)
             raise Exception('Probability is not 1, but {}'.format(sum([trip.prob for trip in alternatives])))
-        r = random.uniform(0, 1)
+        r = self.env.rand.uniform(0, 1)
         c = 0.0
 
         for a in alternatives:
             if a.main_mode == OtpMode.DRT:
+                return a
+        for a in alternatives:
+            if a.main_mode == OtpMode.CAR:
                 return a
 
         for trip in alternatives:

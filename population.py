@@ -10,8 +10,6 @@ import logging
 from datetime import timedelta as td
 import json
 from typing import List
-import sys
-import copy
 
 from desmod.component import Component
 import behaviour
@@ -29,7 +27,7 @@ log = logging.getLogger(__name__)
 class PopulationGenerator(object):
     """TODO: not implemented feature
     Generator stores only currently active persons. Inactive are written
-    back to the database to save memory.
+    back to the database to save memory and queue size.
     """
     def __init__(self):
         raise NotImplementedError()
@@ -49,22 +47,23 @@ class Population(Component):
     def _init_persons(self):
         self.read_json()
         log.info('Population of {} persons created.'.format(len(self.person_list)))
-        # self._random_persons()
 
     def read_json(self):
+        """Reads json input file and generates persons to simulate"""
         with open(self.env.config.get('population.input_file'), 'r') as file:
+            local_person_list = []
             raw_json = json.load(file)
             persons = raw_json.get('persons')
             pers_id = 0
-            i = 0
+            # i = 0
             for json_pers in persons:
-                if i > 100:
-                    break
+                # if i > 100:
+                #     break
                 attributes = {'age': 22, 'id': pers_id}
                 pers_id = pers_id + 1
 
-                # TODO: sequence of activities has the sam end to start times
-                # time window is to be applied ... where?
+                # TODO: sequence of activities has the same end and start times
+                # time window is applied on the planning stage in the behaviour and service
 
                 activities = []
                 json_activities = json_pers.get('activities')
@@ -91,14 +90,19 @@ class Population(Component):
                                  )
                     )
 
+                # take only trips within target zones
                 if activities[0].zone not in self.env.config.get('drt.zones') or \
                    activities[1].zone not in self.env.config.get('drt.zones'):
                     continue
-                i = i + 1
+                # i = i + 1
 
-                self.person_list.append(Person(self, attributes, activities))
+                # local_person_list.append(Person(self, attributes, activities))
+                # take 5% of the population
+                if self.env.rand.randint(0, 100) < 1:
+                    self.person_list.append(Person(self, attributes, activities))
 
     def _random_persons(self):
+        """Not used. Generates persons at random geographical points with default parameters"""
         for i in range(50):
             attributes = {'id': i, 'age': 54, 'walking_speed': 5, 'driving_licence': bool(self.env.rand.getrandbits(1)),
                           'dimensions': {CD.SEATS: 1, CD.WHEELCHAIRS: int(self.env.rand.getrandbits(1))}
@@ -124,6 +128,7 @@ class Population(Component):
 
 class Person(Component):
 
+    serviceProvider = ...  # type: ServiceProvider
     alternatives = ...  # type: List[Trip]
     planned_trip = ...  # type: Trip
     actual_trip = ...  # type: Trip
@@ -132,7 +137,15 @@ class Person(Component):
     base_name = 'person'
 
     def __init__(self, parent, attributes, activities, trip: Trip = None):
-        """docstring"""
+        """Person that requests for trips
+
+        Parameters:
+
+        Parent: parent component to get environment
+        attributes: dictionary of person's attributes. Must include id.
+        activities: list of Activity
+        trip: pre-computed trip to execute (Not tested).
+        """
         Component.__init__(self, parent=parent, index=attributes.get('id'))
         self.serviceProvider = None
         self.add_connections('serviceProvider')
@@ -151,8 +164,6 @@ class Person(Component):
         self.activities = activities
         self.curr_activity = self.activities.pop(0)
         self.next_activity = self.activities.pop(0)
-        # self.curr_activity = curr_activity
-        # self.next_activity = next_activity
         self.planned_trip = trip
         self.alternatives = []
         self.behaviour = getattr(behaviour, self.env.config.get('person.behaviour'))(self)
@@ -172,6 +183,8 @@ class Person(Component):
             setattr(self, attr[0], attr[1])
 
     def get_result(self, result):
+        """Save trip results to the result dictionary"""
+        super(Person, self).get_result(result)
         if 'executed_trips' not in result.keys():
             result['executed_trips'] = []
         if 'direct_alternatives' not in result.keys():
@@ -184,6 +197,7 @@ class Person(Component):
         result['direct_alternatives'] = result.get('direct_alternatives') + self.direct_alternatives
 
     def init_actual_trip(self):
+        """Inits an empty actual_trip to append executed acts to it"""
         self.actual_trip = Trip()
         self.actual_trip.main_mode = self.planned_trip.main_mode
         self.actual_trip.legs = []
@@ -194,7 +208,7 @@ class Person(Component):
 
     def get_planning_time(self):
         """Calculates a time to wait until the moment a person starts planning a trip
-        returns: int
+        returns: int in seconds when planning should happen
         """
         timeout = int((self.curr_activity.end_time - self.env.now -
                        self.env.config.get('drt.planning_in_advance')))
@@ -204,31 +218,36 @@ class Person(Component):
             timeout = 0
         return timeout
 
-    def update_actual_trip(self, steps: List[Step]):
+    def update_actual_trip(self, steps: List[Step], end_coord):
+        """When a vehicle completes an act or is being rerouted, save executed part to actual trip"""
         self.actual_trip.legs[-1].steps += steps
         self.actual_trip.legs[-1].duration += sum([s.duration for s in steps])
         self.actual_trip.legs[-1].distance += sum([s.distance for s in steps])
-        self.actual_trip.legs[-1].end_coord = steps[-1].end_coord
+        self.actual_trip.legs[-1].end_coord = end_coord
 
         self.actual_trip.duration = sum([leg.duration for leg in self.actual_trip.legs])
         self.actual_trip.distance = sum([leg.distance for leg in self.actual_trip.legs])
 
     def reset_delivery(self):
+        """Create ne delivery events"""
         self.delivered = self.env.event()
         self.drt_executed = self.env.event()
 
     def __str__(self):
-        return 'Person {} going from {} to {}'\
-            .format(self.id, self.curr_activity.coord, self.next_activity.coord)
+        return 'Person {} going from {} zone {}, to {} zone {}'\
+            .format(self.id,
+                    self.curr_activity.coord, self.curr_activity.zone,
+                    self.next_activity.coord, self.next_activity.zone)
 
     def log_executed_trip(self):
+        """After a trip has been executed, save it and related direct trip"""
         # find a trip by a car - it is a direct alternative
         direct_alternative = None
         for alternative in self.alternatives:
             if alternative.main_mode == OtpMode.CAR:
                 direct_alternative = alternative
         if direct_alternative is None:
-            log.warning('{} has no direct alternative. Alternatives are {}'.format(self, self.alternatives))
+            log.error('{} has no direct alternative. Alternatives are {}'.format(self, self.alternatives))
 
         self.planned_trips.append(self.planned_trip)
         self.executed_trips.append(self.actual_trip)
@@ -244,9 +263,10 @@ class Person(Component):
         end_act_idx = drt_route.index(drt_acts[-1])
         persons_route = drt_route[start_act_idx+1:end_act_idx+1]
 
-        self.planned_trip.set_distance(sum([act.distance for act in persons_route]))
+        # jsprit has no distance and steps
+        # self.planned_trip.set_distance(sum([act.distance for act in persons_route]))
         self.planned_trip.set_duration(sum([act.duration for act in persons_route]))
-        self.planned_trip.legs[0].steps = [act for act in persons_route]
+        # self.planned_trip.legs[0].steps = [act for act in persons_route]
         self.planned_trip.legs[0].duration = self.planned_trip.duration
         self.planned_trip.legs[0].distance = self.planned_trip.distance
 
@@ -267,6 +287,10 @@ class Person(Component):
             return -1
 
     def get_tw_left(self):
+        """
+        # TODO: apply time-windows based on direct distance
+        Returns: time in seconds when the left time window border starts
+        """
         calc_tw = self.curr_activity.end_time - self.env.config.get('drt.default_tw_left')
         if calc_tw < self.env.now:
             return self.env.now

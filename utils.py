@@ -94,7 +94,7 @@ class Step(object):
     duration    <int>|
     """
     def __init__(self, coord, distance, duration):
-        self.end_coord = coord
+        self.start_coord = coord
         self.distance = distance
         self.duration = duration
 
@@ -164,7 +164,7 @@ class Trip(object):
         self.legs.append(leg)
         
     def __str__(self):
-        return 'Trip with {} takes {:.0f} distance {:.0f}'.format(self.main_mode, self.duration, self.distance)
+        return 'Trip with {} takes {} distance {}'.format(self.main_mode, self.duration, self.distance)
 
     def __repr__(self):
         return 'Trip with {} takes {} distance {}'.format(self.main_mode, self.duration, self.distance)
@@ -181,6 +181,20 @@ class Trip(object):
         #     self.main_mode = Mode.TRAIN
         # elif Mode.BICYCLE in modes:
         #     self.main_mode = Mode.BICYCLE
+
+
+class UnassignedTrip(object):
+    def __init__(self, person):
+        self.person = person
+        self.start_activity = person.curr_activity
+        self.end_activity = person.next_activity
+        self.tw_left = person.get_tw_left()
+        self.tw_right = person.get_tw_right()
+
+    def __str__(self):
+        return 'Person {} tried to go from {} to {} in interval [{} - {}]'\
+            .format(self.person.id, self.start_activity, self.end_activity,
+                    get_sec(self.tw_left), get_sec(self.tw_right))
 
 
 class ActType(object):
@@ -258,8 +272,8 @@ class DrtAct(ActType):
         self.steps = steps
 
     def __str__(self):
-        return 'Person {}, type {}, duration {}, distance {}, start_time {}, end_time {}'\
-            .format(self.person.id, self.type, self.duration, self.distance, self.start_time, self.end_time)
+        return '{}, type {}, duration {}, distance {}, start_time {}, end_time {}'\
+            .format(self.person, self.type, self.duration, self.distance, self.start_time, self.end_time)
 
     def __repr__(self):
         return self.__str__()
@@ -299,7 +313,7 @@ class DrtAct(ActType):
          Opposite to remove_embark_step
         """
         self.duration += embark_time
-        self.steps.append(Step(self.steps[-1].end_coord, 0, embark_time))
+        self.steps.append(Step(self.steps[-1].start_coord, 0, embark_time))
 
     def add_embark_step(self, embark_time, embark_coord):
         """Adds a step for boarding or getting off a vehicle. Step has zero distance.
@@ -309,45 +323,7 @@ class DrtAct(ActType):
         self.steps = [Step(embark_coord, 0, embark_time)] + self.steps
 
     def add_wait_step(self, duration):
-        self.steps.append(Step(self.steps[-1].end_coord, 0, duration))
-
-    def get_passed_steps(self, by_time):
-        """Finds step that vehicle will cover by by_time
-        Parameters
-        ----------
-
-        Returns
-        -------
-        steps: List[Step] A step directly after a step at at_time. Vehicle can be rerouted only at that point.
-        """
-        steps = []
-        current_time = self.start_time
-        if len(self.steps) == 0:
-            return []
-        else:
-            for c_step, n_step in zip(self.steps, self.steps[1:] + [self.steps[-1]]):
-                current_time += c_step.duration
-                steps.append(c_step)
-                if current_time >= by_time:
-                    return steps
-        raise Exception('There is not enough of steps at_time to fill the act')
-
-    # TODO: remove this if not used. Implemented it at self.env.now in Vehicle
-    def get_position_by_time(self, time):
-        current_time = self.start_time
-        if len(self.steps) == 0:
-            return self.end_coord, current_time + self.duration
-        else:
-            # steps store starting location and duration of a step,
-            # so at current_time + duration vehicle would be at the next step
-            # TODO: wait a second, why do we have [-1] step as both current and next steps?!
-            for c_step, n_step in zip(self.steps, self.steps[1:] + [self.steps[-1]]):
-                current_time += c_step.duration
-                if current_time >= time:
-                    return n_step.end_coord, current_time
-        # as jsprit may send vehicles long before the request time,
-        # vehicle could have rode the route and waiting at pickup point
-        raise Exception('There is not enough of steps at_time to fill the act')
+        self.steps.append(Step(self.steps[-1].start_coord, 0, duration))
 
 
 class JspritRoute(object):
@@ -414,14 +390,6 @@ def get_sec(time_str):
     print(time_str)
     h, m, s = time_str.split(':')
     return int(h) * 3600 + int(m) * 60 + int(s)
-
-
-def get_time_of_act_start(acts, index, time):
-    """Finds when the previous act ends"""
-    # local_time = time
-    # for _, act in zip(range(index), acts):
-    #     local_time += act.duration
-    return time + sum([a.duration for a in acts[:index]])
 
 
 def seconds_from_str(string):

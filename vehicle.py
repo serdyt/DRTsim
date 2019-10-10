@@ -47,6 +47,8 @@ class Vehicle(Component):
         route: list[DrtAct] to follow
         """
         Component.__init__(self, parent=parent, index=attrib.get('id'))
+        self.service = parent
+
         self.coord = coord
         # TODO: add possibilities to return to different depot
         self.return_coord = coord
@@ -67,8 +69,8 @@ class Vehicle(Component):
     def set_route(self, route):
         self._route = route
 
-    def create_return_act(self):
-        self._route.append(DrtAct(type_=DrtAct.RETURN, person=None, coord=self.return_coord))
+    # def create_return_act(self):
+    #     self._route.append(DrtAct(type_=DrtAct.RETURN, person=None, coord=self.return_coord))
 
     def get_route_without_return(self):
         return self._route[:-1]
@@ -134,6 +136,10 @@ class Vehicle(Component):
                 yield self.rerouted
                 self.rerouted = self.env.event()
 
+            if self.get_route_len() != 0:
+                if self.get_act(0).type in [DrtAct.DRIVE, DrtAct.RETURN]:
+                    self.service.get_route_details(self)
+
             # wait for the end of current action or for a rerouted event
             act_executed = self.env.timeout(self.get_act(0).end_time - self.env.now)  # type: Timeout
             yield self.rerouted | act_executed
@@ -147,7 +153,7 @@ class Vehicle(Component):
                 # request should be processed first
                 # TODO: try to do it with priority resource in a service
                 if self.env.peek() == self.env.now:
-                    yield self.env.timeout(0.1)
+                    yield self.env.timeout(0.5)
                 act = self.pop_act()  # type: DrtAct
                 # TODO: add vehicle kilometers when first act is rerouted
                 self.vehicle_kilometers += act.distance
@@ -155,7 +161,7 @@ class Vehicle(Component):
                 self.coord = act.end_coord
 
                 if len(self.passengers) != 0:
-                    self.update_executed_passengers_routes(act.steps)
+                    self.update_executed_passengers_routes(act.steps, act.end_coord)
 
                 if act.type == act.DRIVE:
                     if self.get_route_len() == 0:
@@ -167,7 +173,7 @@ class Vehicle(Component):
                     new_act = self.get_act(0)
                     if new_act.type == new_act.DROP_OFF or new_act.type == new_act.DELIVERY:
                         log.info('Vehicle {} delivering person {} at {}'.format(self.id, new_act.person.id, self.env.now))
-                        self._drop_off_travelers([new_act.person])
+                        # self._drop_off_travelers([new_act.person])
                     elif new_act.type == new_act.PICK_UP:
                         log.info('Vehicle {} picking up person {} at {}'.format(self.id, new_act.person.id, self.env.now))
                         self._pickup_travelers([new_act.person])
@@ -179,7 +185,7 @@ class Vehicle(Component):
 
                 elif act.type == act.DROP_OFF or act.type == act.DELIVERY:
                     log.info('Vehicle {} delivered person {} at {}'.format(self.id, act.person.id, self.env.now))
-                    # self._drop_off_travelers([act.person])
+                    self._drop_off_travelers([act.person])
                 elif act.type == act.PICK_UP:
                     log.info('Vehicle {} picked up person {} at {}'.format(self.id, act.person.id, self.env.now))
                 elif act.type == act.WAIT:
@@ -216,14 +222,15 @@ class Vehicle(Component):
     def update_partially_executed_trips(self):
         """When a vehicle is rerouted in the middle of a route, save the executed steps of trips"""
         if len(self._route) > 0:
-            passed_steps = self.get_act(0).get_passed_steps(self.env.now)
-            self.update_executed_passengers_routes(passed_steps)
-            self.vehicle_kilometers += sum([step.distance for step in passed_steps])
-            self.ride_time += sum([step.duration for step in passed_steps])
+            passed_steps = self.get_passed_steps()
+            if len(passed_steps) > 0:
+                self.update_executed_passengers_routes(passed_steps, self.get_current_coord_time()[0])
+                self.vehicle_kilometers += sum([step.distance for step in passed_steps])
+                self.ride_time += sum([step.duration for step in passed_steps])
 
-    def update_executed_passengers_routes(self, executed_steps):
+    def update_executed_passengers_routes(self, executed_steps, end_coord):
         for person in self.passengers:
-            person.update_actual_trip(executed_steps)
+            person.update_actual_trip(executed_steps, end_coord)
 
     def get_current_act(self):
         """Finds an act at at_time after which a vehicle can be rerouted
@@ -245,7 +252,7 @@ class Vehicle(Component):
         return None
 
     def get_current_coord_time(self):
-        """Finds a position and at_time where a vehicle can be rerouted after param: at_time
+        """Finds a position and time where a vehicle can be rerouted
         :return: coord, at_time
         """
         # TODO: calculate euclidean distance between previous and next steps coordinates to find a current position
@@ -265,22 +272,28 @@ class Vehicle(Component):
     def get_current_coord_time_from_step(self):
         act = self._route[0]
         current_time = act.start_time
+        if act.start_time is None:
+            print('debugg')
         if len(act.steps) == 0:
             log.error('Getting current vehicle position, vehicle {} got no steps in {}\n'
                       'Returning end position of the act'.format(self.id, act))
             return act.end_coord, act.end_time
+
+        if current_time == self.env.now:
+            return act.start_coord, self.env.now
+
+        for cstep, nstep in zip(act.steps, act.steps[1:]):
+            current_time += cstep.duration
+            if current_time >= self.env.now:
+                return nstep.start_coord, current_time
+            else:
+                pass
+
+        current_time += act.steps[-1].duration
+        if current_time > self.env.now:
+            return act.end_coord, current_time
         else:
-            # steps store starting location and duration of a step,
-            # so at current_time + duration vehicle would be at the next step
-            if act.start_time == self.env.now:
-                return act.start_coord, act.start_time
-
-            for step in act.steps:
-                if current_time + step.duration >= self.env.now:
-                    return step.end_coord, current_time + step.duration
-                current_time += step.duration
-
-        raise Exception('Vehicle {} has not enough of steps to fill the act {}'.format(self.id, act))
+            raise Exception('There is not enough of steps at_time to fill the act')
 
     def get_current_step(self) -> Step:
         """Finds current step of a vehicle route
@@ -304,3 +317,28 @@ class Vehicle(Component):
             else:
                 pass
         raise Exception('There is not enough of steps at_time to fill the act')
+
+    def get_passed_steps(self):
+        """Returns steps which vehicle has executed by now. DOES NOT include current step"""
+        steps = []
+        act = self.get_act(0)
+        current_time = act.start_time
+
+        if len(act.steps) == 0:
+            raise Exception('Vehicle {} has an empty act\n{}'.format(self.id, self.flush()))
+        if current_time == self.env.now:
+            return []
+
+        for step in act.steps:
+            current_time += step.duration
+            if current_time >= self.env.now:
+                return steps
+            else:
+                steps.append(step)
+
+            # for c_step, n_step in zip(self.steps, self.steps[1:] + [self.steps[-1]]):
+            #     current_time += c_step.duration
+            #     steps.append(c_step)
+            #     if current_time >= by_time:
+            #         return steps
+        raise Exception('Vehicle {} has an empty act\n{}'.format(self.id, self.flush()))

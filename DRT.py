@@ -132,7 +132,11 @@ thus we only need to pass the configuration dict and the top-level
 Component class (Top) to simulate().
 """
 if __name__ == '__main__':
-    os.remove('output/log')
+    try:
+        os.remove('output/log')
+    except FileNotFoundError:
+        pass
+    open('output/log', 'a').close()
 
     root = logging.getLogger()
     handler = logging.handlers.WatchedFileHandler('output/log')
@@ -173,7 +177,10 @@ if __name__ == '__main__':
 
     print('delivered travelers per vehicle {}'.format(sum(delivered_travelers) / len(delivered_travelers)))
     print('Vehicle kilometers {}'.format(sum(vehicle_kilometers) / 1000))
-    print('delivered travelers per Vehicle kilometers {}'.format(sum(delivered_travelers) / (sum(vehicle_kilometers) / 1000)))
+    try:
+        print('delivered travelers per Vehicle kilometers {}'.format(sum(delivered_travelers) / (sum(vehicle_kilometers) / 1000)))
+    except ZeroDivisionError:
+        pass
 
     print(delivered_travelers)
     print(vehicle_kilometers)
