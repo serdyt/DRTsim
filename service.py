@@ -60,8 +60,8 @@ class ServiceProvider(Component):
             attrib = {'id': i}
             # coord = Coord(lat=self.env.rand.uniform(minLat, maxLat), lon=self.env.rand.uniform(minLon, maxLon))
             coord = Coord(lat=55.630995, lon=13.701037)
-            v_type = self.vehicle_types.get(1)
-            self.vehicles.append(Vehicle(parent=self, attrib=attrib, coord=coord, vehicle_type=v_type))
+            v_type = self.vehicle_types.get(0)
+            self.vehicles.append(Vehicle(parent=self, attrib=attrib, return_coord=coord, vehicle_type=v_type))
 
         for i in range(5,10):
             # if you want to change ID assignment method, you should change get_vehicle_by_id() method too
@@ -69,7 +69,7 @@ class ServiceProvider(Component):
             # coord = Coord(lat=self.env.rand.uniform(minLat, maxLat), lon=self.env.rand.uniform(minLon, maxLon))
             coord = Coord(lat=55.546315, lon=13.949113)
             v_type = self.vehicle_types.get(1)
-            self.vehicles.append(Vehicle(parent=self, attrib=attrib, coord=coord, vehicle_type=v_type))
+            self.vehicles.append(Vehicle(parent=self, attrib=attrib, return_coord=coord, vehicle_type=v_type))
 
     def get_vehicle_by_id(self, idx):
         """Currently IDs are assigned in order"""
@@ -79,7 +79,7 @@ class ServiceProvider(Component):
         """
         :return: a dictionary with ID as a key and object as its value
         """
-        for i in range(5):
+        for i in range(2):
             self.vehicle_types[i] = VehicleType(attrib={'id': i})
             # self.vehicle_types[i] = VehicleType(attrib={
             #         'id': i,
@@ -91,11 +91,14 @@ class ServiceProvider(Component):
         log.info('Request came at {0} from {1}'.format(self.env.now, person))
 
         start = time.time()
-        if person.id == 53430:
-            print('debuggg')
         traditional_alternatives = self._traditional_request(person)
         log.debug('Web requests took {}'.format(time.time() - start))
         start = time.time()
+
+        if len(traditional_alternatives) == 0:
+            raise OTPUnreachable('No traditional alternatives received')
+        person.set_direct_trip(traditional_alternatives)
+
         drt_alternatives = self._drt_request(person)
         log.debug('DRT request took {}'.format(time.time() - start))
         alternatives = traditional_alternatives + drt_alternatives

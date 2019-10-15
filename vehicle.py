@@ -42,16 +42,16 @@ class Vehicle(Component):
     _route = None  # type: List[DrtAct]
     passengers = None  # type: List[Person]
 
-    def __init__(self, parent, attrib, coord, vehicle_type):
+    def __init__(self, parent, attrib, return_coord, vehicle_type):
         """
         route: list[DrtAct] to follow
         """
         Component.__init__(self, parent=parent, index=attrib.get('id'))
         self.service = parent
 
-        self.coord = coord
+        self.coord = return_coord
         # TODO: add possibilities to return to different depot
-        self.return_coord = coord
+        self.return_coord = return_coord
         self.vehicle_type = vehicle_type
         self.id = attrib.get('id')
         self.capacity_dimensions = copy.deepcopy(vehicle_type.capacity_dimensions)
@@ -70,7 +70,7 @@ class Vehicle(Component):
         self._route = route
 
     # def create_return_act(self):
-    #     self._route.append(DrtAct(type_=DrtAct.RETURN, person=None, coord=self.return_coord))
+    #     self._route.append(DrtAct(type_=DrtAct.RETURN, person=None, return_coord=self.return_coord))
 
     def get_route_without_return(self):
         return self._route[:-1]
@@ -272,8 +272,6 @@ class Vehicle(Component):
     def get_current_coord_time_from_step(self):
         act = self._route[0]
         current_time = act.start_time
-        if act.start_time is None:
-            print('debugg')
         if len(act.steps) == 0:
             log.error('Getting current vehicle position, vehicle {} got no steps in {}\n'
                       'Returning end position of the act'.format(self.id, act))

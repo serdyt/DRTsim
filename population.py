@@ -165,13 +165,15 @@ class Person(Component):
         self.curr_activity = self.activities.pop(0)
         self.next_activity = self.activities.pop(0)
         self.planned_trip = trip
+        self.direct_trip = None
+        self.time_window = 0
         self.alternatives = []
         self.behaviour = getattr(behaviour, self.env.config.get('person.behaviour'))(self)
         self.mode_choice = getattr(mode_choice, self.env.config.get('person.mode_choice'))(self)
 
         self.actual_trip = None
         self.executed_trips = []
-        self.direct_alternatives = []
+        self.direct_trips = []
         self.planned_trips = []
 
         self.delivered = self.env.event()
@@ -187,14 +189,14 @@ class Person(Component):
         super(Person, self).get_result(result)
         if 'executed_trips' not in result.keys():
             result['executed_trips'] = []
-        if 'direct_alternatives' not in result.keys():
-            result['direct_alternatives'] = []
+        if 'direct_trips' not in result.keys():
+            result['direct_trips'] = []
         if 'planned_trips' not in result.keys():
             result['planned_trips'] = []
 
         result['executed_trips'] = result.get('executed_trips') + self.executed_trips
         result['planned_trips'] = result.get('planned_trips') + self.planned_trips
-        result['direct_alternatives'] = result.get('direct_alternatives') + self.direct_alternatives
+        result['direct_trips'] = result.get('direct_trips') + self.direct_trips
 
     def init_actual_trip(self):
         """Inits an empty actual_trip to append executed acts to it"""
@@ -241,17 +243,21 @@ class Person(Component):
 
     def log_executed_trip(self):
         """After a trip has been executed, save it and related direct trip"""
-        # find a trip by a car - it is a direct alternative
-        direct_alternative = None
-        for alternative in self.alternatives:
-            if alternative.main_mode == OtpMode.CAR:
-                direct_alternative = alternative
-        if direct_alternative is None:
-            log.error('{} has no direct alternative. Alternatives are {}'.format(self, self.alternatives))
 
         self.planned_trips.append(self.planned_trip)
         self.executed_trips.append(self.actual_trip)
-        self.direct_alternatives.append(direct_alternative)
+        self.direct_trips.append(self.direct_trip)
+
+    def set_direct_trip(self, alternatives):
+        modes = [a.main_mode for a in alternatives]
+        if OtpMode.CAR in modes:
+            self.direct_trip = alternatives[modes.index(OtpMode.CAR)]
+        else:
+            log.warning('Person {} does not have a car alternative. Taking the fastest one'.format(self.id))
+            times = [a.duration for a in alternatives]
+            self.direct_trip = alternatives[times.index(max(times))]
+
+        self.get_tw()
 
     def update_planned_drt_trip(self, drt_route):
         """Jsprit solution does not provide distances. # TODO: check if it is possible to include this in jsprit
@@ -281,24 +287,32 @@ class Person(Component):
 
             self.alternatives = []
             self.planned_trip = None
+            self.direct_trip = None
 
             return 0
         else:
             return -1
+
+    def get_tw(self):
+        self.time_window = self.direct_trip.duration * self.env.config.get('drt.time_window_multiplier') + \
+                           self.env.config.get('drt.time_window_constant')
 
     def get_tw_left(self):
         """
         # TODO: apply time-windows based on direct distance
         Returns: time in seconds when the left time window border starts
         """
-        calc_tw = self.curr_activity.end_time - self.env.config.get('drt.default_tw_left')
+
+        calc_tw = self.curr_activity.end_time - self.time_window * self.env.config.get('drt.time_window_shift_left')
         if calc_tw < self.env.now:
             return self.env.now
         else:
             return calc_tw
 
     def get_tw_right(self):
-        calc_tw = self.next_activity.start_time + self.env.config.get('drt.default_tw_right')
+        # TODO: time window should be bound to something else rather than next activity
+        calc_tw = self.next_activity.start_time + \
+                  self.time_window * (1 - self.env.config.get('drt.time_window_shift_left'))
         if calc_tw > self.env.config.get('sim.duration_sec'):
             return self.env.config.get('sim.duration_sec')
         else:

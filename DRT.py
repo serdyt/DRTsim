@@ -124,6 +124,9 @@ config = {
     'drt.default_tw_left': td(minutes=30).total_seconds(),
     'drt.default_tw_right': td(minutes=60).total_seconds(),
     'drt.planning_in_advance': td(minutes=60).total_seconds(),
+    'drt.time_window_constant': td(minutes=10).total_seconds(),
+    'drt.time_window_multiplier': 1.3,
+    'drt.time_window_shift_left': 1./4,
     }
 
 
@@ -164,7 +167,7 @@ if __name__ == '__main__':
 
     print(res.get('planned_trips'))
     print(res.get('executed_trips'))
-    print(res.get('direct_alternatives'))
+    print(res.get('direct_trips'))
     
     executed_trips = res.get('executed_trips')  # type: List[Trip]
     drt_trips = [trip for trip in executed_trips if trip.main_mode == OtpMode.DRT]
