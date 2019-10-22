@@ -29,3 +29,15 @@ class OTPUnreachable(OTPError):
 class OTPGeneralRouting(OTPError):
     def __init__(self, msg, context=None):
         super(OTPGeneralRouting, self).__init__(msg, context)
+
+
+class DrtUndeliverable(Exception):
+    def __init__(self, msg):
+        super(DrtUndeliverable, self).__init__(msg)
+        self.msg = msg
+
+
+class DrtUnassigned(Exception):
+    def __init__(self, msg):
+        super(DrtUnassigned, self).__init__(msg)
+        self.msg = msg

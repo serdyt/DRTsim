@@ -75,7 +75,7 @@ class DefaultModeChoice(object):
         c = 0.0
 
         for a in alternatives:
-            if a.main_mode == OtpMode.DRT:
+            if a.main_mode in OtpMode.get_drt_modes():
                 return a
         for a in alternatives:
             if a.main_mode == OtpMode.CAR:

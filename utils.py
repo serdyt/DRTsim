@@ -16,6 +16,7 @@ from const import OtpMode, LegMode
 
 log = logging.getLogger(__name__)
 
+
 class Plan(object):
     def __init__(self):
         raise NotImplementedError
@@ -60,31 +61,35 @@ class Leg(object):
     duration : <int> seconds
     steps : <list> of utils.Step
     """
-    """
-    TODO:assignment of mode as a string is confusing, remove it, or use constant
-    """
-    def __init__(self, mode=None, start_coord=None, end_coord=None, distance=None, duration=None, steps=None):
+
+    # TODO:assignment of mode as a string is confusing, remove it, or use constant
+    def __init__(self, mode=None, start_coord=None, from_stop=None, end_coord=None, to_stop=None,
+                 start_time=None, end_time=None,
+                 distance=None, duration=None, steps=None):
         self.mode = mode
         self.start_coord = start_coord
         self.end_coord = end_coord
         self.distance = distance
         self.duration = duration
         self.steps = steps
-        
-    # def set_distance(self, distance):
-    #     self.distance = distance
-    #
-    # def set_duration(self, duration):
-    #     self.duration = duration
-    #
-    # def set_start_coord(self, coord):
-    #     self.start_coord = coord
-    #
-    # def set_end_coord(self, coord):
-    #     self.end_coord = coord
-    #
-    # def set_steps(self, steps):
-    #     self.steps = steps
+        # The two below only used for PT legs
+        self.from_stop = from_stop
+        self.to_stop = to_stop
+
+        self.start_time = start_time
+        self.end_time = end_time
+
+    def deepcopy(self):
+        return Leg(mode=copy.copy(self.mode),
+                   start_coord=copy.copy(self.start_coord),
+                   from_stop=copy.copy(self.from_stop),
+                   end_coord=copy.copy(self.end_coord),
+                   to_stop=copy.copy(self.to_stop),
+                   start_time=copy.copy(self.start_time),
+                   end_time=copy.copy(self.end_time),
+                   distance=copy.copy(self.distance),
+                   duration=copy.copy(self.duration),
+                   steps=[step.deepcopy() for step in self.steps])
 
 
 class Step(object):
@@ -101,6 +106,12 @@ class Step(object):
     @staticmethod
     def get_empty_step(coord):
         return Step(coord=coord, distance=0, duration=0)
+
+    def deepcopy(self):
+        return Step(coord=copy.copy(self.start_coord),
+                    distance=copy.copy(self.distance),
+                    duration=copy.copy(self.duration),
+                    )
 
     def __str__(self):
         return 'Step distance {}, duration {}'.format(self.distance, self.duration)
@@ -121,27 +132,31 @@ class Trip(object):
         self.main_mode = None
 
     def set_empty_trip(self, mode, coord_start, coord_end):
+        """Sets a dummy trip between two coordinates with zero distance, duration and one empty leg"""
         self.set_duration(0)
         self.set_distance(0)
         self.main_mode = mode
         self.legs = [Leg(mode=mode, start_coord=coord_start, end_coord=coord_end, distance=0, duration=0,
-                         steps=[Step(coord_end, 0, 0)])]
+                         steps=[Step(coord_start, 0, 0)])]
 
     def get_leg_modes(self):
         """Returns a list of modes from the legs"""
         return [l.mode for l in self.legs]
 
+    def deepcopy(self):
+        nt = Trip()
+        nt.duration = copy.copy(self.duration)
+        nt.distance = copy.copy(self.distance)
+        nt.main_mode = copy.copy(self.main_mode)
+        nt.legs = [leg.deepcopy() for leg in self.legs]
+
     def main_mode_from_legs(self):
         leg_modes = self.get_leg_modes()
 
-        # otpmodes = OtpMode.get_all_modes()
-        # for otpmode, mode_name in zip(otpmodes, OtpMode._DICT):
-        #     if set(leg_modes).issubset(otpmode.split(',')):
-        #         return otpmode
-
         if LegMode.CAR in leg_modes:
             return OtpMode.CAR
-        elif LegMode.BUS in leg_modes or LegMode.SUBWAY in leg_modes or LegMode.TRAM in leg_modes or LegMode.RAIL in leg_modes:
+        elif LegMode.BUS in leg_modes or LegMode.SUBWAY in leg_modes or \
+                LegMode.TRAM in leg_modes or LegMode.RAIL in leg_modes:
             return OtpMode.TRANSIT
         elif LegMode.BICYCLE in leg_modes:
             return OtpMode.BICYCLE
@@ -247,14 +262,13 @@ class JspritAct(ActType):
         return 'Person{}, end_time {}, arrival_time {}' \
             .format(self.person_id, self.end_time, self.arrival_time)
 
-    def __str__(self):
-        return 'Person{}, end_time {}, arrival_time {}' \
-            .format(self.person_id, self.end_time, self.arrival_time)
+    def __repr__(self):
+        return self.__str__()
 
 
 class DrtAct(ActType):
 
-    def __init__(self, start_coord, type_=None, person=None, duration=None, end_coord=None, distance=None,
+    def __init__(self, start_coord=None, type_=None, person=None, duration=None, end_coord=None, distance=None,
                  start_time=None, end_time=None, steps=None):
         """
 
@@ -392,10 +406,14 @@ def get_sec(time_str):
     return int(h) * 3600 + int(m) * 60 + int(s)
 
 
+def otp_time_to_sec(otp_time):
+    return seconds_from_str(datetime.fromtimestamp(otp_time/1000).strftime('%H:%M:%S'))
+
+
 def seconds_from_str(string):
     """Converts a string of format '%H:%M:%S' into seconds from the beginning of a day
     """
     if string is None:
         return None
     t = datetime.strptime(string, '%H:%M:%S')
-    return td(hours=t.hour, minutes=t.minute, seconds=t.second).total_seconds()
+    return int(td(hours=t.hour, minutes=t.minute, seconds=t.second).total_seconds())

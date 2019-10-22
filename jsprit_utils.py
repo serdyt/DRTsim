@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""A module to form input XML files for jsprit and parse XML output from it
+
+@author: ai6644
+"""
 
 import csv
 import xml.etree.ElementTree as ET
@@ -117,8 +123,8 @@ class VRPReadWriter(object):
                                                                                  'id': str(person.id),
                                                                                  'type': 'delivery'
                                                                                 })
-            self._write_coord(service_element, 'location', person.next_activity.coord,
-                              coord_to_geoid.get(person.next_activity.coord))
+            self._write_coord(service_element, 'location', person.drt_leg.end_coord,
+                              coord_to_geoid.get(person.drt_leg.end_coord))
             ET.SubElement(service_element, 'duration').text = str(person.leaving_time)
             self._write_capacity_dimensions(service_element, person.dimensions.items())
             self._write_time_windows(service_element,
@@ -129,13 +135,13 @@ class VRPReadWriter(object):
         shipments_element = ET.SubElement(root, 'shipments')
         for person in shipment_persons:
             shipment_element = ET.SubElement(shipments_element, 'shipment', attrib={'id': str(person.id)})
-            self._write_shipment_step(shipment_element, 'pickup', person.curr_activity.coord,
-                                      coord_to_geoid.get(person.curr_activity.coord),
+            self._write_shipment_step(shipment_element, 'pickup', person.drt_leg.start_coord,
+                                      coord_to_geoid.get(person.drt_leg.start_coord),
                                       person.boarding_time,
                                       person.get_tw_left(), person.get_tw_right()
                                       )
-            self._write_shipment_step(shipment_element, 'delivery', person.next_activity.coord,
-                                      coord_to_geoid.get(person.next_activity.coord),
+            self._write_shipment_step(shipment_element, 'delivery', person.drt_leg.end_coord,
+                                      coord_to_geoid.get(person.drt_leg.end_coord),
                                       person.leaving_time,
                                       person.get_tw_left(), person.get_tw_right()
                                       )
@@ -157,6 +163,7 @@ class VRPReadWriter(object):
                     id_tag = 'shipmentId'
                 else:
                     log.error('Got unexpected act.type {} during the conversion for jsprit vrp.xml'.format(act.type))
+                    raise Exception('Got unexpected act.type {} for jsprit vrp.xml'.format(act.type))
                 act_element = ET.SubElement(route_element, 'act',
                                             attrib={'type': DrtAct.get_string_from_type(act.type)})
                 ET.SubElement(act_element, id_tag).text = str(int(act.person.id))

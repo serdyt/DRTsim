@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""Implements person's behaviour as a finite state machine.
+
+If you call each statemachine transaction function as an env.process, you need to yield at least once in it.
+Otherwise simpy trows an error.
+
+@author: ai6644
+"""
 
 import logging
 from simpy import Event
@@ -8,10 +15,6 @@ from exceptions import *
 import population
 
 log = logging.getLogger(__name__)
-
-"""If you call each statemachine transaction function as an env.process,
-and you need to yield at least once in it. Otherwise simpy trows an error
-"""
 
 
 class DefaultBehaviour(StateMachine):
@@ -50,6 +53,8 @@ class DefaultBehaviour(StateMachine):
     def on_plan(self):
         yield Event(self.env).succeed()
         while self.env.peek() == self.env.now:
+            # TODO: this makes sure that a request-replan sequence for a person is not braked
+            # if it is, we must save multiple requests and have some policy to merge them
             yield self.person.env.timeout(0.001)
         if self.person.planned_trip is None:
             try:
@@ -84,18 +89,13 @@ class DefaultBehaviour(StateMachine):
 
     def on_execute_trip(self):
         self.env.process(self.person.serviceProvider.execute_trip(self.person))
-        log.info('Person {} has finished trip {}'.format(self.person.id, self.person.actual_trip))
         yield self.person.delivered
+        log.info('Person {} has finished trip {}'.format(self.person.id, self.person.actual_trip))
         self.person.reset_delivery()
         self.person.log_executed_trip()
         if self.person.change_activity() == -1:
             self.env.process(self.finalize())
         else:
-            if self.person.get_tw_right() < self.env.now:
-                log.error("Person's {} time window cannot be reached. Now {} destination time {}"
-                          .format(self.person.id, self.env.now, self.person.next_activity.start_time))
-                log.error('Person {} will be excluded'.format(self.person))
-                self.env.process(self.finalize())
             self.env.process(self.reactivate())
 
     def on_reactivate(self):

@@ -31,7 +31,7 @@ class VehicleType(object):
 
         self.id = attrib.get('id')
         self.capacity_dimensions = attrib.setdefault('capacity_dimensions', {CD.SEATS: 8, CD.WHEELCHAIRS: 1})
-        self.costs = attrib.setdefault('costs', {VC.DISTANCE: 1.0, VC.FIXED: 500, VC.TIME: 0.5, VC.WAIT: 0.5})
+        self.costs = attrib.setdefault('costs', {VC.DISTANCE: 1.0, VC.FIXED: 500000, VC.TIME: 0.5, VC.WAIT: 3000})
 
 
 class Vehicle(Component):
@@ -79,10 +79,10 @@ class Vehicle(Component):
         """Returns only traveler related acts: Pick_up, drop_off and delivery
         Also ignores current act"""
         initial_route = []
-        if self.get_route_len() == 0:
-            return []
+        if self.route_not_empty():
+            return [act for act in self._route[1:] if act.type in [DrtAct.PICK_UP, DrtAct.DROP_OFF, DrtAct.DELIVERY]]
         else:
-            return [act for act in self._route[1:] if act.type not in [DrtAct.DRIVE, DrtAct.WAIT, DrtAct.RETURN]]
+            return []
 
     def get_route_with_return(self):
         return self._route
@@ -97,6 +97,12 @@ class Vehicle(Component):
 
     def get_route_len(self):
         return len(self._route)
+
+    def route_not_empty(self):
+        if self.get_route_len() != 0:
+            return True
+        else:
+            return False
 
     def print_route(self):
         print('Vehicle {}'.format(self.id))
@@ -206,6 +212,10 @@ class Vehicle(Component):
                 log.error('{} drt_executed event has not been created'.format(person))
             person.drt_executed.succeed()
 
+            if person.get_tw_right() > self.env.now:
+                log.error('Person {} has boarded after requested time window: {} - {}'
+                          .format(person.id, person.get_tw_left(), person.get_tw_right()))
+
         n = len(persons)
         self.delivered_travelers += n
 
@@ -218,6 +228,9 @@ class Vehicle(Component):
                 self.capacity_dimensions[dimension[0]] -= dimension[1]
                 if self.capacity_dimensions[dimension[0]] < 0:
                     raise Exception('Person has boarded to a vehicle while it has not enough space')
+                if person.get_tw_left() < self.env.now:
+                    log.error('Person {} has boarded before requested time window: {} - {}'
+                              .format(person.id, person.get_tw_left(), person.get_tw_right()))
 
     def update_partially_executed_trips(self):
         """When a vehicle is rerouted in the middle of a route, save the executed steps of trips"""

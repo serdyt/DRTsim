@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-
 @author: ai6644
-
-Key assumptions:
-    All the input data are in the database
-    Separate script would be used to transfer input data to the database
-    
 """
 
 # TODO: add logging through Component.setup_logger()
+# or remove it from there =)
 import logging
 import logging.handlers
 from datetime import timedelta as td
@@ -125,8 +120,12 @@ config = {
     'drt.default_tw_right': td(minutes=60).total_seconds(),
     'drt.planning_in_advance': td(minutes=60).total_seconds(),
     'drt.time_window_constant': td(minutes=10).total_seconds(),
-    'drt.time_window_multiplier': 1.3,
+    'drt.time_window_multiplier': 1.5,
     'drt.time_window_shift_left': 1./4,
+    'drt.PT_stops_file': 'data/zone_stops.csv',
+    'drt.min_distance': 2000,
+    'drt.walkCarSpeed': 16.6667,
+    'drt.max_fake_walk': 1000000,
     }
 
 

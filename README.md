@@ -1,2 +1,2 @@
 # DRTsim
-Transport simulator for Demand Responsive Transport
+Simulator for Demand Responsive Transport

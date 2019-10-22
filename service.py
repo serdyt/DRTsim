@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Created on Wed Dec 19 13:24:35 2018
+"""Service provider processes requests from travelers and manages DRT fleet
 
 @author: ai6644
 """
@@ -9,10 +8,10 @@ Created on Wed Dec 19 13:24:35 2018
 import logging
 from typing import List, Dict, Any
 import time
+import pandas
 import copy
 
 import routing
-from itertools import compress
 
 from desmod.component import Component
 from simpy import Event
@@ -22,7 +21,7 @@ from const import maxLat, minLat, maxLon, minLon
 from const import CapacityDimensions as CD
 from utils import Coord, JspritAct, Step, JspritSolution, JspritRoute, UnassignedTrip
 from vehicle import Vehicle, VehicleType
-from utils import ActType, DrtAct, Trip
+from utils import ActType, DrtAct, Trip, Leg
 from population import Person, Population
 from exceptions import *
 
@@ -39,6 +38,7 @@ class ServiceProvider(Component):
         super(ServiceProvider, self).__init__(*args, **kwargs)
         self.vehicles = []
         self.vehicle_types = {}
+        self._zone_pt_stops = []
         self.pending_drt_requests = {}
 
         self.unassigned_trips = []
@@ -49,6 +49,7 @@ class ServiceProvider(Component):
 
         self._set_vehicle_types()
         self._init_vehicles()
+        self._init_zone_pt_stops()
 
         self.add_connections('population')
 
@@ -63,7 +64,7 @@ class ServiceProvider(Component):
             v_type = self.vehicle_types.get(0)
             self.vehicles.append(Vehicle(parent=self, attrib=attrib, return_coord=coord, vehicle_type=v_type))
 
-        for i in range(5,10):
+        for i in range(5, 10):
             # if you want to change ID assignment method, you should change get_vehicle_by_id() method too
             attrib = {'id': i}
             # coord = Coord(lat=self.env.rand.uniform(minLat, maxLat), lon=self.env.rand.uniform(minLon, maxLon))
@@ -87,6 +88,12 @@ class ServiceProvider(Component):
             #         'capacity_dimensions': {CD.SEATS: 8, CD.WHEELCHAIRS: 1}
             #         })
 
+    def _init_zone_pt_stops(self):
+        self._zone_pt_stops = pandas.read_csv(self.env.config.get('drt.PT_stops_file'), sep=',')['stop_id'].values
+
+    def is_stop_in_zone(self, stop_id):
+        return stop_id in self._zone_pt_stops
+
     def request(self, person: Person):
         log.info('Request came at {0} from {1}'.format(self.env.now, person))
 
@@ -99,13 +106,34 @@ class ServiceProvider(Component):
             raise OTPUnreachable('No traditional alternatives received')
         person.set_direct_trip(traditional_alternatives)
 
-        drt_alternatives = self._drt_request(person)
+        drt_alternatives = self._drt_request2(person)
+
         log.debug('DRT request took {}'.format(time.time() - start))
         alternatives = traditional_alternatives + drt_alternatives
 
         if len(alternatives) == 0:
             log.warning('no alternatives received by {}'.format(person.scope))
         return alternatives
+
+    def is_local_trip(self, person):
+        return person.curr_activity.zone in self.env.config.get('drt.zones') \
+               and person.next_activity.zone in self.env.config.get('drt.zones')
+
+    def is_in_trip(self, person):
+        return person.curr_activity.zone not in self.env.config.get('drt.zones') \
+               and person.next_activity.zone in self.env.config.get('drt.zones')
+
+    def is_out_trip(self, person):
+        return person.curr_activity.zone in self.env.config.get('drt.zones') \
+               and person.next_activity.zone not in self.env.config.get('drt.zones')
+
+    def pt_stop_coord_times_for_drt(self, trip: Trip, drt_is_first_leg=True):
+        if drt_is_first_leg:
+            return [(leg.start_coord, leg.start_time) for leg in trip.legs
+                    if leg.mode in OtpMode.get_pt_modes() and self.is_stop_in_zone(leg.from_stop)]
+        else:
+            return [(leg.end_coord, leg.end_time) for leg in trip.legs
+                    if leg.mode in OtpMode.get_pt_modes() and self.is_stop_in_zone(leg.to_stop)]
 
     def _traditional_request(self, person):
         traditional_alternatives = []
@@ -132,12 +160,123 @@ class ServiceProvider(Component):
         else:
             return traditional_alternatives
 
-    def _drt_request(self, person: Person):
-        if person.curr_activity.zone not in self.env.config.get('drt.zones') \
-           or person.next_activity.zone not in self.env.config.get('drt.zones'):
-            log.info('Person {} requests a trip outside DRT zone from {} to {}, ignoring DRT mode.'
-                     .format(person.id, person.curr_activity.zone, person.next_activity.zone))
+    def _drt_request2(self, person: Person):
+        """Calculates a list of DRT possible trips.
+        If a person moves within service zones, the whole trip is done wit drt as one leg.
+
+        If a person moves in or out of service zones, drt will perform a first or last mile. DRT leg in this case will
+        replace a walking leg, where walk speed is set to the car speed.
+
+        Returns a list of drt trips
+        """
+
+        if person.direct_trip.distance < self.env.config.get('drt.min_distance'):
+            log.info('Person {} has trip length of {}. Ignoring DRT'.format(person.id, person.direct_trip.distance))
             return []
+
+        if self.is_local_trip(person):
+            drt_trip = Trip()  # type: Trip
+            drt_trip.set_empty_trip(OtpMode.DRT, person.curr_activity.coord, person.next_activity.coord)
+            drt_leg = Leg(mode=OtpMode.DRT,
+                          start_coord=person.curr_activity.coord,
+                          end_coord=person.next_activity.coord)
+            person.drt_leg = drt_leg
+            person.set_tw(person.direct_trip.duration, single_leg=True)
+
+            try:
+                self._drt_request(person)
+            except DrtUndeliverable as e:
+                log.warning(e.msg)
+                return []
+            except DrtUnassigned as e:
+                log.warning(e.msg)
+                return []
+
+            drt_trip.legs[0] = person.drt_leg
+            drt_trip.duration = drt_trip.legs[0].duration
+            return [drt_trip]
+        else:
+            # When we have an incoming our outgoing trip, we should calculate a PT trip with a high walking speed
+            # to replace a WALK leg with a DRT leg
+            try:
+                pt_alternatives = self.router.otp_request(person, OtpMode.TRANSIT,
+                                                          {'walkSpeed': self.env.config.get('drt.walkCarSpeed'),
+                                                           'fromPlace': person.curr_activity.coord,
+                                                           'toPlace': person.next_activity.coord,
+                                                           'maxWalkDistance': self.env.config.get('drt.max_fake_walk')})
+            except OTPNoPath as e:
+                log.warning('{}\n{}'.format(e.msg,  e.context))
+                log.warning('Person {} will not consider DRT'.format(person))
+                return []
+        # TODO: let's test it with the first traditional trip.
+        drt_trip = pt_alternatives[0]
+        drt_trip.main_mode = OtpMode.DRT_TRANSIT
+        # if a PT trip has only one leg or if the last leg is PT - we do not need DRT
+        if len(drt_trip.legs) < 2:
+            return []
+
+        if self.is_in_trip(person):
+            # TODO: we can "consume" PT legs by DRT as long as they are inside service zone
+
+            # we can also make DRT alternatives for all of the trip alternatives
+
+            # TODO: take the last possible stop as an alternative
+            # That would be the scenario to a central station (most likely)
+            if self.is_stop_in_zone(drt_trip.legs[-2].to_stop):
+                pt_walk_leg_index = -1
+                drt_leg = Leg(mode=OtpMode.DRT,
+                              start_coord=drt_trip.legs[-1].start_coord,
+                              end_coord=drt_trip.legs[-1].end_coord,
+                              start_time=drt_trip.legs[-1].start_time,
+                              end_time=drt_trip.legs[-1].end_time,
+                              distance=drt_trip.legs[-1].distance)
+                person.set_tw(drt_trip.legs[-1].duration, last_leg=True, drt_leg=drt_leg)
+            else:
+                log.info('Person {} has incoming trip, but bus stop {} is not in the zone'
+                         .format(person.id, drt_trip.legs[-2].to_stop))
+                return []
+
+        elif self.is_out_trip(person):
+            if self.is_stop_in_zone(drt_trip.legs[1].from_stop):
+                pt_walk_leg_index = 0
+                drt_leg = Leg(mode=OtpMode.DRT,
+                              start_coord=drt_trip.legs[0].start_coord,
+                              end_coord=drt_trip.legs[0].end_coord,
+                              end_time=drt_trip.legs[0].end_time,
+                              distance=drt_trip.legs[0].distance)
+                person.set_tw(drt_trip.legs[0].duration, first_leg=True, drt_leg=drt_leg)
+            else:
+                log.info('Person {} has outgoing trip, but bus stop is not in the zone'
+                         .format(person.id, drt_trip.legs[1].from_stop))
+                return []
+
+        if drt_leg.distance < self.env.config.get('drt.min_distance'):
+            log.info('Zone crossing Person {} has a first/last leg distance {}. Ignoring DRT'
+                     .format(person.id, drt_leg.distance))
+            return []
+
+        person.drt_leg = drt_leg
+        try:
+            self._drt_request(person)
+        except DrtUnassigned as e:
+            log.warning(e.msg)
+            self.log_unassigned_trip(person)
+            return []
+        except DrtUndeliverable as e:
+            log.warning(e.msg)
+            return []
+
+        drt_trip.legs[pt_walk_leg_index] = person.drt_leg
+        drt_trip.distance = 0
+        drt_trip.duration = sum(leg.duration for leg in drt_trip.legs)
+        return [drt_trip]
+
+    def _drt_request(self, person: Person):
+        """Prepares coordinate lists for routing
+        NOTE: peron.drt_leg will be updated
+
+        Return : drt leg from router.drt_request
+        """
 
         vehicle_coords_times = self._get_current_vehicle_positions()
         vehicle_return_coords = [vehicle.return_coord for vehicle in self.vehicles]
@@ -145,23 +284,15 @@ class ServiceProvider(Component):
         # get positions of scheduled requests
         # person.leg.start_coord and .end_coord have that, so get the persons
         persons = self.get_scheduled_travelers()
-        onboard_persons = self.get_onboard_travelers()
-        waiting_persons = list(set(persons) - set(onboard_persons))
-        shipment_persons = waiting_persons + [person]
-        service_persons = onboard_persons
+        service_persons = self.get_onboard_travelers()
+        waiting_persons = list(set(persons) - set(service_persons))
+        shipment_persons = waiting_persons
+        shipment_persons += [person]
 
-        # TODO: OTP may return WALK+CAR trip, find exactly DRT leg in the trip (assuming there could be more)
+        # remove persons that are in the process of boarding or leaving a vehicle
 
-        # TODO: separate coordinates of onboard and shipment travelers
-        persons_start_coords = [pers.curr_activity.coord for pers in shipment_persons]
-        persons_start_coords += [pers.next_activity.coord for pers in onboard_persons]
-
-        persons_end_coords = [pers.next_activity.coord for pers in shipment_persons + onboard_persons]
-        # persons_end_coords += [person.next_activity.coord]
-
-        return self.router.drt_request(person, vehicle_coords_times, vehicle_return_coords,
-                                       persons_start_coords, persons_end_coords,
-                                       shipment_persons, service_persons)
+        self.router.drt_request(person, vehicle_coords_times, vehicle_return_coords,
+                                shipment_persons, service_persons)
 
     def _get_current_vehicle_positions(self):
         coords_times = []
@@ -175,6 +306,8 @@ class ServiceProvider(Component):
             self.env.results['unrouted_trips'] += 1
             log.warning('{} received no feasible trip options'.format(person.scope))
         elif person.planned_trip.main_mode == OtpMode.DRT:
+            self._start_drt_trip(person)
+        elif person.planned_trip.main_mode == OtpMode.DRT_TRANSIT:
             self._start_drt_trip(person)
         else:
             self._start_traditional_trip(person)
@@ -215,55 +348,6 @@ class ServiceProvider(Component):
         if act.start_time + act.duration != act.end_time:
             log.error('Act end time does not correspond to its duration')
 
-    def _jsprit_act_to_drt_act(self, start_time, njact: JspritAct, coord_start, coord_end, act_type) -> DrtAct:
-        drt_act = DrtAct(type_=act_type, person=None,
-                         duration=njact.arrival_time - start_time,
-                         end_coord=coord_end, start_coord=coord_start, start_time=start_time, end_time=njact.arrival_time)
-
-        # TODO: This calls for OTP to recalculate all the routes. Move this to Vehicle, so that only the next trip is
-        # recalculated to save time on OTP requests
-        # try:
-        #     trip = self.router.get_drt_route_details(coord_start=coord_start,
-        #                                              coord_end=coord_end,
-        #                                              at_time=start_time)  # type: Trip
-        # except OTPTrivialPath as e:
-        #     log.warning('Trivial path found for DRT routing. That can happen.\n{}\n{}'.format(e.msg, e.context))
-        #     trip = Trip()
-        #     trip.set_empty_trip(OtpMode.DRT, coord_start, coord_end)
-        #
-        # if len(trip.legs) > 1:
-        #     log.error('OTP returned multiple legs for DRT trip from {} to {}.'.format(coord_start, coord_end))
-        #     raise Exception()
-        #
-        # drt_act.steps = trip.legs[0].steps
-        # drt_act.distance = trip.distance
-        # if drt_act.duration != sum([s.duration for s in drt_act.steps]):
-        #     log.error('Time is lost during jsprit route conversion')
-        # if drt_act.start_time + drt_act.duration != drt_act.end_time:
-        #     log.error('Act end time does not correspond to its duration')
-
-        return drt_act
-
-    # def _get_drt_return_act(self, drt_act, coord_start):
-    #     try:
-    #         trip = self.router.get_drt_route_details(coord_start=coord_start,
-    #                                                  coord_end=drt_act.end_coord,
-    #                                                  at_time=drt_act.start_time)  # type: Trip
-    #     except OTPTrivialPath as e:
-    #         log.warning('Trivial path found for DRT routing. That can happen.\n{}\n{}'.format(e.msg, e.context))
-    #         trip = Trip()
-    #         trip.set_empty_trip(OtpMode.DRT, coord_start, drt_act.end_coord)
-    #         return trip
-    #
-    #     if len(trip.legs) > 1:
-    #         log.error('OTP returned multiple legs for DRT trip from {} to {}.'.format(coord_start, drt_act.end_coord))
-    #         raise Exception()
-    #
-    #     drt_act.steps = trip.legs[0].steps
-    #     drt_act.distance = trip.distance
-    #     if drt_act.duration != sum([s.duration for s in drt_act.steps]):
-    #         log.error('Time is lost during jsprit route conversion')
-
     def _jsprit_to_drt(self, vehicle, jsprit_route: JspritRoute):
         drt_acts = []  # type: List[DrtAct]
 
@@ -275,6 +359,7 @@ class ServiceProvider(Component):
                 person = None
             else:
                 person = self.population.get_person(njact.person_id)  # type: Person
+                drt_leg = person.planned_trip.legs[person.planned_trip.get_leg_modes().index(OtpMode.DRT)]
 
             # *************************************************************
             # **********         Moving to an activity           **********
@@ -285,43 +370,33 @@ class ServiceProvider(Component):
                 coord_start = drt_acts[-1].end_coord
 
             if njact.type == ActType.PICK_UP:
-                coord_end = person.curr_activity.coord
+                coord_end = drt_leg.start_coord
             elif njact.type in [ActType.DROP_OFF, ActType.DELIVERY]:
-                coord_end = person.next_activity.coord
+                coord_end = drt_leg.end_coord
             elif njact.type == ActType.RETURN:
                 coord_end = vehicle.return_coord
             else:
                 raise Exception('Unexpected act type {}'.format(njact.type))
 
-            move_act = self._jsprit_act_to_drt_act(start_time=pjact.end_time,
-                                                   njact=njact,
-                                                   coord_start=coord_start,
-                                                   coord_end=coord_end,
-                                                   act_type=DrtAct.DRIVE)
+            move_act = DrtAct(type_=DrtAct.DRIVE, person=None,
+                              duration=njact.arrival_time - pjact.end_time,
+                              end_coord=coord_end, start_coord=coord_start,
+                              start_time=pjact.end_time, end_time=njact.arrival_time)
 
             # Vehicle is likely to be doing some step, but we cannot reroute it at any given point,
             # only after it finishes its current step
             if i == 0 and self.env.now != jsprit_route.start_time and vehicle.get_route_len() > 0:
                 curr_v_act = vehicle.get_act(0)  # type: DrtAct
-
                 # if a vehicle is picking up or delivering a person, just save this act in a new route
                 if curr_v_act.type in [DrtAct.PICK_UP, DrtAct.DROP_OFF, DrtAct.DELIVERY]:
                     drt_acts.append(curr_v_act)
                 # if vehicle is on the move, append its current step to a plan
-                if curr_v_act.type == DrtAct.DRIVE:
+                elif curr_v_act.type in [DrtAct.DRIVE, DrtAct.RETURN]:
                     curr_v_step = vehicle.get_current_step()
-                    passed_steps = vehicle.get_passed_steps()
+                    # passed_steps = vehicle.get_passed_steps()
                     if curr_v_step is not None:
                         move_act.steps = [curr_v_step]
-                        # move_act.start_time -= curr_v_step.duration
-                        # move_act.duration += curr_v_step.duration
-                        # move_act.start_coord = curr_v_step.start_coord
-                        # move_act.distance = curr_v_step.distance
-
-                        # move_act.start_time = curr_v_act.start_time + sum([s.duration for s in passed_steps])
-                        # # if current step is in the execution we must subtract the part of it that have been executed
-                        # move_act.duration += curr_v_step.duration - (self.env.now - move_act.start_time)
-                        # move_act.distance = curr_v_step.distance
+                        # Current step of a vehicle is appended here to be processed by the replanner
 
             drt_acts.append(move_act)
 
@@ -335,6 +410,8 @@ class ServiceProvider(Component):
                 duration = person.boarding_time
             else:
                 duration = person.leaving_time
+            if len(drt_acts) == 0:
+                print('debugggggg!')
             action = DrtAct(type_=njact.type, person=person, duration=duration, distance=0,
                             end_coord=drt_acts[-1].end_coord, start_coord=drt_acts[-1].end_coord,
                             start_time=drt_acts[-1].end_time, end_time=drt_acts[-1].end_time + duration)
@@ -355,10 +432,15 @@ class ServiceProvider(Component):
             drt_acts[-1].type = DrtAct.RETURN
         return drt_acts
 
+    # def _start_drt_transit_trip(self, person):
+    #     if person.planned_trip.legs[0].mode == OtpMode.DRT:
+    #         person
+
     def _start_drt_trip(self, person):
         jsprit_solution = self.pending_drt_requests.pop(person.id)
         if jsprit_solution is None:
-            raise Exception('Trying to rerouted drt vehicle for {}, but no jsprit solution found for this')
+            raise Exception('Trying to rerouted drt vehicle for {}, but no jsprit solution found for this'
+                            .format(person))
         jsprit_route = jsprit_solution.modified_route  # type: JspritRoute
 
         vehicle = self.get_vehicle_by_id(jsprit_route.vehicle_id)  # type: Vehicle
@@ -381,9 +463,21 @@ class ServiceProvider(Component):
         if person.planned_trip.main_mode == OtpMode.DRT:
             yield person.drt_executed
             person.delivered.succeed()
+        elif person.planned_trip.main_mode == OtpMode.DRT_TRANSIT:
+            if person.planned_trip.legs[0].mode == OtpMode.DRT:
+                # if DRT is first leg - wait for it to be executed and teleport a person to its destination after PT
+                yield person.drt_executed
+                yield self.env.timeout(person.planned_trip.legs[-1].end_time - self.env.now)
+                person.append_pt_legs_to_actual_trip(person.planned_trip.legs[1:])
+                person.delivered.succeed()
+            else:
+                # if DRT is a last leg, just assume that PT part is executed correctly
+                person.append_pt_legs_to_actual_trip(person.planned_trip.legs[:-1])
+                yield person.drt_executed
+                person.delivered.succeed()
         else:
             yield self.env.timeout(person.planned_trip.duration)
-            person.actual_trip = person.planned_trip
+            person.set_actual_trip(person.planned_trip)
             person.delivered.succeed()
 
         self.env.results['total_trips'] += 1
@@ -391,52 +485,38 @@ class ServiceProvider(Component):
         for leg in person.planned_trip.legs:
             self.env.results['{}_legs'.format(leg.mode)] += 1
 
-    @staticmethod
-    def _add_dummy_acts(drt_acts, jsprit_acts, person):
-        # TODO: move this method to vehicles?
-        """Finds where drt_acts differ from jsprit and injects new DrtAct elements
-
-        We know what person is needed to be routed, thus there is no need to search person by ID
-
-        returns: list with indexes of new elements, they should be routed with OTP
-        :type jsprit_acts: List[JspritAct]
-        """
-        drt_iter = iter(drt_acts)
-        new_acts_index = []
-
-        for jsprit_act in jsprit_acts:
-            try:
-                drt_act = next(drt_iter)
-                if drt_act.person.id == jsprit_act.person_id and drt_act.type == jsprit_act.type:
-                    continue
-                else:
-                    # when we find a position where acts differ, insert a new act to vehicle
-                    index = drt_acts.index(drt_act)
-            except StopIteration:
-                # If new acts come to the last position, or if current vehicle act list is empty
-                # insert new act to the end of the list
-                index = len(drt_acts)
-            coord = person.curr_activity.coord if jsprit_act.type == ActType.PICK_UP else person.next_activity.coord
-            new_act = DrtAct(type_=jsprit_act.type, person=person, end_coord=coord)
-            drt_acts.insert(index, new_act)
-            new_acts_index.append(index)
-
-        return drt_acts, new_acts_index
-
     def get_scheduled_travelers(self):
-        """Scans through vehicle routes and combines attached persons in a list.
+        """Returns a list of persons who are scheduled for DRT transportation.
+        This list includes onboard persons as well.
 
-        Returns: list of not None persons"""
+        NOTE: persons currently leaving a vehicle are excluded from this list. So that jsprit would not serve them twice.
+        """
         persons = []
         for vehicle in self.vehicles:
-            for act in vehicle.get_route_without_return():  # type: DrtAct
-                persons.append(act.person)
+            for i, act in enumerate(vehicle.get_route_without_return()):  # type: DrtAct
+                if i == 0 and act.type in [DrtAct.DROP_OFF, DrtAct.DELIVERY]:
+                    continue
+                else:
+                    persons.append(act.person)
         return [a for a in set(persons) if a is not None]
 
     def get_onboard_travelers(self):
+        """Returns a list of persons that are currently on a vehicle.
+
+        NOTE: persons currently leaving a vehicle are excluded from this list.
+        So that jsprit would not drop them off twice.
+
+        NOTE: persons boarding a vehicle are also added to this list, so that jsprit would treat them as DELIVERY
+        """
         persons = []
         for vehicle in self.vehicles:
-            persons += vehicle.passengers
+            if vehicle.route_not_empty():
+                if vehicle.get_act(0).type in [DrtAct.DROP_OFF, DrtAct.DELIVERY]:
+                    persons += [person for person in vehicle.passengers if person != vehicle.get_act(0).person]
+                elif vehicle.get_act(0).type == DrtAct.PICK_UP:
+                    persons += [vehicle.get_act(0).person]
+                else:
+                    persons += vehicle.passengers
         return persons
 
     def log_unassigned_trip(self, person):

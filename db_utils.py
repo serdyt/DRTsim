@@ -1,5 +1,8 @@
 
 import sqlite3
+import logging
+
+log = logging.getLogger(__name__)
 
 
 class SqliteConnector(object):
@@ -45,9 +48,12 @@ class SqliteConnector(object):
         return self.cur.fetchall()
 
     def insert_tdm_by_od(self, origin_coord, dest_coord, time, distance):
-        self.cur.execute(
-            'INSERT INTO {} (from_lat, from_lon, to_lat, to_lon, time, distance) VALUES ({},{},{},{},{},{})'
-            .format(self.TDM, origin_coord.lat, origin_coord.lon, dest_coord.lat, dest_coord.lon, time, distance))
+        try:
+            self.cur.execute(
+                'INSERT INTO {} (from_lat, from_lon, to_lat, to_lon, time, distance) VALUES ({},{},{},{},{},{})'
+                .format(self.TDM, origin_coord.lat, origin_coord.lon, dest_coord.lat, dest_coord.lon, time, distance))
+        except sqlite3.IntegrityError as e:
+            log.error('{}\n from {} to {}'.format(e.args[0], origin_coord, dest_coord))
 
     def commit(self):
         self.conn.commit()

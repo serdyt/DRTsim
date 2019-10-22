@@ -65,11 +65,16 @@ class OtpMode(object):
     RENTED_BICYCLE = 'WALK,BICYCLE_RENT'
     TRANSIT_RENTED_BICYCLE = 'TRANSIT,WALK,BICYCLE_RENT'
     DRT = 'DRT'
+    DRT_TRANSIT = 'DRT_TRANSIT'
 
     _DICT = ['CAR', 'WALK', 'TRANSIT', 'BUS', 'RAIL', 'BICYCLE', 'BICYCLE_TRANSIT', 'PARK_RIDE', 'KISS_RIDE',
-             'BIKE_RIDE', 'RENTED_BICYCLE', 'TRANSIT_RENTED_BICYCLE', 'DRT']
+             'BIKE_RIDE', 'RENTED_BICYCLE', 'TRANSIT_RENTED_BICYCLE', 'DRT', 'DRT_TRANSIT']
 
     _MAIN_MODES = ['CAR', 'BICYCLE', 'TRANSIT', 'WALK']
+
+    _DRT_MODES = ['DRT', 'DRT_TRANSIT']
+
+    _PT_MODES = ['TRANSIT', 'BUS', 'RAIL']
 
     @staticmethod
     def get_all_modes():
@@ -82,6 +87,14 @@ class OtpMode(object):
     @staticmethod
     def contains(other):
         return other in OtpMode._DICT
+
+    @staticmethod
+    def get_pt_modes():
+        return OtpMode._PT_MODES
+
+    @staticmethod
+    def get_drt_modes():
+        return OtpMode._DRT_MODES
 
     @staticmethod
     def get_mode(string):

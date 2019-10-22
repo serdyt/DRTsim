@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Utils to manage population
-
-
-@author: ai6644
 """
 
 import logging
 from datetime import timedelta as td
 import json
-from typing import List
+from typing import List, Dict
 
 from desmod.component import Component
 import behaviour
@@ -22,15 +19,6 @@ from const import CapacityDimensions as CD
 from const import OtpMode
 
 log = logging.getLogger(__name__)
-
-
-class PopulationGenerator(object):
-    """TODO: not implemented feature
-    Generator stores only currently active persons. Inactive are written
-    back to the database to save memory and queue size.
-    """
-    def __init__(self):
-        raise NotImplementedError()
 
 
 class Population(Component):
@@ -59,7 +47,7 @@ class Population(Component):
             for json_pers in persons:
                 # if i > 100:
                 #     break
-                attributes = {'age': 22, 'id': pers_id}
+                attributes = {'age': 22, 'id': pers_id, 'otp_parameters': {'arriveBy': True}}
                 pers_id = pers_id + 1
 
                 # TODO: sequence of activities has the same end and start times
@@ -91,14 +79,13 @@ class Population(Component):
                     )
 
                 # take only trips within target zones
-                if activities[0].zone not in self.env.config.get('drt.zones') or \
-                   activities[1].zone not in self.env.config.get('drt.zones'):
-                    continue
-                # i = i + 1
+                # if activities[0].zone not in self.env.config.get('drt.zones') or \
+                #    activities[1].zone not in self.env.config.get('drt.zones'):
+                #     continue
 
                 # local_person_list.append(Person(self, attributes, activities))
-                # take 5% of the population
-                if self.env.rand.randint(0, 100) < 1:
+                # take 1% of the tours
+                if self.env.rand.randint(0, 1000) < 10:
                     self.person_list.append(Person(self, attributes, activities))
 
     def _random_persons(self):
@@ -136,7 +123,7 @@ class Person(Component):
     next_activity = ...  # type: Activity
     base_name = 'person'
 
-    def __init__(self, parent, attributes, activities, trip: Trip = None):
+    def __init__(self, parent, attributes, activities: Dict, trip: Trip = None):
         """Person that requests for trips
 
         Parameters:
@@ -158,7 +145,10 @@ class Person(Component):
         self.boarding_time = self.env.config.get('person.default_attr.boarding_time')
         self.leaving_time = self.env.config.get('person.default_attr.leaving_time')
 
+        self.otp_parameters = {}
+        self.attributes = {}
         self._set_attributes(attributes)
+
         if len(activities) < 2:
             raise Exception('Person received less than two activities')
         self.activities = activities
@@ -175,6 +165,13 @@ class Person(Component):
         self.executed_trips = []
         self.direct_trips = []
         self.planned_trips = []
+
+        # we need to store that so that drt rerouting would know drt leg coordinates.
+        # TODO: move this to a container in ServiceProvider
+        self.drt_leg = None
+
+        self.drt_tw_left = None
+        self.drt_tw_right = None
 
         self.delivered = self.env.event()
         self.drt_executed = self.env.event()
@@ -230,6 +227,18 @@ class Person(Component):
         self.actual_trip.duration = sum([leg.duration for leg in self.actual_trip.legs])
         self.actual_trip.distance = sum([leg.distance for leg in self.actual_trip.legs])
 
+    def set_actual_trip(self, trip):
+        self.actual_trip = trip
+
+    def append_pt_legs_to_actual_trip(self, legs):
+        for leg in legs:
+            # if leg.mode == OtpMode.DRT:
+            #     break
+            # else:
+            self.actual_trip.legs.append(leg)
+        self.actual_trip.duration = sum([leg.duration for leg in self.actual_trip.legs])
+        self.actual_trip.distance = sum([leg.distance for leg in self.actual_trip.legs])
+
     def reset_delivery(self):
         """Create ne delivery events"""
         self.delivered = self.env.event()
@@ -257,8 +266,6 @@ class Person(Component):
             times = [a.duration for a in alternatives]
             self.direct_trip = alternatives[times.index(max(times))]
 
-        self.get_tw()
-
     def update_planned_drt_trip(self, drt_route):
         """Jsprit solution does not provide distances. # TODO: check if it is possible to include this in jsprit
         After service provider reconstructs DRT route with OTP, it calls for this to recalculate actual planned route,
@@ -270,11 +277,12 @@ class Person(Component):
         persons_route = drt_route[start_act_idx+1:end_act_idx+1]
 
         # jsprit has no distance and steps
-        # self.planned_trip.set_distance(sum([act.distance for act in persons_route]))
-        self.planned_trip.set_duration(sum([act.duration for act in persons_route]))
-        # self.planned_trip.legs[0].steps = [act for act in persons_route]
-        self.planned_trip.legs[0].duration = self.planned_trip.duration
-        self.planned_trip.legs[0].distance = self.planned_trip.distance
+        drt_leg = self.planned_trip.legs[self.planned_trip.get_leg_modes().index(OtpMode.DRT)]
+        drt_leg.duration = sum([act.duration for act in persons_route])
+
+        self.planned_trip.set_duration(sum([leg.duration for leg in self.planned_trip.legs]))
+        # self.planned_trip.legs[0].duration = self.planned_trip.duration
+        # self.planned_trip.legs[0].distance = self.planned_trip.distance
 
     def change_activity(self):
         """Updates current and next activities from a list of planned activities.
@@ -293,9 +301,30 @@ class Person(Component):
         else:
             return -1
 
-    def get_tw(self):
-        self.time_window = self.direct_trip.duration * self.env.config.get('drt.time_window_multiplier') + \
-                           self.env.config.get('drt.time_window_constant')
+    def get_routing_parameters(self):
+        return self.otp_parameters
+
+    def set_tw(self, direct_time, single_leg=False, first_leg=False, last_leg=False, drt_leg=None):
+        tw = direct_time * self.env.config.get('drt.time_window_multiplier')\
+             + self.env.config.get('drt.time_window_constant')
+        if single_leg:
+            self.drt_tw_left = self.curr_activity.end_time - tw * self.env.config.get('drt.time_window_shift_left')
+            self.drt_tw_right = self.next_activity.start_time\
+                + tw * (1 - self.env.config.get('drt.time_window_shift_left'))
+        elif first_leg:
+            self.drt_tw_left = drt_leg.end_time - tw
+            self.drt_tw_right = drt_leg.end_time
+        elif last_leg:
+            self.drt_tw_left = drt_leg.start_time
+            self.drt_tw_right = drt_leg.start_time + tw
+        else:
+            raise Exception('Incorrect input for time window calculation for Person {}.\n{} {} {}'
+                            .format(self.id, direct_time, single_leg, first_leg, last_leg, drt_leg))
+
+        if self.drt_tw_left < self.env.now:
+            self.drt_tw_left = self.env.now
+        if self.drt_tw_right > self.env.config.get('sim.duration_sec'):
+            self.drt_tw_right = self.env.config.get('sim.duration_sec')
 
     def get_tw_left(self):
         """
@@ -303,17 +332,22 @@ class Person(Component):
         Returns: time in seconds when the left time window border starts
         """
 
-        calc_tw = self.curr_activity.end_time - self.time_window * self.env.config.get('drt.time_window_shift_left')
-        if calc_tw < self.env.now:
-            return self.env.now
-        else:
-            return calc_tw
+        return self.drt_tw_left
+
+        # calc_tw = self.curr_activity.end_time - self.time_window * self.env.config.get('drt.time_window_shift_left')
+        # if calc_tw < self.env.now:
+        #     return self.env.now
+        # else:
+        #     return calc_tw
 
     def get_tw_right(self):
         # TODO: time window should be bound to something else rather than next activity
-        calc_tw = self.next_activity.start_time + \
-                  self.time_window * (1 - self.env.config.get('drt.time_window_shift_left'))
-        if calc_tw > self.env.config.get('sim.duration_sec'):
-            return self.env.config.get('sim.duration_sec')
-        else:
-            return calc_tw
+
+        return self.drt_tw_right
+
+        # calc_tw = self.next_activity.start_time + \
+        #           self.time_window * (1 - self.env.config.get('drt.time_window_shift_left'))
+        # if calc_tw > self.env.config.get('sim.duration_sec'):
+        #     return self.env.config.get('sim.duration_sec')
+        # else:
+        #     return calc_tw
