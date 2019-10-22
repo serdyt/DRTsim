@@ -47,7 +47,7 @@ class Population(Component):
             for json_pers in persons:
                 # if i > 100:
                 #     break
-                attributes = {'age': 22, 'id': pers_id, 'otp_parameters': {'arriveBy': True}}
+                attributes = {'age': 22, 'id': pers_id, 'otp_parameters': {'arriveBy': False}}
                 pers_id = pers_id + 1
 
                 # TODO: sequence of activities has the same end and start times
