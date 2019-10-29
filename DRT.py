@@ -9,7 +9,6 @@
 import logging
 import logging.handlers
 from datetime import timedelta as td
-import sqlite3
 from typing import Any, Union
 
 import simpy
@@ -86,10 +85,44 @@ class Top(Component):
         self.env.results['DRT_legs'] = 0
 
 
+def send_email(subject, text, files):
+    from os.path import basename
+    import smtplib
+    from email.mime.application import MIMEApplication
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+    from email.utils import COMMASPACE, formatdate
+
+    msg = MIMEMultipart()
+    msg['From'] = 'drt.simulator@gmail.com'
+    msg['To'] = 'sergei.dytckov@mau.se'
+    msg['Date'] = formatdate(localtime=True)
+    msg['Subject'] = subject
+
+    msg.attach(MIMEText(text))
+
+    for f in files or []:
+        with open(f, "rb") as fil:
+            part = MIMEApplication(fil.read(), Name=basename(f))
+        # After the file is closed
+        part['Content-Disposition'] = 'attachment; filename="%s"' % basename(f)
+        msg.attach(part)
+
+    server = smtplib.SMTP('smtp.gmail.com',587)
+    server.ehlo()
+    server.starttls()
+    server.ehlo()
+    server.login('drt.simulator@gmail.com', 'drtMalmoSweden')
+    server.sendmail("drt.simulator@gmail.com", to_addrs="sergei.dytckov@mau.se", msg=msg.as_string())
+    server.close()
+
+
 config = {
     'sim.duration': '86400 s',
     'sim.duration_sec': 86400,
     'sim.seed': 42,
+    'sim.log': 'output/log',
+
     'person.behaviour': 'DefaultBehaviour',
     'person.mode_choice': 'DefaultModeChoice',
     'service.routing': 'DefaultRouting',
@@ -133,18 +166,18 @@ config = {
 
 
 """Desmod takes responsibility for instantiating and elaborating the model,
-thus we only need to pass the configuration dict and the top-level
+we only need to pass the configuration dict and the top-level
 Component class (Top) to simulate().
 """
 if __name__ == '__main__':
     try:
-        os.remove('output/log')
+        os.remove(config.get('sim.log'))
     except FileNotFoundError:
         pass
-    open('output/log', 'a').close()
+    open(config.get('sim.log'), 'a').close()
 
     root = logging.getLogger()
-    handler = logging.handlers.WatchedFileHandler('output/log')
+    handler = logging.handlers.WatchedFileHandler(config.get('sim.log'))
     formatter = logging.Formatter(logging.BASIC_FORMAT)
     handler.setFormatter(formatter)
     root.setLevel(logging.DEBUG)
@@ -162,7 +195,14 @@ if __name__ == '__main__':
 
     import time
     start = time.time()
-    res = simulate(config, Top)
+    try:
+        res = simulate(config, Top)
+    except Exception as e:
+        send_email(subject='Simulation failed', text=str(e.args), files=[config.get('sim.log')])
+        sys.exit(1)
+    else:
+        send_email(subject='Simulation success', text='congratulations', files=[config.get('sim.log')])
+
     print('elapsed at_time ', time.time() - start)
 
     print(res)
@@ -183,7 +223,8 @@ if __name__ == '__main__':
     print('delivered travelers per vehicle {}'.format(sum(delivered_travelers) / len(delivered_travelers)))
     print('Vehicle kilometers {}'.format(sum(vehicle_kilometers) / 1000))
     try:
-        print('delivered travelers per Vehicle kilometers {}'.format(sum(delivered_travelers) / (sum(vehicle_kilometers) / 1000)))
+        print('delivered travelers per Vehicle kilometers {}'
+              .format(sum(delivered_travelers) / (sum(vehicle_kilometers) / 1000)))
     except ZeroDivisionError:
         pass
 

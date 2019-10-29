@@ -79,7 +79,7 @@ class Population(Component):
                     )
 
                 # take some % of the tours
-                if self.env.rand.randint(0, 1000) < 1:
+                if self.env.rand.randint(0, 1000) < 10:
                     self.person_list.append(Person(self, attributes, activities))
 
     def _random_persons(self):
@@ -117,7 +117,7 @@ class Person(Component):
     next_activity = ...  # type: Activity
     base_name = 'person'
 
-    def __init__(self, parent, attributes, activities: Dict, trip: Trip = None):
+    def __init__(self, parent, attributes, activities: List, trip: Trip = None):
         """Person that requests for trips
 
         Parameters:
