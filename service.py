@@ -30,8 +30,8 @@ log = logging.getLogger(__name__)
 
 class ServiceProvider(Component):
 
-    pending_drt_requests = ...  # type: Dict[int, JspritSolution]
-    vehicles = ...  # type: List[Vehicle]
+    pending_drt_requests = None  # type: Dict[int, JspritSolution]
+    vehicles = None  # type: List[Vehicle]
     base_name = 'service'
 
     def __init__(self, *args, **kwargs):

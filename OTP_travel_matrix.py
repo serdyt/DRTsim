@@ -15,12 +15,13 @@ use it on server with OTP_script_test.py
 
 import csv
 import sys
-import logging
-import java.lang.Exception
-import org.opentripplanner.routing.error.TrivialPathException
-import org.opentripplanner.routing.core.RoutingRequest
-import org.opentripplanner.routing.impl.GraphPathFinder
-import org.slf4j.LoggerFactory
+# import logging
+# import java.lang.Exception
+# import org.opentripplanner.routing.error.TrivialPathException
+# import org.opentripplanner.routing.core.RoutingRequest
+# import org.opentripplanner.routing.impl.GraphPathFinder
+# import org.slf4j.LoggerFactory
+
 
 # log = logging.getLogger(__name__)
 # handler = logging.handlers.WatchedFileHandler('/home/ai6644/Malmo/tools/DRTsim/output/log')
@@ -40,9 +41,10 @@ req.setMaxTimeSec(10000)
 req.setModes('CAR')
 # req.setWalkSpeedMs(2)
 
+# HOME = java.lang.System.getProperty("user.home")
 # The file points.csv contains the columns GEOID, X and Y.
-file_name = '/home/ai6644/Malmo/Tools/DRTsim/data/points.csv'
-log_file = '/home/ai6644/Malmo/Tools/DRTsim/output/log'
+file_name = '../../DRTsim/data/points.csv'
+log_file = '../../DRTsim/output/log'
 LOG = None
 points = []
 matrixCsv = otp.createCSVOutput()
@@ -110,6 +112,6 @@ with open(file_name, 'r') as file:
         #     continue
 
 # Save the result
-matrixCsv.save('/home/ai6644/Malmo/Tools/DRTsim/data/time_distance_matrix_otp.csv')
+matrixCsv.save('../../DRTsim/data/time_distance_matrix_otp.csv')
 if LOG is not None:
     LOG.close()

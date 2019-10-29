@@ -120,8 +120,9 @@ def send_email(subject, text, files):
 config = {
     'sim.duration': '86400 s',
     'sim.duration_sec': 86400,
-    'sim.seed': 42,
+    'sim.seed': 43,
     'sim.log': 'output/log',
+    'sim.email_notification': False,
 
     'person.behaviour': 'DefaultBehaviour',
     'person.mode_choice': 'DefaultModeChoice',
@@ -130,12 +131,12 @@ config = {
     'service.router_scripting_address': 'http://localhost:8080/otp/scripting/run',
     'service.modes': 'main_modes',  # ['main_modes','all_modes']
     'date': '11-14-2018',
-    'jsprit.tdm_file': '/home/ai6644/Malmo/Tools/DRTsim/data/time_distance_matrix.csv',
-    'jsprit.vrp_file': '/home/ai6644/Malmo/Tools/DRTsim/data/vrp.xml',
-    'jsprit.vrp_solution': '/home/ai6644/Malmo/Tools/DRTsim/data/problem-with-solution.xml',
-    'db.file': '/home/ai6644/Malmo/Tools/DRTsim/data/time_distance_matrix.db',
-    'otp.input_file': '/home/ai6644/Malmo/Tools/DRTsim/data/points.csv',
-    'otp.tdm_file': '/home/ai6644/Malmo/Tools/DRTsim/data/time_distance_matrix_otp.csv',
+    'jsprit.tdm_file': 'data/time_distance_matrix.csv',
+    'jsprit.vrp_file': 'data/vrp.xml',
+    'jsprit.vrp_solution': 'data/problem-with-solution.xml',
+    'db.file': 'data/time_distance_matrix.db',
+    'otp.input_file': 'data/points.csv',
+    'otp.tdm_file': 'data/time_distance_matrix_otp.csv',
 
     'person.default_attr.walking_speed': 1.2,
     'person.default_attr.dimensions': {CD.SEATS: 1},
@@ -198,10 +199,14 @@ if __name__ == '__main__':
     try:
         res = simulate(config, Top)
     except Exception as e:
-        send_email(subject='Simulation failed', text=str(e.args), files=[config.get('sim.log')])
-        sys.exit(1)
+        if config.get('sim.email_notification'):
+            send_email(subject='Simulation failed', text=str(e.args), files=[config.get('sim.log')])
+        log.error(e.args)
+        print(e)
+        raise
     else:
-        send_email(subject='Simulation success', text='congratulations', files=[config.get('sim.log')])
+        if config.get('sim.email_notification'):
+            send_email(subject='Simulation success', text='congratulations', files=[config.get('sim.log')])
 
     print('elapsed at_time ', time.time() - start)
 
