@@ -33,7 +33,7 @@ class ServiceProvider(Component):
     pending_drt_requests = ...  # type: Dict[int, JspritSolution]
     vehicles = ...  # type: List[Vehicle]
     base_name = 'service'
-    
+
     def __init__(self, *args, **kwargs):
         super(ServiceProvider, self).__init__(*args, **kwargs)
         self.vehicles = []
@@ -106,7 +106,12 @@ class ServiceProvider(Component):
             raise OTPUnreachable('No traditional alternatives received')
         person.set_direct_trip(traditional_alternatives)
 
-        drt_alternatives = self._drt_request2(person)
+        try:
+            drt_alternatives = self._drt_request2(person)
+        except OTPNoPath as e:
+            log.warning('{}\n{}'.format(e.msg,  e.context))
+            log.warning('Person {} will not consider DRT'.format(person))
+            drt_alternatives = []
 
         log.debug('DRT request took {}'.format(time.time() - start))
         alternatives = traditional_alternatives + drt_alternatives
@@ -174,6 +179,9 @@ class ServiceProvider(Component):
             log.info('Person {} has trip length of {}. Ignoring DRT'.format(person.id, person.direct_trip.distance))
             return []
 
+        # **************************************************
+        # **********        Local trip         *************
+        # **************************************************
         if self.is_local_trip(person):
             drt_trip = Trip()  # type: Trip
             drt_trip.set_empty_trip(OtpMode.DRT, person.curr_activity.coord, person.next_activity.coord)
@@ -195,29 +203,41 @@ class ServiceProvider(Component):
             drt_trip.legs[0] = person.drt_leg
             drt_trip.duration = drt_trip.legs[0].duration
             return [drt_trip]
-        else:
-            # When we have an incoming our outgoing trip, we should calculate a PT trip with a high walking speed
-            # to replace a WALK leg with a DRT leg
-            try:
-                pt_alternatives = self.router.otp_request(person, OtpMode.TRANSIT,
-                                                          {'walkSpeed': self.env.config.get('drt.walkCarSpeed'),
-                                                           'fromPlace': person.curr_activity.coord,
-                                                           'toPlace': person.next_activity.coord,
-                                                           'maxWalkDistance': self.env.config.get('drt.max_fake_walk')})
-            except OTPNoPath as e:
-                log.warning('{}\n{}'.format(e.msg,  e.context))
-                log.warning('Person {} will not consider DRT'.format(person))
-                return []
-        # TODO: let's test it with the first traditional trip.
-        drt_trip = pt_alternatives[0]
-        drt_trip.main_mode = OtpMode.DRT_TRANSIT
+
+        # **************************************************
+        # **********       DRT_TRANSIT         *************
+        # **************************************************
+        pt_alternatives = self.router.otp_request(person, OtpMode.TRANSIT,
+                                                  {'walkSpeed': self.env.config.get('drt.walkCarSpeed'),
+                                                   'fromPlace': person.curr_activity.coord,
+                                                   'toPlace': person.next_activity.coord,
+
+                                                   'arriveBy': True,
+                                                   'maxWalkDistance': self.env.config.get('drt.max_fake_walk')})
+        # TODO: currently checking a first trip that fits person's time window
+        # check all feasible trips
+        drt_trip = None
+        for alt in pt_alternatives:
+            if alt.legs[0].start_time > self.env.now and alt.legs[0].start_time < person.next_activity.start_time \
+                    and alt.legs[-1].end_time > self.env.now and alt.legs[-1].end_time < person.next_activity.start_time:
+                drt_trip = alt
+                drt_trip.main_mode = OtpMode.DRT_TRANSIT
+                break
+        if drt_trip is None:
+            return []
+
         # if a PT trip has only one leg or if the last leg is PT - we do not need DRT
         if len(drt_trip.legs) < 2:
             return []
 
+        # **************************************************
+        # **********       Incoming trip       *************
+        # **************************************************
+
+        # When we have an incoming our outgoing trip, we should calculate a PT trip with a high walking speed
+        # to replace a WALK leg with a DRT leg
         if self.is_in_trip(person):
             # TODO: we can "consume" PT legs by DRT as long as they are inside service zone
-
             # we can also make DRT alternatives for all of the trip alternatives
 
             # TODO: take the last possible stop as an alternative
@@ -293,6 +313,9 @@ class ServiceProvider(Component):
 
         self.router.drt_request(person, vehicle_coords_times, vehicle_return_coords,
                                 shipment_persons, service_persons)
+
+    def standalone_request(self, person, mode, otp_attributes):
+        return self.router.otp_request(person, mode, otp_attributes)
 
     def _get_current_vehicle_positions(self):
         coords_times = []

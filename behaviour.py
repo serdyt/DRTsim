@@ -14,6 +14,8 @@ from statemachine import StateMachine, State
 from exceptions import *
 import population
 
+from utils import OtpMode
+
 log = logging.getLogger(__name__)
 
 
@@ -36,6 +38,8 @@ class DefaultBehaviour(StateMachine):
 
     unchoosable = choosing.to(final)
     unplannable = planing.to(final)
+    unactivatable = initial.to(final)
+    unreactivatable = trip.to(final)
     trip_exception = trip.to(final)
     activity_exception = activity.to(final)
     
@@ -45,10 +49,22 @@ class DefaultBehaviour(StateMachine):
         self.env = self.person.env
 
     def on_activate(self):
-        timeout = self.person.get_planning_time()
-        # log.info('{} activating at {}'.format(self.person.scope, self.person.env.now))
-        yield self.person.env.timeout(timeout)
-        self.env.process(self.plan())
+        otp_attributes = {'walkSpeed': self.env.config.get('drt.walkCarSpeed'),
+                          'fromPlace': self.person.curr_activity.coord,
+                          'toPlace': self.person.next_activity.coord,
+                          'maxWalkDistance': self.env.config.get('drt.max_fake_walk')}
+        try:
+            direct_trip = self.person.serviceProvider.standalone_request(self.person, OtpMode.CAR, otp_attributes)
+            self.person.set_direct_trip(direct_trip)
+            timeout = self.person.get_planning_time()
+            # log.info('{} activating at {}'.format(self.person.scope, self.person.env.nodisplay
+
+            yield self.person.env.timeout(timeout)
+            self.env.process(self.plan())
+        except OTPNoPath as e:
+            log.warning('{}\n{}'.format(e.msg,  e.context))
+            log.warning('Person {} will be excluded from the simulation'.format(self.person))
+            self.env.process(self.unactivatable())
         
     def on_plan(self):
         yield Event(self.env).succeed()
@@ -100,11 +116,27 @@ class DefaultBehaviour(StateMachine):
 
     def on_reactivate(self):
         yield Event(self.env).succeed()
-        timeout = self.person.get_planning_time()
-        # log.info('{} activating at {}'.format(self.person.scope, self.person.env.now))
-        yield self.person.env.timeout(timeout)
-        self.env.process(self.plan())
-        # self.finalize()
+        otp_attributes = {'walkSpeed': self.env.config.get('drt.walkCarSpeed'),
+                          'fromPlace': self.person.curr_activity.coord,
+                          'toPlace': self.person.next_activity.coord,
+                          'maxWalkDistance': self.env.config.get('drt.max_fake_walk')}
+        try:
+            direct_trip = self.person.serviceProvider.standalone_request(self.person, OtpMode.CAR, otp_attributes)
+            self.person.set_direct_trip(direct_trip)
+            timeout = self.person.get_planning_time()
+            # log.info('{} activating at {}'.format(self.person.scope, self.person.env.now))
+            yield self.person.env.timeout(timeout)
+            self.env.process(self.plan())
+        except OTPNoPath as e:
+            log.warning('{}\n{}'.format(e.msg,  e.context))
+            log.warning('Person {} will be excluded from the simulation'.format(self.person))
+            self.env.process(self.unreactivatable())
+
+        # timeout = self.person.get_planning_time()
+        # # log.info('{} activating at {}'.format(self.person.scope, self.person.env.now))
+        # yield self.person.env.timeout(timeout)
+        # self.env.process(self.plan())
+        # # self.finalize()
         
     def on_finalize(self):
         yield Event(self.env).succeed()

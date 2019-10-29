@@ -47,7 +47,7 @@ class Population(Component):
             for json_pers in persons:
                 # if i > 100:
                 #     break
-                attributes = {'age': 22, 'id': pers_id, 'otp_parameters': {'arriveBy': False}}
+                attributes = {'age': 22, 'id': pers_id, 'otp_parameters': {'arriveBy': True}}
                 pers_id = pers_id + 1
 
                 # TODO: sequence of activities has the same end and start times
@@ -78,14 +78,8 @@ class Population(Component):
                                  )
                     )
 
-                # take only trips within target zones
-                # if activities[0].zone not in self.env.config.get('drt.zones') or \
-                #    activities[1].zone not in self.env.config.get('drt.zones'):
-                #     continue
-
-                # local_person_list.append(Person(self, attributes, activities))
-                # take 1% of the tours
-                if self.env.rand.randint(0, 1000) < 10:
+                # take some % of the tours
+                if self.env.rand.randint(0, 1000) < 1:
                     self.person_list.append(Person(self, attributes, activities))
 
     def _random_persons(self):
@@ -156,7 +150,7 @@ class Person(Component):
         self.next_activity = self.activities.pop(0)
         self.planned_trip = trip
         self.direct_trip = None
-        self.time_window = 0
+        # self.time_window = 0
         self.alternatives = []
         self.behaviour = getattr(behaviour, self.env.config.get('person.behaviour'))(self)
         self.mode_choice = getattr(mode_choice, self.env.config.get('person.mode_choice'))(self)
@@ -209,8 +203,14 @@ class Person(Component):
         """Calculates a time to wait until the moment a person starts planning a trip
         returns: int in seconds when planning should happen
         """
-        timeout = int((self.curr_activity.end_time - self.env.now -
+        timeout = int((self.direct_trip.legs[0].start_time - self.env.now -
                        self.env.config.get('drt.planning_in_advance')))
+
+        # request time relative to direct time
+        # timeout = self.direct_trip.legs[0].start_time - self.env.config.get('trip.planning_in_advance_constant') \
+        #     - self.direct_trip.duration * self.env.config.get('trip.planning_in_advance_direct_time_coefficient')
+        #     - self.env.now
+
         if timeout < 0:
             log.debug('{} cannot plan {} seconds in advance due to the beginning of the day'
                       .format(self, self.env.config.get('drt.planning_in_advance')))

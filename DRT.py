@@ -95,7 +95,7 @@ config = {
     'service.routing': 'DefaultRouting',
     'service.router_address': 'http://localhost:8080/otp/routers/skane/plan',
     'service.router_scripting_address': 'http://localhost:8080/otp/scripting/run',
-    'service.modes': 'main_modes', # 'all_modes'
+    'service.modes': 'main_modes',  # ['main_modes','all_modes']
     'date': '11-14-2018',
     'jsprit.tdm_file': '/home/ai6644/Malmo/Tools/DRTsim/data/time_distance_matrix.csv',
     'jsprit.vrp_file': '/home/ai6644/Malmo/Tools/DRTsim/data/vrp.xml',
@@ -118,7 +118,7 @@ config = {
     'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],
     'drt.default_tw_left': td(minutes=30).total_seconds(),
     'drt.default_tw_right': td(minutes=60).total_seconds(),
-    'drt.planning_in_advance': td(minutes=60).total_seconds(),
+    'drt.planning_in_advance': td(minutes=120).total_seconds(),
     'drt.time_window_constant': td(minutes=10).total_seconds(),
     'drt.time_window_multiplier': 1.5,
     'drt.time_window_shift_left': 1./4,
@@ -126,6 +126,9 @@ config = {
     'drt.min_distance': 2000,
     'drt.walkCarSpeed': 16.6667,
     'drt.max_fake_walk': 1000000,
+
+    'trip.planning_in_advance_direct_time_coefficient': 2,
+    'trip.planning_in_advance_constant': td(minutes=30).total_seconds(),
     }
 
 

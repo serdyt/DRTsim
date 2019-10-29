@@ -212,9 +212,7 @@ class Vehicle(Component):
                 log.error('{} drt_executed event has not been created'.format(person))
             person.drt_executed.succeed()
 
-            if person.get_tw_right() > self.env.now:
-                log.error('Person {} has boarded after requested time window: {} - {}'
-                          .format(person.id, person.get_tw_left(), person.get_tw_right()))
+            self._is_person_served_within_tw(person)
 
         n = len(persons)
         self.delivered_travelers += n
@@ -228,9 +226,16 @@ class Vehicle(Component):
                 self.capacity_dimensions[dimension[0]] -= dimension[1]
                 if self.capacity_dimensions[dimension[0]] < 0:
                     raise Exception('Person has boarded to a vehicle while it has not enough space')
-                if person.get_tw_left() < self.env.now:
-                    log.error('Person {} has boarded before requested time window: {} - {}'
-                              .format(person.id, person.get_tw_left(), person.get_tw_right()))
+
+            self._is_person_served_within_tw(person)
+
+    def _is_person_served_within_tw(self, person):
+        if self.env.now > person.get_tw_left() or self.env.now < person.get_tw_right():
+            return True
+        else:
+            log.error('Person {} has been served  at {} outside the requested time window: {} - {}'
+                      .format(person.id, self.env.now, person.get_tw_left(), person.get_tw_right()))
+            return False
 
     def update_partially_executed_trips(self):
         """When a vehicle is rerouted in the middle of a route, save the executed steps of trips"""
