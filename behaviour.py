@@ -22,13 +22,14 @@ log = logging.getLogger(__name__)
 class DefaultBehaviour(StateMachine):
 
     person = ...  #: population.Person
+
     initial = State('initial', initial=True)
     activity = State('activity')
     planing = State('planing')
     choosing = State('choosing')
     trip = State('trip')
     final = State('final')
-    
+
     activate = initial.to(activity)
     plan = activity.to(planing)
     choose = planing.to(choosing)
@@ -38,11 +39,11 @@ class DefaultBehaviour(StateMachine):
 
     unchoosable = choosing.to(final)
     unplannable = planing.to(final)
-    unactivatable = initial.to(final)
-    unreactivatable = trip.to(final)
+    unactivatable = activity.to(final)
+    unreactivatable = activity.to(final)
     trip_exception = trip.to(final)
     activity_exception = activity.to(final)
-    
+
     def __init__(self, person):
         StateMachine.__init__(self)
         self.person = person
@@ -57,15 +58,15 @@ class DefaultBehaviour(StateMachine):
             direct_trip = self.person.serviceProvider.standalone_request(self.person, OtpMode.CAR, otp_attributes)
             self.person.set_direct_trip(direct_trip)
             timeout = self.person.get_planning_time()
-            # log.info('{} activating at {}'.format(self.person.scope, self.person.env.nodisplay
 
             yield self.person.env.timeout(timeout)
             self.env.process(self.plan())
         except OTPNoPath as e:
             log.warning('{}\n{}'.format(e.msg,  e.context))
             log.warning('Person {} will be excluded from the simulation'.format(self.person))
+            yield Event(self.env).succeed()
             self.env.process(self.unactivatable())
-        
+
     def on_plan(self):
         yield Event(self.env).succeed()
         while self.env.peek() == self.env.now:
@@ -137,7 +138,7 @@ class DefaultBehaviour(StateMachine):
         # yield self.person.env.timeout(timeout)
         # self.env.process(self.plan())
         # # self.finalize()
-        
+
     def on_finalize(self):
         yield Event(self.env).succeed()
         # self.person.log.close()
@@ -150,6 +151,16 @@ class DefaultBehaviour(StateMachine):
     def on_unchoosable(self):
         yield Event(self.env).succeed()
         log.warning('{} going from {} to {} received none alternatives. Ignoring the person.'
+                    .format(self.person, self.person.curr_activity.coord, self.person.next_activity.coord))
+
+    def on_unactivatable(self):
+        yield Event(self.env).succeed()
+        log.warning('{} going from {} to {} cannot reach the destination. Ignoring the person.'
+                    .format(self.person, self.person.curr_activity.coord, self.person.next_activity.coord))
+
+    def on_unreactivatable(self):
+        yield Event(self.env).succeed()
+        log.warning('{} going from {} to {} cannot reach the destination. Ignoring the person.'
                     .format(self.person, self.person.curr_activity.coord, self.person.next_activity.coord))
 
     def on_trip_exception(self):
