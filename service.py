@@ -536,10 +536,12 @@ class ServiceProvider(Component):
             if vehicle.route_not_empty():
                 if vehicle.get_act(0).type in [DrtAct.DROP_OFF, DrtAct.DELIVERY]:
                     persons += [person for person in vehicle.passengers if person != vehicle.get_act(0).person]
-                elif vehicle.get_act(0).type == DrtAct.PICK_UP:
-                    persons += [vehicle.get_act(0).person]
                 else:
                     persons += vehicle.passengers
+
+                if vehicle.get_act(0).type == DrtAct.PICK_UP:
+                    persons += [vehicle.get_act(0).person]
+
         return persons
 
     def log_unassigned_trip(self, person):

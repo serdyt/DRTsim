@@ -15,22 +15,8 @@ use it on server with OTP_script_test.py
 
 import csv
 import sys
-# import logging
-# import java.lang.Exception
-# import org.opentripplanner.routing.error.TrivialPathException
-# import org.opentripplanner.routing.core.RoutingRequest
-# import org.opentripplanner.routing.impl.GraphPathFinder
-# import org.slf4j.LoggerFactory
-
-
-# log = logging.getLogger(__name__)
-# handler = logging.handlers.WatchedFileHandler('/home/ai6644/Malmo/tools/DRTsim/output/log')
-# formatter = logging.Formatter(logging.BASIC_FORMAT)
-# handler.setFormatter(formatter)
-# log.setLevel(logging.DEBUG)
-# log.addHandler(handler)
-
-# log = org.slf4j.LoggerFactory.getLogger(org.opentripplanner.scripting.api.OtpsRouter)
+import org.opentripplanner.routing.error.TrivialPathException as TrivialPathException
+import org.opentripplanner.routing.error.PathNotFoundException as PathNotFoundException
 
 router = otp.getRouter('skane')
 
@@ -58,25 +44,14 @@ with open(file_name, 'r') as file:
         req.setDestination(float(row[4]), float(row[5]))
         try:
             path = router.plan2(req)
-            # this guy is protected
-            # req2 = req.req.clone()
-            # req2.batch = False
-            # req2.setRoutingContext(router.graph)
-            # gpFinder = GraphPathFinder(router)
-            # newPaths = gpFinder.getPaths(req2)
-            # if newPaths.isEmpty():
-            #     path = None
-            # else:
-            #     path = newPaths.get(0)
 
             dist = 0
             for state, forward_state in zip(path.states[:-1], path.states[1:]):
                 if forward_state.getBackEdge() is not None:
-                    #              print(state.getBackEdge().getDistance())
                     dist += forward_state.getBackEdge().getDistance()
             # print(dist)
             matrixCsv.addRow([row[0], row[3], path.getDuration(), dist])
-        except org.opentripplanner.routing.error.TrivialPathException as e:
+        except TrivialPathException as e:
             # print('Trivial path found from {},{} to {},{}. Setting zero length and duration'.format(row[1], row[2], row[4], row[5]))
             matrixCsv.addRow([row[0], row[3], 0, 0])
             if LOG is None:
@@ -86,7 +61,7 @@ with open(file_name, 'r') as file:
             # LOG.println('WARNING: Trivial path found from {},{} to {},{}. Setting 0 length and duration'.format(row[1], row[2], row[4], row[5]))
             # log.warn('Trivial path found from {},{} to {},{}. Setting 0 length and duration'.format(row[1], row[2], row[4], row[5]))
             continue
-        except org.opentripplanner.routing.error.PathNotFoundException as e:
+        except PathNotFoundException as e:
             # print('No path found from {},{} to {},{}. Setting infinite length and duration'.format(row[1], row[2], row[4], row[5]))
             if LOG is None:
                 LOG = open(log_file, 'a')
@@ -99,17 +74,6 @@ with open(file_name, 'r') as file:
             print(e)
             print(e.args)
             raise
-
-        # if path is None:
-        #     print('Trivial path found from {},{} to {},{}. Setting zero length and duration'.format(row[1], row[2], row[4], row[5]))
-        #     matrixCsv.addRow([row[0], row[3], 0, 0])
-        #     # log.warning('Trivial path found from {},{} to {},{}. Setting 0 length and duration'.format(row[1], row[2], row[4], row[5]))
-        #     continue
-
-        # if path is None:
-        #     print(row[0], row[3], 'Cannot be routed')
-        #     matrixCsv.addRow([row[0], row[3], sys.float_info.max, sys.float_info.max])
-        #     continue
 
 # Save the result
 matrixCsv.save('../../DRTsim/data/time_distance_matrix_otp.csv')
