@@ -7,95 +7,95 @@
      <vehicles>
           <vehicle>
                <id>0</id>
-               <typeId>1</typeId>
+               <typeId>0</typeId>
                <startLocation>
-                    <id>12</id>
-                    <coord x="14.270382233639857" y="55.428073424693835"/>
-                    <index>12</index>
+                    <id>0</id>
+                    <coord x="13.701037" y="55.630995"/>
+                    <index>0</index>
                </startLocation>
                <endLocation>
-                    <id>12</id>
-                    <coord x="14.270382233639857" y="55.428073424693835"/>
-                    <index>12</index>
+                    <id>0</id>
+                    <coord x="13.701037" y="55.630995"/>
+                    <index>0</index>
                </endLocation>
                <timeSchedule>
-                    <start>58109.0</start>
+                    <start>78314.375</start>
                     <end>1.7976931348623157E308</end>
                </timeSchedule>
                <returnToDepot>true</returnToDepot>
           </vehicle>
           <vehicle>
                <id>1</id>
-               <typeId>1</typeId>
+               <typeId>0</typeId>
                <startLocation>
-                    <id>13</id>
-                    <coord x="13.69117394267775" y="55.73421233692404"/>
-                    <index>13</index>
+                    <id>0</id>
+                    <coord x="13.701037" y="55.630995"/>
+                    <index>0</index>
                </startLocation>
                <endLocation>
-                    <id>13</id>
-                    <coord x="13.69117394267775" y="55.73421233692404"/>
-                    <index>13</index>
+                    <id>0</id>
+                    <coord x="13.701037" y="55.630995"/>
+                    <index>0</index>
                </endLocation>
                <timeSchedule>
-                    <start>58109.0</start>
+                    <start>78314.375</start>
                     <end>1.7976931348623157E308</end>
                </timeSchedule>
                <returnToDepot>true</returnToDepot>
           </vehicle>
           <vehicle>
                <id>2</id>
-               <typeId>1</typeId>
+               <typeId>0</typeId>
                <startLocation>
-                    <id>14</id>
-                    <coord x="13.881277868239781" y="55.603694672010654"/>
-                    <index>14</index>
+                    <id>0</id>
+                    <coord x="13.701037" y="55.630995"/>
+                    <index>0</index>
                </startLocation>
                <endLocation>
-                    <id>14</id>
-                    <coord x="13.881277868239781" y="55.603694672010654"/>
-                    <index>14</index>
+                    <id>0</id>
+                    <coord x="13.701037" y="55.630995"/>
+                    <index>0</index>
                </endLocation>
                <timeSchedule>
-                    <start>58109.0</start>
+                    <start>78314.375</start>
                     <end>1.7976931348623157E308</end>
                </timeSchedule>
                <returnToDepot>true</returnToDepot>
           </vehicle>
           <vehicle>
                <id>3</id>
-               <typeId>1</typeId>
+               <typeId>0</typeId>
                <startLocation>
-                    <id>15</id>
-                    <coord x="14.212975805506794" y="55.679648306002626"/>
-                    <index>15</index>
+                    <id>0</id>
+                    <coord x="13.701037" y="55.630995"/>
+                    <index>0</index>
                </startLocation>
                <endLocation>
-                    <id>15</id>
-                    <coord x="14.212975805506794" y="55.679648306002626"/>
-                    <index>15</index>
+                    <id>0</id>
+                    <coord x="13.701037" y="55.630995"/>
+                    <index>0</index>
                </endLocation>
                <timeSchedule>
-                    <start>58109.0</start>
+                    <start>78314.375</start>
                     <end>1.7976931348623157E308</end>
                </timeSchedule>
                <returnToDepot>true</returnToDepot>
           </vehicle>
           <vehicle>
                <id>4</id>
-               <typeId>1</typeId>
+               <typeId>0</typeId>
                <startLocation>
-                    <id>16</id>
-                    <coord x="13.469487879068453" y="55.40837236441112"/>
-                    <index>16</index>
+                    <id>0</id>
+                    <coord x="13.701037" y="55.630995"/>
+                    <index>0</index>
                </startLocation>
                <endLocation>
-                    <id>16</id>
-                    <coord x="13.469487879068453" y="55.40837236441112"/>
-                    <index>16</index>
+                    <id>0</id>
+                    <coord x="13.701037" y="55.630995"/>
+                    <index>0</index>
                </endLocation>
                <timeSchedule>
-                    <start>58109.0</start>
+                    <start>78314.375</start>
                     <end>1.7976931348623157E308</end>
                </timeSchedule>
                <returnToDepot>true</returnToDepot>
@@ -104,17 +104,17 @@
                <id>5</id>
                <typeId>1</typeId>
                <startLocation>
-                    <id>17</id>
-                    <coord x="13.864925311326882" y="55.76922778889559"/>
-                    <index>17</index>
+                    <id>1</id>
+                    <coord x="13.703637800000001" y="55.6437219"/>
+                    <index>1</index>
                </startLocation>
                <endLocation>
-                    <id>17</id>
-                    <coord x="13.864925311326882" y="55.76922778889559"/>
-                    <index>17</index>
+                    <id>11</id>
+                    <coord x="13.949113" y="55.546315"/>
+                    <index>11</index>
                </endLocation>
                <timeSchedule>
-                    <start>58109.0</start>
+                    <start>78356.0</start>
                     <end>1.7976931348623157E308</end>
                </timeSchedule>
                <returnToDepot>true</returnToDepot>
@@ -123,17 +123,17 @@
                <id>6</id>
                <typeId>1</typeId>
                <startLocation>
-                    <id>18</id>
-                    <coord x="13.443829277906183" y="55.733485409306724"/>
-                    <index>18</index>
+                    <id>2</id>
+                    <coord x="13.694162" y="55.632336"/>
+                    <index>2</index>
                </startLocation>
                <endLocation>
-                    <id>18</id>
-                    <coord x="13.443829277906183" y="55.733485409306724"/>
-                    <index>18</index>
+                    <id>11</id>
+                    <coord x="13.949113" y="55.546315"/>
+                    <index>11</index>
                </endLocation>
                <timeSchedule>
-                    <start>58109.0</start>
+                    <start>78314.375</start>
                     <end>1.7976931348623157E308</end>
                </timeSchedule>
                <returnToDepot>true</returnToDepot>
@@ -142,17 +142,17 @@
                <id>7</id>
                <typeId>1</typeId>
                <startLocation>
-                    <id>19</id>
-                    <coord x="14.147284628222494" y="55.57935187731632"/>
-                    <index>19</index>
+                    <id>11</id>
+                    <coord x="13.949113" y="55.546315"/>
+                    <index>11</index>
                </startLocation>
                <endLocation>
-                    <id>19</id>
-                    <coord x="14.147284628222494" y="55.57935187731632"/>
-                    <index>19</index>
+                    <id>11</id>
+                    <coord x="13.949113" y="55.546315"/>
+                    <index>11</index>
                </endLocation>
                <timeSchedule>
-                    <start>58109.0</start>
+                    <start>78314.375</start>
                     <end>1.7976931348623157E308</end>
                </timeSchedule>
                <returnToDepot>true</returnToDepot>
@@ -161,17 +161,17 @@
                <id>8</id>
                <typeId>1</typeId>
                <startLocation>
-                    <id>20</id>
-                    <coord x="14.36604623340567" y="55.473987656803736"/>
-                    <index>20</index>
+                    <id>11</id>
+                    <coord x="13.949113" y="55.546315"/>
+                    <index>11</index>
                </startLocation>
                <endLocation>
-                    <id>20</id>
-                    <coord x="14.36604623340567" y="55.473987656803736"/>
-                    <index>20</index>
+                    <id>11</id>
+                    <coord x="13.949113" y="55.546315"/>
+                    <index>11</index>
                </endLocation>
                <timeSchedule>
-                    <start>58109.0</start>
+                    <start>78314.375</start>
                     <end>1.7976931348623157E308</end>
                </timeSchedule>
                <returnToDepot>true</returnToDepot>
@@ -180,17 +180,17 @@
                <id>9</id>
                <typeId>1</typeId>
                <startLocation>
-                    <id>21</id>
-                    <coord x="13.471680579510378" y="55.80116530110765"/>
-                    <index>21</index>
+                    <id>11</id>
+                    <coord x="13.949113" y="55.546315"/>
+                    <index>11</index>
                </startLocation>
                <endLocation>
-                    <id>21</id>
-                    <coord x="13.471680579510378" y="55.80116530110765"/>
-                    <index>21</index>
+                    <id>11</id>
+                    <coord x="13.949113" y="55.546315"/>
+                    <index>11</index>
                </endLocation>
                <timeSchedule>
-                    <start>58109.0</start>
+                    <start>78314.375</start>
                     <end>1.7976931348623157E308</end>
                </timeSchedule>
                <returnToDepot>true</returnToDepot>
@@ -198,47 +198,179 @@
      </vehicles>
      <vehicleTypes>
           <type>
+               <id>0</id>
+               <capacity-dimensions>
+                    <dimension index="0">8</dimension>
+                    <dimension index="1">1</dimension>
+               </capacity-dimensions>
+               <costs>
+                    <fixed>500000.0</fixed>
+                    <distance>1.0</distance>
+                    <time>0.5</time>
+                    <service>0.0</service>
+                    <wait>3000.0</wait>
+               </costs>
+          </type>
+          <type>
                <id>1</id>
                <capacity-dimensions>
                     <dimension index="0">8</dimension>
                     <dimension index="1">1</dimension>
                </capacity-dimensions>
                <costs>
-                    <fixed>500.0</fixed>
+                    <fixed>500000.0</fixed>
                     <distance>1.0</distance>
                     <time>0.5</time>
                     <service>0.0</service>
-                    <wait>0.5</wait>
+                    <wait>3000.0</wait>
                </costs>
           </type>
      </vehicleTypes>
+     <services>
+          <service id="30" type="delivery">
+               <location>
+                    <id>6</id>
+                    <coord x="13.7933702145279" y="55.69722557860101"/>
+                    <index>6</index>
+               </location>
+               <capacity-dimensions>
+                    <dimension index="0">1</dimension>
+               </capacity-dimensions>
+               <duration>10.0</duration>
+               <timeWindows>
+                    <timeWindow>
+                         <start>81844.0</start>
+                         <end>83753.5</end>
+                    </timeWindow>
+               </timeWindows>
+          </service>
+     </services>
      <shipments>
-          <shipment id="1">
+          <shipment id="56">
                <pickup>
                     <location>
-                         <id>10</id>
-                         <coord x="13.15159638789987" y="55.66743148783039"/>
-                         <index>10</index>
+                         <id>5</id>
+                         <coord x="13.96620931012756" y="55.54323211914571"/>
+                         <index>5</index>
                     </location>
                     <duration>30.0</duration>
                     <timeWindows>
                          <timeWindow>
-                              <start>58109.0</start>
-                              <end>58109.0</end>
+                              <start>85917.5</start>
+                              <end>86400.0</end>
                          </timeWindow>
                     </timeWindows>
                </pickup>
                <delivery>
                     <location>
-                         <id>11</id>
-                         <coord x="13.72974807042487" y="55.64685627715711"/>
-                         <index>11</index>
+                         <id>10</id>
+                         <coord x="14.06063126608619" y="55.56946833635104"/>
+                         <index>10</index>
                     </location>
                     <duration>10.0</duration>
                     <timeWindows>
                          <timeWindow>
-                              <start>58109.0</start>
-                              <end>58109.0</end>
+                              <start>85917.5</start>
+                              <end>86400.0</end>
+                         </timeWindow>
+                    </timeWindows>
+               </delivery>
+               <capacity-dimensions>
+                    <dimension index="0">1</dimension>
+               </capacity-dimensions>
+          </shipment>
+          <shipment id="18">
+               <pickup>
+                    <location>
+                         <id>3</id>
+                         <coord x="13.70398565019732" y="55.64177015558555"/>
+                         <index>3</index>
+                    </location>
+                    <duration>30.0</duration>
+                    <timeWindows>
+                         <timeWindow>
+                              <start>80060.25</start>
+                              <end>83471.25</end>
+                         </timeWindow>
+                    </timeWindows>
+               </pickup>
+               <delivery>
+                    <location>
+                         <id>7</id>
+                         <coord x="13.59505069603699" y="55.58258807548777"/>
+                         <index>7</index>
+                    </location>
+                    <duration>10.0</duration>
+                    <timeWindows>
+                         <timeWindow>
+                              <start>80060.25</start>
+                              <end>83471.25</end>
+                         </timeWindow>
+                    </timeWindows>
+               </delivery>
+               <capacity-dimensions>
+                    <dimension index="0">1</dimension>
+               </capacity-dimensions>
+          </shipment>
+          <shipment id="29">
+               <pickup>
+                    <location>
+                         <id>4</id>
+                         <coord x="13.693445" y="55.632378"/>
+                         <index>4</index>
+                    </location>
+                    <duration>30.0</duration>
+                    <timeWindows>
+                         <timeWindow>
+                              <start>84873.0</start>
+                              <end>86400.0</end>
+                         </timeWindow>
+                    </timeWindows>
+               </pickup>
+               <delivery>
+                    <location>
+                         <id>9</id>
+                         <coord x="13.78495390405036" y="55.70077311565976"/>
+                         <index>9</index>
+                    </location>
+                    <duration>10.0</duration>
+                    <timeWindows>
+                         <timeWindow>
+                              <start>84873.0</start>
+                              <end>86400.0</end>
+                         </timeWindow>
+                    </timeWindows>
+               </delivery>
+               <capacity-dimensions>
+                    <dimension index="0">1</dimension>
+               </capacity-dimensions>
+          </shipment>
+          <shipment id="6">
+               <pickup>
+                    <location>
+                         <id>4</id>
+                         <coord x="13.693445" y="55.632378"/>
+                         <index>4</index>
+                    </location>
+                    <duration>30.0</duration>
+                    <timeWindows>
+                         <timeWindow>
+                              <start>84873.0</start>
+                              <end>85764.0</end>
+                         </timeWindow>
+                    </timeWindows>
+               </pickup>
+               <delivery>
+                    <location>
+                         <id>8</id>
+                         <coord x="13.72437232412716" y="55.63201915728972"/>
+                         <index>8</index>
+                    </location>
+                    <duration>10.0</duration>
+                    <timeWindows>
+                         <timeWindow>
+                              <start>84873.0</start>
+                              <end>85764.0</end>
                          </timeWindow>
                     </timeWindows>
                </delivery>
@@ -251,69 +383,153 @@
           <route>
                <driverId>noDriver</driverId>
                <vehicleId>0</vehicleId>
-               <start>58109.0</start>
+               <start>78314.375</start>
                <end>0.0</end>
           </route>
           <route>
                <driverId>noDriver</driverId>
                <vehicleId>1</vehicleId>
-               <start>58109.0</start>
+               <start>78314.375</start>
                <end>0.0</end>
           </route>
           <route>
                <driverId>noDriver</driverId>
                <vehicleId>2</vehicleId>
-               <start>58109.0</start>
+               <start>78314.375</start>
                <end>0.0</end>
           </route>
           <route>
                <driverId>noDriver</driverId>
                <vehicleId>3</vehicleId>
-               <start>58109.0</start>
+               <start>78314.375</start>
                <end>0.0</end>
           </route>
           <route>
                <driverId>noDriver</driverId>
                <vehicleId>4</vehicleId>
-               <start>58109.0</start>
+               <start>78314.375</start>
                <end>0.0</end>
           </route>
           <route>
                <driverId>noDriver</driverId>
                <vehicleId>5</vehicleId>
-               <start>58109.0</start>
+               <start>78356.0</start>
+               <act type="pickupShipment">
+                    <shipmentId>18</shipmentId>
+                    <arrTime>0.0</arrTime>
+                    <endTime>0.0</endTime>
+               </act>
+               <act type="deliverShipment">
+                    <shipmentId>18</shipmentId>
+                    <arrTime>0.0</arrTime>
+                    <endTime>0.0</endTime>
+               </act>
+               <act type="pickupShipment">
+                    <shipmentId>29</shipmentId>
+                    <arrTime>0.0</arrTime>
+                    <endTime>0.0</endTime>
+               </act>
+               <act type="deliverShipment">
+                    <shipmentId>29</shipmentId>
+                    <arrTime>0.0</arrTime>
+                    <endTime>0.0</endTime>
+               </act>
                <end>0.0</end>
           </route>
           <route>
                <driverId>noDriver</driverId>
                <vehicleId>6</vehicleId>
-               <start>58109.0</start>
+               <start>78314.375</start>
+               <act type="delivery">
+                    <serviceId>30</serviceId>
+                    <arrTime>0.0</arrTime>
+                    <endTime>0.0</endTime>
+               </act>
+               <act type="pickupShipment">
+                    <shipmentId>6</shipmentId>
+                    <arrTime>0.0</arrTime>
+                    <endTime>0.0</endTime>
+               </act>
+               <act type="deliverShipment">
+                    <shipmentId>6</shipmentId>
+                    <arrTime>0.0</arrTime>
+                    <endTime>0.0</endTime>
+               </act>
                <end>0.0</end>
           </route>
           <route>
                <driverId>noDriver</driverId>
                <vehicleId>7</vehicleId>
-               <start>58109.0</start>
+               <start>78314.375</start>
                <end>0.0</end>
           </route>
           <route>
                <driverId>noDriver</driverId>
                <vehicleId>8</vehicleId>
-               <start>58109.0</start>
+               <start>78314.375</start>
                <end>0.0</end>
           </route>
           <route>
                <driverId>noDriver</driverId>
                <vehicleId>9</vehicleId>
-               <start>58109.0</start>
+               <start>78314.375</start>
                <end>0.0</end>
           </route>
      </initialRoutes>
      <solutions>
           <solution>
-               <cost>1.8E9</cost>
+               <cost>1.821883398881E9</cost>
+               <routes>
+                    <route>
+                         <driverId>noDriver</driverId>
+                         <vehicleId>5</vehicleId>
+                         <start>78356.0</start>
+                         <act type="pickupShipment">
+                              <shipmentId>18</shipmentId>
+                              <arrTime>78436.0</arrTime>
+                              <endTime>80090.25</endTime>
+                         </act>
+                         <act type="deliverShipment">
+                              <shipmentId>18</shipmentId>
+                              <arrTime>81964.25</arrTime>
+                              <endTime>81974.25</endTime>
+                         </act>
+                         <act type="pickupShipment">
+                              <shipmentId>29</shipmentId>
+                              <arrTime>83410.25</arrTime>
+                              <endTime>84903.0</endTime>
+                         </act>
+                         <act type="deliverShipment">
+                              <shipmentId>29</shipmentId>
+                              <arrTime>86193.0</arrTime>
+                              <endTime>86203.0</endTime>
+                         </act>
+                         <end>88880.0</end>
+                    </route>
+                    <route>
+                         <driverId>noDriver</driverId>
+                         <vehicleId>6</vehicleId>
+                         <start>78314.375</start>
+                         <act type="delivery">
+                              <serviceId>30</serviceId>
+                              <arrTime>79660.375</arrTime>
+                              <endTime>81854.0</endTime>
+                         </act>
+                         <act type="pickupShipment">
+                              <shipmentId>6</shipmentId>
+                              <arrTime>83224.0</arrTime>
+                              <endTime>84903.0</endTime>
+                         </act>
+                         <act type="deliverShipment">
+                              <shipmentId>6</shipmentId>
+                              <arrTime>85412.0</arrTime>
+                              <endTime>85422.0</endTime>
+                         </act>
+                         <end>87230.0</end>
+                    </route>
+               </routes>
                <unassignedJobs>
-                    <job id="1"/>
+                    <job id="56"/>
                </unassignedJobs>
           </solution>
      </solutions>

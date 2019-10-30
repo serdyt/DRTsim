@@ -529,19 +529,11 @@ __pycache__
 /venv/lib/python3.5/site-packages/setuptools-39.1.0-py3.5.egg
 /venv/lib/python3.5/site-packages/setuptools.pth
 /venv/lib64
-/.idea/dictionaries/ai6644.xml
-/.idea/encodings.xml
-/.idea/markdown-navigator.xml
-/.idea/markdown-navigator/profiles_settings.xml
-/.idea/misc.xml
-/.idea/modules.xml
-/.idea/workspace.xml
 /example.db
 /input/long.xml
 /input/population_example.xml
 /input/test.xml
 /data/population.json
-/.idea/
 /docs/
 time_distance_matrix.db
 profile.prof
@@ -551,3 +543,4 @@ profile.prof
 /pictures/
 /GIS/
 /jsprit_debug/
+/.idea/
