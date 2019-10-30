@@ -11,6 +11,8 @@ pip install python-statemachine
 
 conda install -c anaconda pandas
 
+conda install -c anaconda requests
+
 conda install -c anaconda pyyaml
 
 ## Assumptions

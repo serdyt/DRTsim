@@ -38,15 +38,22 @@ class Population(Component):
 
     def read_json(self):
         """Reads json input file and generates persons to simulate"""
-        with open(self.env.config.get('population.input_file'), 'r') as file:
+        with open(self.env.config.get('population.input_file'), 'r') as input_file:
+            # pers_in_file = sum(1 for line in file)
+            # file.seek(0)
+
             local_person_list = []
-            raw_json = json.load(file)
+            raw_json = json.load(input_file)
             persons = raw_json.get('persons')
             pers_id = 0
             # i = 0
             for json_pers in persons:
-                # if i > 100:
-                #     break
+                # print(sum([x for x in self.env.rand.choices([False,True], [0.05, 0.95], k=1)]))
+                if self.env.rand.choices([False, True],
+                                         [self.env.config.get('population.input_percentage'),
+                                         1 - self.env.config.get('population.input_percentage')])[0]:
+                    continue
+
                 attributes = {'age': 22, 'id': pers_id, 'otp_parameters': {'arriveBy': True}}
                 pers_id = pers_id + 1
 
@@ -77,10 +84,7 @@ class Population(Component):
                                  zone=zone
                                  )
                     )
-
-                # take some % of the tours
-                if self.env.rand.randint(0, 1000) < 10:
-                    self.person_list.append(Person(self, attributes, activities))
+                self.person_list.append(Person(self, attributes, activities))
 
     def _random_persons(self):
         """Not used. Generates persons at random geographical points with default parameters"""
