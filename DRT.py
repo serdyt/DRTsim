@@ -5,13 +5,10 @@
 """
 
 # TODO: add logging through Component.setup_logger()
-# or remove it from there =)
 import logging
 import logging.handlers
 from datetime import timedelta as td
-from typing import Any, Union
 
-import simpy
 import os
 import sys
 from typing import List
@@ -60,14 +57,14 @@ class Top(Component):
             leg_list = LegMode.get_all_modes()
 
         for mode in mode_list:
-            log.info(mode, self.env.results.get('{}_trips'.format(mode)))
-        log.info('DRT_trips', self.env.results.get('DRT_trips'))
+            log.info('{} {}'.format(mode, self.env.results.get('{}_trips'.format(mode))))
+        log.info('DRT_trips {}'.format(self.env.results.get('DRT_trips')))
 
         log.info('*******')
         log.info('Leg share :')
         for leg in leg_list:
-            log.info(leg, self.env.results.get('{}_legs'.format(leg)))
-        log.info('DRT_legs', self.env.results.get('DRT_trips'))
+            log.info('{} {}'.format(leg, self.env.results.get('{}_legs'.format(leg))))
+        log.info('DRT_legs {}'.format(self.env.results.get('DRT_trips')))
 
         log.info('********************************************')
 
@@ -90,7 +87,7 @@ def send_email(subject, text, files):
     from email.mime.application import MIMEApplication
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
-    from email.utils import COMMASPACE, formatdate
+    from email.utils import formatdate
 
     msg = MIMEMultipart()
     msg['From'] = 'drt.simulator@gmail.com'
@@ -107,7 +104,7 @@ def send_email(subject, text, files):
         part['Content-Disposition'] = 'attachment; filename="%s"' % basename(f)
         msg.attach(part)
 
-    server = smtplib.SMTP('smtp.gmail.com',587)
+    server = smtplib.SMTP('smtp.gmail.com', 587)
     server.ehlo()
     server.starttls()
     server.ehlo()
@@ -149,12 +146,12 @@ config = {
     'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
     'population.input_file': 'data/population.json',
-    'population.input_percentage': 0.001,
+    'population.input_percentage': 0.0005,
 
     'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],
     'drt.default_tw_left': td(minutes=30).total_seconds(),
     'drt.default_tw_right': td(minutes=60).total_seconds(),
-    'drt.planning_in_advance': td(minutes=120).total_seconds(),
+    'drt.planning_in_advance': td(hours=24).total_seconds(),
     'drt.time_window_constant': td(minutes=10).total_seconds(),
     'drt.time_window_multiplier': 1.5,
     'drt.time_window_shift_left': 1./4,
@@ -163,8 +160,8 @@ config = {
     'drt.walkCarSpeed': 16.6667,
     'drt.max_fake_walk': 1000000,
 
-    'trip.planning_in_advance_direct_time_coefficient': 2,
-    'trip.planning_in_advance_constant': td(minutes=30).total_seconds(),
+    # 'trip.planning_in_advance_direct_time_coefficient': 2,
+    # 'trip.planning_in_advance_constant': td(minutes=30).total_seconds(),
     }
 
 
@@ -207,7 +204,7 @@ if __name__ == '__main__':
         log.error(e.args)
         raise
 
-    log.info('elapsed at_time ', time.time() - start)
+    log.info('elapsed at_time {}'.format(time.time() - start))
 
     # log.info(res)
 
