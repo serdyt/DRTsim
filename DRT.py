@@ -50,8 +50,8 @@ class Top(Component):
         self.connect(self.serviceProvider, 'population')
             
     def post_simulate(self):
-        print('Total {} persons'.format(len(self.population.person_list)))
-        print('Mode share :')
+        log.info('Total {} persons'.format(len(self.population.person_list)))
+        log.info('Mode share :')
         if self.env.config.get('service.modes') == 'main_modes':
             mode_list = OtpMode.get_main_modes()
             leg_list = LegMode.get_main_modes()
@@ -60,17 +60,16 @@ class Top(Component):
             leg_list = LegMode.get_all_modes()
 
         for mode in mode_list:
-            print(mode, self.env.results.get('{}_trips'.format(mode)))
-        print('DRT_trips', self.env.results.get('DRT_trips'))
+            log.info(mode, self.env.results.get('{}_trips'.format(mode)))
+        log.info('DRT_trips', self.env.results.get('DRT_trips'))
 
-        print('*******')
-        print('Leg share :')
+        log.info('*******')
+        log.info('Leg share :')
         for leg in leg_list:
-            print(leg, self.env.results.get('{}_legs'.format(leg)))
-        print('DRT_legs', self.env.results.get('DRT_trips'))
+            log.info(leg, self.env.results.get('{}_legs'.format(leg)))
+        log.info('DRT_legs', self.env.results.get('DRT_trips'))
 
-        print('********************************************')
-        # print(self.population.get_result())
+        log.info('********************************************')
 
     def _init_results(self):
         self.env.results = {'total_trips': 0,
@@ -136,6 +135,7 @@ config = {
     'jsprit.vrp_solution': 'data/problem-with-solution.xml',
     'jsprit.debug_folder': 'jsprit_debug',
     'db.file': 'data/time_distance_matrix.db',
+
     'otp.input_file': 'data/points.csv',
     'otp.tdm_file': 'data/time_distance_matrix_otp.csv',
 
@@ -203,40 +203,40 @@ if __name__ == '__main__':
     except Exception as e:
         if config.get('sim.email_notification'):
             send_email(subject='Simulation failed', text=str(e.args), files=[config.get('sim.log')])
+        log.error(e)
         log.error(e.args)
-        print(e)
         raise
-    else:
-        if config.get('sim.email_notification'):
-            send_email(subject='Simulation success', text='congratulations', files=[config.get('sim.log')])
 
-    print('elapsed at_time ', time.time() - start)
+    log.info('elapsed at_time ', time.time() - start)
 
-    print(res)
+    # log.info(res)
 
-    print(res.get('planned_trips'))
-    print(res.get('executed_trips'))
-    print(res.get('direct_trips'))
+    log.info(res.get('planned_trips'))
+    log.info(res.get('executed_trips'))
+    log.info(res.get('direct_trips'))
     
     executed_trips = res.get('executed_trips')  # type: List[Trip]
     drt_trips = [trip for trip in executed_trips if trip.main_mode == OtpMode.DRT]
 
-    print('Total trips: {}'.format(len(executed_trips)))
-    print('DRT trips: {}'.format(len(drt_trips)))
+    log.info('Total trips: {}'.format(len(executed_trips)))
+    log.info('DRT trips: {}'.format(len(drt_trips)))
 
     delivered_travelers = res.get('delivered_travelers')  # type: List[int]
     vehicle_kilometers = res.get('vehicle_kilometers')  # type: List[int]
 
-    print('delivered travelers per vehicle {}'.format(sum(delivered_travelers) / len(delivered_travelers)))
-    print('Vehicle kilometers {}'.format(sum(vehicle_kilometers) / 1000))
+    log.info('delivered travelers per vehicle {}'.format(sum(delivered_travelers) / len(delivered_travelers)))
+    log.info('Vehicle kilometers {}'.format(sum(vehicle_kilometers) / 1000))
     try:
-        print('delivered travelers per Vehicle kilometers {}'
-              .format(sum(delivered_travelers) / (sum(vehicle_kilometers) / 1000)))
+        log.info('delivered travelers per Vehicle kilometers {}'
+                 .format(sum(delivered_travelers) / (sum(vehicle_kilometers) / 1000)))
     except ZeroDivisionError:
         pass
 
-    print(delivered_travelers)
-    print(vehicle_kilometers)
+    log.info('Delivered travelers: {}'.format(delivered_travelers))
+    log.info('Vehicle kilometers: {}'.format(vehicle_kilometers))
+
+    if config.get('sim.email_notification'):
+        send_email(subject='Simulation success', text='congratulations', files=[config.get('sim.log')])
 
 # if __name__ == '__main__':
 #     import cProfile
