@@ -43,6 +43,12 @@ class ServiceProvider(Component):
 
         self.unassigned_trips = []
 
+        # self._too_close_for_drt = 0
+        # self._target_bus_stops_outside_drt_zone = 0
+        self._drt_undeliverable = 0
+        self._drt_unassigned = 0
+        self._drt_no_suitable_pt_stop = 0
+
         router = self.env.config.get('service.routing')
         log.info('Setting router: {}'.format(router))
         self.router = getattr(routing, router)(self)
@@ -107,7 +113,7 @@ class ServiceProvider(Component):
         person.set_direct_trip(traditional_alternatives)
 
         try:
-            drt_alternatives = self._drt_request2(person)
+            drt_alternatives = self._drt_request(person)
         except OTPNoPath as e:
             log.warning('{}\n{}'.format(e.msg,  e.context))
             log.warning('Person {} will not consider DRT'.format(person))
@@ -165,7 +171,7 @@ class ServiceProvider(Component):
         else:
             return traditional_alternatives
 
-    def _drt_request2(self, person: Person):
+    def _drt_request(self, person: Person):
         """Calculates a list of DRT possible trips.
         If a person moves within service zones, the whole trip is done wit drt as one leg.
 
@@ -192,12 +198,14 @@ class ServiceProvider(Component):
             person.set_tw(person.direct_trip.duration, single_leg=True)
 
             try:
-                self._drt_request(person)
+                self._prepare_travelers_for_vrp(person)
             except DrtUndeliverable as e:
                 log.warning(e.msg)
+                self._drt_undeliverable += 1
                 return []
             except DrtUnassigned as e:
                 log.warning(e.msg)
+                self._drt_unassigned += 1
                 return []
 
             drt_trip.legs[0] = person.drt_leg
@@ -216,82 +224,135 @@ class ServiceProvider(Component):
                                                    'maxWalkDistance': self.env.config.get('drt.max_fake_walk')})
         # TODO: currently checking a first trip that fits person's time window
         # check all feasible trips
-        drt_trip = None
+        drt_trips = []
+        pt_stop_outside = 0
+        undeliverable_legs = 0
+        unassigned_legs = 0
+        too_close_for_drt = 0
         for alt in pt_alternatives:
-            if alt.legs[0].start_time > self.env.now and alt.legs[0].start_time < person.next_activity.start_time \
-                    and alt.legs[-1].end_time > self.env.now and alt.legs[-1].end_time < person.next_activity.start_time:
+            if self.env.now <= alt.legs[0].start_time <= person.next_activity.start_time and \
+               self.env.now <= alt.legs[-1].end_time <= person.next_activity.start_time:
                 drt_trip = alt
                 drt_trip.main_mode = OtpMode.DRT_TRANSIT
-                break
-        if drt_trip is None:
-            return []
 
-        # if a PT trip has only one leg or if the last leg is PT - we do not need DRT
-        if len(drt_trip.legs) < 2:
-            return []
+                # if a PT trip has only one leg or if the last leg is PT - we do not need DRT
+                if len(drt_trip.legs) < 2:
+                    return []
 
-        # **************************************************
-        # **********       Incoming trip       *************
-        # **************************************************
+                # **************************************************
+                # **********         Trip in           *************
+                # **************************************************
 
-        # When we have an incoming our outgoing trip, we should calculate a PT trip with a high walking speed
-        # to replace a WALK leg with a DRT leg
-        if self.is_in_trip(person):
-            # TODO: we can "consume" PT legs by DRT as long as they are inside service zone
-            # we can also make DRT alternatives for all of the trip alternatives
+                # When we have an incoming our outgoing trip, we should calculate a PT trip with a high walking speed
+                # to replace a WALK leg with a DRT leg
+                if self.is_in_trip(person):
+                    # TODO: we can "consume" PT legs by DRT as long as they are inside service zone
+                    # we can also make DRT alternatives for all of the trip alternatives
 
-            # TODO: take the last possible stop as an alternative
-            # That would be the scenario to a central station (most likely)
-            if self.is_stop_in_zone(drt_trip.legs[-2].to_stop):
-                pt_walk_leg_index = -1
-                drt_leg = Leg(mode=OtpMode.DRT,
-                              start_coord=drt_trip.legs[-1].start_coord,
-                              end_coord=drt_trip.legs[-1].end_coord,
-                              start_time=drt_trip.legs[-1].start_time,
-                              end_time=drt_trip.legs[-1].end_time,
-                              distance=drt_trip.legs[-1].distance)
-                person.set_tw(drt_trip.legs[-1].duration, last_leg=True, drt_leg=drt_leg)
+                    # TODO: take the last possible stop as an alternative
+                    # That would be the scenario to a central station (most likely)
+                    try:
+                        drt_leg = self._get_leg_for_in_trip(drt_trip, person)
+                        pt_walk_leg_index = -1
+                    except PTStopServiceOutsideZone as e:
+                        # log.info(e.msg)
+                        pt_stop_outside += 1
+                        continue
+
+                # **************************************************
+                # **********          Trip out         *************
+                # **************************************************
+                elif self.is_out_trip(person):
+                    try:
+                        drt_leg = self._get_leg_for_out_trip(drt_trip, person)
+                        pt_walk_leg_index = 0
+                    except PTStopServiceOutsideZone as e:
+                        # log.info(e.msg)
+                        pt_stop_outside += 1
+                        continue
+
+                else:
+                    log.error('Could not determine where person is going. {}'.format(person.id))
+                    self._drt_undeliverable += 1
+                    return []
+
+                # **************************************************
+                # ********* Common part for in and out *************
+                # **************************************************
+                if drt_leg.distance < self.env.config.get('drt.min_distance'):
+                    # log.info('Zone crossing Person {} has a first/last leg distance {}. Ignoring DRT'
+                    #          .format(person.id, drt_leg.distance))
+                    too_close_for_drt += 1
+                    continue
+
+                person.drt_leg = drt_leg
+                try:
+                    self._prepare_travelers_for_vrp(person)
+                except DrtUnassigned as e:
+                    # log.warning(e.msg)
+                    # self.log_unassigned_trip(person)
+                    unassigned_legs += 1
+                    continue
+                except DrtUndeliverable as e:
+                    # log.warning(e.msg)
+                    undeliverable_legs += 1
+                    continue
+
+                drt_trip.legs[pt_walk_leg_index] = person.drt_leg
+                drt_trip.distance = 0
+                drt_trip.duration = sum(leg.duration for leg in drt_trip.legs)
+
+                drt_trips += [drt_trip]
+                # just take one DRT trip.
+                continue
+
+        if len(drt_trips) == 0:
+            log.warning('Person {} could not be routed by DRT. Undeliverable: {}, Unassigned {},'
+                        'PT stops outside: {}, too close PT stops {}'
+                        .format(person.id, undeliverable_legs, unassigned_legs, pt_stop_outside, too_close_for_drt))
+            if undeliverable_legs != 0:
+                self._drt_undeliverable += 1
+            elif unassigned_legs != 0:
+                self._drt_unassigned += 1
+            elif pt_stop_outside != 0 or too_close_for_drt != 0:
+                self._drt_no_suitable_pt_stop += 1
             else:
-                log.info('Person {} has incoming trip, but bus stop {} is not in the zone'
-                         .format(person.id, drt_trip.legs[-2].to_stop))
-                return []
+                log.error('{} could not be delivered by DRT_TRANSIT, but there are zer errors as well.'
+                          .format(person, ))
 
-        elif self.is_out_trip(person):
-            if self.is_stop_in_zone(drt_trip.legs[1].from_stop):
-                pt_walk_leg_index = 0
-                drt_leg = Leg(mode=OtpMode.DRT,
-                              start_coord=drt_trip.legs[0].start_coord,
-                              end_coord=drt_trip.legs[0].end_coord,
-                              end_time=drt_trip.legs[0].end_time,
-                              distance=drt_trip.legs[0].distance)
-                person.set_tw(drt_trip.legs[0].duration, first_leg=True, drt_leg=drt_leg)
-            else:
-                log.info('Person {} has outgoing trip, but bus stop is not in the zone'
-                         .format(person.id, drt_trip.legs[1].from_stop))
-                return []
+        return drt_trips
 
-        if drt_leg.distance < self.env.config.get('drt.min_distance'):
-            log.info('Zone crossing Person {} has a first/last leg distance {}. Ignoring DRT'
-                     .format(person.id, drt_leg.distance))
-            return []
+    def _get_leg_for_in_trip(self, drt_trip, person):
+        """Extract a walk leg, that should be replaced by DRT, from a PT trip"""
+        if self.is_stop_in_zone(drt_trip.legs[-2].to_stop):
+            drt_leg = Leg(mode=OtpMode.DRT,
+                          start_coord=drt_trip.legs[-1].start_coord,
+                          end_coord=drt_trip.legs[-1].end_coord,
+                          start_time=drt_trip.legs[-1].start_time,
+                          end_time=drt_trip.legs[-1].end_time,
+                          distance=drt_trip.legs[-1].distance)
+            person.set_tw(drt_trip.legs[-1].duration, last_leg=True, drt_leg=drt_leg)
+            return drt_leg
+        else:
+            # log.info('Person {} has incoming trip, but bus stop {} is not in the zone'
+            #          .format(person.id, drt_trip.legs[-2].to_stop))
+            raise PTStopServiceOutsideZone('Person {} has incoming trip, but bus stop {} is not in the zone'
+                                           .format(person.id, drt_trip.legs[-2].to_stop))
 
-        person.drt_leg = drt_leg
-        try:
-            self._drt_request(person)
-        except DrtUnassigned as e:
-            log.warning(e.msg)
-            self.log_unassigned_trip(person)
-            return []
-        except DrtUndeliverable as e:
-            log.warning(e.msg)
-            return []
+    def _get_leg_for_out_trip(self, drt_trip, person):
+        if self.is_stop_in_zone(drt_trip.legs[1].from_stop):
+            drt_leg = Leg(mode=OtpMode.DRT,
+                          start_coord=drt_trip.legs[0].start_coord,
+                          end_coord=drt_trip.legs[0].end_coord,
+                          end_time=drt_trip.legs[0].end_time,
+                          distance=drt_trip.legs[0].distance)
+            person.set_tw(drt_trip.legs[0].duration, first_leg=True, drt_leg=drt_leg)
+            return drt_leg
+        else:
+            raise PTStopServiceOutsideZone('Person {} has outgoing trip, but bus stop is not in the zone'
+                                           .format(person.id, drt_trip.legs[1].from_stop))
 
-        drt_trip.legs[pt_walk_leg_index] = person.drt_leg
-        drt_trip.distance = 0
-        drt_trip.duration = sum(leg.duration for leg in drt_trip.legs)
-        return [drt_trip]
-
-    def _drt_request(self, person: Person):
+    def _prepare_travelers_for_vrp(self, person: Person):
         """Prepares coordinate lists for routing
         NOTE: peron.drt_leg will be updated
 
@@ -326,7 +387,7 @@ class ServiceProvider(Component):
     def start_trip(self, person: Person):
         # TODO: this should not be the case. If it is, person should be explicitly removed from the simulation
         if person.planned_trip is None:
-            self.env.results['unrouted_trips'] += 1
+            self.env.results['unassigned_drt_trips'] += 1
             log.warning('{} received no feasible trip options'.format(person.scope))
         elif person.planned_trip.main_mode == OtpMode.DRT:
             self._start_drt_trip(person)
@@ -549,5 +610,9 @@ class ServiceProvider(Component):
 
     def get_result(self, result):
         super(ServiceProvider, self).get_result(result)
-        result['no_unassigned_drt_trips'] = len(self.unassigned_trips)
-        result['unassigned_drt_trips'] = self.unassigned_trips
+        # result['no_unassigned_drt_trips'] = len(self.unassigned_trips)
+        # result['unassigned_drt_trips'] = self.unassigned_trips
+
+        result['undeliverable_drt'] = self._drt_undeliverable
+        result['unassigned_drt_trips'] = self._drt_unassigned
+        result['no_suitable_pt_stop'] = self._drt_no_suitable_pt_stop

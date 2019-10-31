@@ -41,3 +41,9 @@ class DrtUnassigned(Exception):
     def __init__(self, msg):
         super(DrtUnassigned, self).__init__(msg)
         self.msg = msg
+
+
+class PTStopServiceOutsideZone(Exception):
+    def __init__(self, msg):
+        super(PTStopServiceOutsideZone, self).__init__(msg)
+        self.msg = msg

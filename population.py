@@ -39,10 +39,6 @@ class Population(Component):
     def read_json(self):
         """Reads json input file and generates persons to simulate"""
         with open(self.env.config.get('population.input_file'), 'r') as input_file:
-            # pers_in_file = sum(1 for line in file)
-            # file.seek(0)
-
-            local_person_list = []
             raw_json = json.load(input_file)
             persons = raw_json.get('persons')
             pers_id = 0
@@ -109,6 +105,10 @@ class Population(Component):
     def get_person(self, id):
         ids = [p.id for p in self.person_list]
         return self.person_list[ids.index(id)]
+
+    def get_result(self, result):
+        super(Population, self).get_result(result)
+        result['total_persons'] = len(self.person_list)
 
 
 class Person(Component):
@@ -331,27 +331,10 @@ class Person(Component):
             self.drt_tw_right = self.env.config.get('sim.duration_sec')
 
     def get_tw_left(self):
+        """Returns: time in seconds when the left time window border starts
         """
-        # TODO: apply time-windows based on direct distance
-        Returns: time in seconds when the left time window border starts
-        """
-
         return self.drt_tw_left
 
-        # calc_tw = self.curr_activity.end_time - self.time_window * self.env.config.get('drt.time_window_shift_left')
-        # if calc_tw < self.env.now:
-        #     return self.env.now
-        # else:
-        #     return calc_tw
-
     def get_tw_right(self):
-        # TODO: time window should be bound to something else rather than next activity
 
         return self.drt_tw_right
-
-        # calc_tw = self.next_activity.start_time + \
-        #           self.time_window * (1 - self.env.config.get('drt.time_window_shift_left'))
-        # if calc_tw > self.env.config.get('sim.duration_sec'):
-        #     return self.env.config.get('sim.duration_sec')
-        # else:
-        #     return calc_tw

@@ -31,7 +31,7 @@ class VehicleType(object):
 
         self.id = attrib.get('id')
         self.capacity_dimensions = attrib.setdefault('capacity_dimensions', {CD.SEATS: 8, CD.WHEELCHAIRS: 1})
-        self.costs = attrib.setdefault('costs', {VC.DISTANCE: 1.0, VC.FIXED: 500000, VC.TIME: 0.5, VC.WAIT: 3000})
+        self.costs = attrib.setdefault('costs', {VC.DISTANCE: 1.0, VC.FIXED: 0, VC.TIME: 0.5, VC.WAIT: 30})
 
 
 class Vehicle(Component):
@@ -116,6 +116,7 @@ class Vehicle(Component):
         return None
 
     def get_result(self, result):
+        super(Vehicle, self).get_result(result)
         if 'delivered_travelers' not in result.keys():
             result['delivered_travelers'] = []
         if 'vehicle_kilometers' not in result.keys():

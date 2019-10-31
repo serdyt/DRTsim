@@ -46,32 +46,38 @@ class Top(Component):
             self.connect(person, 'serviceProvider')
         self.connect(self.serviceProvider, 'population')
             
-    def post_simulate(self):
-        log.info('Total {} persons'.format(len(self.population.person_list)))
-        log.info('Mode share :')
-        if self.env.config.get('service.modes') == 'main_modes':
-            mode_list = OtpMode.get_main_modes()
-            leg_list = LegMode.get_main_modes()
-        else:
-            mode_list = OtpMode.get_all_modes()
-            leg_list = LegMode.get_all_modes()
+    # def post_simulate(self):
+        # log.info('Total {} persons'.format(len(self.population.person_list)))
+        # log.info('Mode share :')
+        # if self.env.config.get('service.modes') == 'main_modes':
+        #     mode_list = OtpMode.get_main_modes()
+        #     leg_list = LegMode.get_main_modes()
+        # else:
+        #     mode_list = OtpMode.get_all_modes()
+        #     leg_list = LegMode.get_all_modes()
+        #
+        # for mode in mode_list:
+        #     log.info('{} {}'.format(mode, self.env.results.get('{}_trips'.format(mode))))
+        # log.info('DRT_trips {}'.format(self.env.results.get('DRT_trips')))
+        # log.info('Unassigned DRT trips {}'.format(self.env.results.get('unassigned_drt_trips')))
+        # log.info('Undeliverable DRT trips {}'.format(self.env.results.get('undeliverable_drt')))
+        # log.info('No suitable PT stops for extra-zonal DRT trips {}'.format(self.env.results.get('no_suitable_pt_stop')))
+        #
+        # log.info('*******')
+        # log.info('Leg share :')
+        # for leg in leg_list:
+        #     log.info('{} {}'.format(leg, self.env.results.get('{}_legs'.format(leg))))
+        # log.info('DRT_legs {}'.format(self.env.results.get('DRT_trips')))
+        #
+        # log.info('********************************************')
 
-        for mode in mode_list:
-            log.info('{} {}'.format(mode, self.env.results.get('{}_trips'.format(mode))))
-        log.info('DRT_trips {}'.format(self.env.results.get('DRT_trips')))
+    def get_result(self, result):
+        super(Top, self).get_result(result)
 
-        log.info('*******')
-        log.info('Leg share :')
-        for leg in leg_list:
-            log.info('{} {}'.format(leg, self.env.results.get('{}_legs'.format(leg))))
-        log.info('DRT_legs {}'.format(self.env.results.get('DRT_trips')))
-
-        log.info('********************************************')
+        result.update(self.env.results)
 
     def _init_results(self):
-        self.env.results = {'total_trips': 0,
-                            'unrouted_trips': 0
-                            }
+        self.env.results = {'total_trips': 0}
         for mode in OtpMode.get_all_modes():
             self.env.results['{}_trips'.format(mode)] = 0
         for leg in LegMode.get_all_modes():
@@ -79,6 +85,10 @@ class Top(Component):
 
         self.env.results['DRT_trips'] = 0
         self.env.results['DRT_legs'] = 0
+        #
+        # self.env.results['undeliverable_drt'] = 0
+        # self.env.results['unassigned_drt_trips'] = 0
+        # self.env.results['no_suitable_pt_stop'] = 0
 
 
 def send_email(subject, text, files):
@@ -146,7 +156,7 @@ config = {
     'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
     'population.input_file': 'data/population.json',
-    'population.input_percentage': 0.0005,
+    'population.input_percentage': 0.0001,
 
     'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],
     'drt.default_tw_left': td(minutes=30).total_seconds(),
@@ -204,19 +214,41 @@ if __name__ == '__main__':
         log.error(e.args)
         raise
 
-    log.info('elapsed at_time {}'.format(time.time() - start))
+    log.info('Total {} persons'.format(res.get('total_persons')))
+    log.info('Mode share :')
+    if config.get('service.modes') == 'main_modes':
+        mode_list = OtpMode.get_main_modes()
+        leg_list = LegMode.get_main_modes()
+    else:
+        mode_list = OtpMode.get_all_modes()
+        leg_list = LegMode.get_all_modes()
 
-    # log.info(res)
+    for mode in mode_list:
+        log.info('{} {}'.format(mode, res.get('{}_trips'.format(mode))))
+
+    log.info('********************************************')
+    log.info('Leg share :')
+    for leg in leg_list:
+        log.info('{} {}'.format(leg, res.get('{}_legs'.format(leg))))
+    log.info('DRT_legs {}'.format(res.get('DRT_trips')))
+
+    log.info('********************************************')
+
+    log.info('elapsed at_time {}'.format(time.time() - start))
 
     log.info(res.get('planned_trips'))
     log.info(res.get('executed_trips'))
     log.info(res.get('direct_trips'))
     
     executed_trips = res.get('executed_trips')  # type: List[Trip]
-    drt_trips = [trip for trip in executed_trips if trip.main_mode == OtpMode.DRT]
+    # drt_trips = [trip for trip in executed_trips if trip.main_mode == OtpMode.DRT]
 
     log.info('Total trips: {}'.format(len(executed_trips)))
-    log.info('DRT trips: {}'.format(len(drt_trips)))
+    # log.info('DRT trips: {}'.format(len(drt_trips)))
+    log.info('DRT_trips {}'.format(res.get('DRT_trips')))
+    log.info('Unassigned DRT trips {}'.format(res.get('unassigned_drt_trips')))
+    log.info('Undeliverable DRT trips {}'.format(res.get('undeliverable_drt')))
+    log.info('No suitable PT stops for extra-zonal DRT trips {}'.format(res.get('no_suitable_pt_stop')))
 
     delivered_travelers = res.get('delivered_travelers')  # type: List[int]
     vehicle_kilometers = res.get('vehicle_kilometers')  # type: List[int]
