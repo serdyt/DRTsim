@@ -48,6 +48,7 @@ class ServiceProvider(Component):
         self._drt_undeliverable = 0
         self._drt_unassigned = 0
         self._drt_no_suitable_pt_stop = 0
+        self._drt_overnight = 0
 
         router = self.env.config.get('service.routing')
         log.info('Setting router: {}'.format(router))
@@ -229,9 +230,13 @@ class ServiceProvider(Component):
         undeliverable_legs = 0
         unassigned_legs = 0
         too_close_for_drt = 0
+        overnight_trip = 0
         for alt in pt_alternatives:
-            if self.env.now <= alt.legs[0].start_time <= person.next_activity.start_time and \
-               self.env.now <= alt.legs[-1].end_time <= person.next_activity.start_time:
+            if not (self.env.now <= alt.legs[0].start_time <= person.next_activity.start_time) or \
+               not (self.env.now <= alt.legs[-1].end_time <= person.next_activity.start_time):
+                overnight_trip += 1
+                continue
+            else:
                 drt_trip = alt
                 drt_trip.main_mode = OtpMode.DRT_TRANSIT
 
@@ -304,20 +309,23 @@ class ServiceProvider(Component):
 
                 drt_trips += [drt_trip]
                 # just take one DRT trip.
-                continue
+                break
 
         if len(drt_trips) == 0:
             log.warning('Person {} could not be routed by DRT. Undeliverable: {}, Unassigned {},'
-                        'PT stops outside: {}, too close PT stops {}'
-                        .format(person.id, undeliverable_legs, unassigned_legs, pt_stop_outside, too_close_for_drt))
+                        'PT stops outside: {}, too close PT stops {}, overnight trips {}'
+                        .format(person.id, undeliverable_legs, unassigned_legs, pt_stop_outside,
+                                too_close_for_drt, overnight_trip))
             if undeliverable_legs != 0:
                 self._drt_undeliverable += 1
             elif unassigned_legs != 0:
                 self._drt_unassigned += 1
+            elif overnight_trip != 0:
+                self._drt_overnight += 1
             elif pt_stop_outside != 0 or too_close_for_drt != 0:
                 self._drt_no_suitable_pt_stop += 1
             else:
-                log.error('{} could not be delivered by DRT_TRANSIT, but there are zer errors as well.'
+                log.error('{} could not be delivered by DRT_TRANSIT, but there are zero errors as well.'
                           .format(person, ))
 
         return drt_trips
@@ -429,8 +437,16 @@ class ServiceProvider(Component):
             act.start_time = act.start_time
             act.steps = trip.legs[0].steps
 
-        if act.start_time + act.duration != act.end_time:
-            log.error('Act end time does not correspond to its duration')
+        extra_time = act.duration - (act.end_time - act.start_time)
+        if extra_time != 0:
+            log.error('Act\'s end time does not correspond to its duration. '
+                      'Vehicle\'s route need to be moved by {} seconds.'
+                      .format(extra_time))
+            for a in vehicle.get_route_with_return():
+                a.start_time += extra_time
+                a.end_time += extra_time
+            # do not change start time of current act
+            vehicle.get_act(0).start_time -= extra_time
 
     def _jsprit_to_drt(self, vehicle, jsprit_route: JspritRoute):
         drt_acts = []  # type: List[DrtAct]
@@ -494,8 +510,6 @@ class ServiceProvider(Component):
                 duration = person.boarding_time
             else:
                 duration = person.leaving_time
-            if len(drt_acts) == 0:
-                print('debugggggg!')
             action = DrtAct(type_=njact.type, person=person, duration=duration, distance=0,
                             end_coord=drt_acts[-1].end_coord, start_coord=drt_acts[-1].end_coord,
                             start_time=drt_acts[-1].end_time, end_time=drt_acts[-1].end_time + duration)
@@ -616,3 +630,4 @@ class ServiceProvider(Component):
         result['undeliverable_drt'] = self._drt_undeliverable
         result['unassigned_drt_trips'] = self._drt_unassigned
         result['no_suitable_pt_stop'] = self._drt_no_suitable_pt_stop
+        result['drt_overnight'] = self._drt_overnight

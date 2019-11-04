@@ -45,35 +45,9 @@ class Top(Component):
         for person in self.population.person_list:
             self.connect(person, 'serviceProvider')
         self.connect(self.serviceProvider, 'population')
-            
-    # def post_simulate(self):
-        # log.info('Total {} persons'.format(len(self.population.person_list)))
-        # log.info('Mode share :')
-        # if self.env.config.get('service.modes') == 'main_modes':
-        #     mode_list = OtpMode.get_main_modes()
-        #     leg_list = LegMode.get_main_modes()
-        # else:
-        #     mode_list = OtpMode.get_all_modes()
-        #     leg_list = LegMode.get_all_modes()
-        #
-        # for mode in mode_list:
-        #     log.info('{} {}'.format(mode, self.env.results.get('{}_trips'.format(mode))))
-        # log.info('DRT_trips {}'.format(self.env.results.get('DRT_trips')))
-        # log.info('Unassigned DRT trips {}'.format(self.env.results.get('unassigned_drt_trips')))
-        # log.info('Undeliverable DRT trips {}'.format(self.env.results.get('undeliverable_drt')))
-        # log.info('No suitable PT stops for extra-zonal DRT trips {}'.format(self.env.results.get('no_suitable_pt_stop')))
-        #
-        # log.info('*******')
-        # log.info('Leg share :')
-        # for leg in leg_list:
-        #     log.info('{} {}'.format(leg, self.env.results.get('{}_legs'.format(leg))))
-        # log.info('DRT_legs {}'.format(self.env.results.get('DRT_trips')))
-        #
-        # log.info('********************************************')
 
     def get_result(self, result):
         super(Top, self).get_result(result)
-
         result.update(self.env.results)
 
     def _init_results(self):
@@ -91,13 +65,14 @@ class Top(Component):
         # self.env.results['no_suitable_pt_stop'] = 0
 
 
-def send_email(subject, text, files):
+def send_email(subject, text, files, zip_file):
     from os.path import basename
     import smtplib
     from email.mime.application import MIMEApplication
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
     from email.utils import formatdate
+    import zipfile
 
     msg = MIMEMultipart()
     msg['From'] = 'drt.simulator@gmail.com'
@@ -107,12 +82,14 @@ def send_email(subject, text, files):
 
     msg.attach(MIMEText(text))
 
-    for f in files or []:
-        with open(f, "rb") as fil:
-            part = MIMEApplication(fil.read(), Name=basename(f))
-        # After the file is closed
-        part['Content-Disposition'] = 'attachment; filename="%s"' % basename(f)
-        msg.attach(part)
+    with zipfile.ZipFile(zip_file, 'w', compression=zipfile.ZIP_BZIP2, compresslevel=5) as log_zip:
+        for f in files or []:
+            log_zip.write(f)
+    zf = open(zip_file, 'rb')
+    part = MIMEApplication(zf.read(), Name=basename(zf.name))
+    # After the file is closed
+    part['Content-Disposition'] = 'attachment; filename={}'.format(basename(zf.name))
+    msg.attach(part)
 
     server = smtplib.SMTP('smtp.gmail.com', 587)
     server.ehlo()
@@ -126,9 +103,10 @@ def send_email(subject, text, files):
 config = {
     'sim.duration': '86400 s',
     'sim.duration_sec': 86400,
-    'sim.seed': 43,
+    'sim.seed': 42,
     'sim.log': 'output/log',
-    'sim.email_notification': False,
+    'sim.email_notification': True,
+    'sim.log_zip': 'data/log.zip',
 
     'person.behaviour': 'DefaultBehaviour',
     'person.mode_choice': 'DefaultModeChoice',
@@ -162,8 +140,8 @@ config = {
     'drt.default_tw_left': td(minutes=30).total_seconds(),
     'drt.default_tw_right': td(minutes=60).total_seconds(),
     'drt.planning_in_advance': td(hours=24).total_seconds(),
-    'drt.time_window_constant': td(minutes=10).total_seconds(),
-    'drt.time_window_multiplier': 1.5,
+    'drt.time_window_constant': td(minutes=30).total_seconds(),
+    'drt.time_window_multiplier': 2,
     'drt.time_window_shift_left': 1./4,
     'drt.PT_stops_file': 'data/zone_stops.csv',
     'drt.min_distance': 2000,
@@ -208,8 +186,10 @@ if __name__ == '__main__':
     try:
         res = simulate(config, Top)
     except Exception as e:
+        import zipfile
         if config.get('sim.email_notification'):
-            send_email(subject='Simulation failed', text=str(e.args), files=[config.get('sim.log')])
+            send_email(subject='Simulation failed', text=str(e.args),
+                       files=[config.get('sim.log')], zip_file=config.get('sim.log_zip'))
         log.error(e)
         log.error(e.args)
         raise
@@ -225,12 +205,14 @@ if __name__ == '__main__':
 
     for mode in mode_list:
         log.info('{} {}'.format(mode, res.get('{}_trips'.format(mode))))
+    log.info('DRT_trips {}'.format(res.get('DRT_trips')))
+    log.info('DRT_TRANSIT_trips {}'.format(res.get('DRT_TRANSIT_trips')))
 
     log.info('********************************************')
     log.info('Leg share :')
     for leg in leg_list:
         log.info('{} {}'.format(leg, res.get('{}_legs'.format(leg))))
-    log.info('DRT_legs {}'.format(res.get('DRT_trips')))
+    log.info('DRT_legs {}'.format(res.get('DRT_legs')))
 
     log.info('********************************************')
 
@@ -244,10 +226,11 @@ if __name__ == '__main__':
     # drt_trips = [trip for trip in executed_trips if trip.main_mode == OtpMode.DRT]
 
     log.info('Total trips: {}'.format(len(executed_trips)))
-    # log.info('DRT trips: {}'.format(len(drt_trips)))
     log.info('DRT_trips {}'.format(res.get('DRT_trips')))
+    log.info('DRT_TRANSIT_trips {}'.format(res.get('DRT_TRANSIT_trips')))
     log.info('Unassigned DRT trips {}'.format(res.get('unassigned_drt_trips')))
     log.info('Undeliverable DRT trips {}'.format(res.get('undeliverable_drt')))
+    log.info('Overnight DRT trips {}'.format(res.get('drt_overnight')))
     log.info('No suitable PT stops for extra-zonal DRT trips {}'.format(res.get('no_suitable_pt_stop')))
 
     delivered_travelers = res.get('delivered_travelers')  # type: List[int]
@@ -264,8 +247,13 @@ if __name__ == '__main__':
     log.info('Delivered travelers: {}'.format(delivered_travelers))
     log.info('Vehicle kilometers: {}'.format(vehicle_kilometers))
 
+    import pprint
+    pp = pprint.PrettyPrinter()
+    log.info(pp.pformat(config))
+
     if config.get('sim.email_notification'):
-        send_email(subject='Simulation success', text='congratulations', files=[config.get('sim.log')])
+        send_email(subject='Simulation success', text='congratulations',
+                   files=[config.get('sim.log')], zip_file=config.get('sim.log_zip'))
 
 # if __name__ == '__main__':
 #     import cProfile

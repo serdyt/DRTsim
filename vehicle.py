@@ -105,9 +105,9 @@ class Vehicle(Component):
             return False
 
     def print_route(self):
-        print('Vehicle {}'.format(self.id))
+        log.info('Vehicle {} route at {}'.format(self.id, self.env.now))
         for act in self._route:
-            print(act)
+            log.info(act)
 
     def get_return_act(self):
         if self.get_route_len() != 0:

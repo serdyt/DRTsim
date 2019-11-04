@@ -153,9 +153,15 @@ class DefaultRouting(object):
         # ************            Run jsprit              ***********
         # ***********************************************************
         start = time.time()
-        # jsprit_call = subprocess.call(['/usr/lib/jvm/java-8-openjdk-amd64/bin/java -Dfile.encoding=UTF-8 -classpath /home/ai6644/Malmo/Tools/jsprit/jsprit-examples/target/classes:/home/ai6644/Malmo/Tools/jsprit/jsprit-core/target/classes:/home/ai6644/.m2/repository/org/apache/commons/commons-math3/3.4/commons-math3-3.4.jar:/home/ai6644/.m2/repository/org/slf4j/slf4j-api/1.7.21/slf4j-api-1.7.21.jar:/home/ai6644/Malmo/Tools/jsprit/jsprit-analysis/target/classes:/home/ai6644/.m2/repository/org/jfree/jfreechart/1.0.19/jfreechart-1.0.19.jar:/home/ai6644/.m2/repository/org/jfree/jcommon/1.0.23/jcommon-1.0.23.jar:/home/ai6644/.m2/repository/org/graphstream/gs-core/1.3/gs-core-1.3.jar:/home/ai6644/.m2/repository/org/graphstream/pherd/1.0/pherd-1.0.jar:/home/ai6644/.m2/repository/org/graphstream/mbox2/1.0/mbox2-1.0.jar:/home/ai6644/.m2/repository/org/graphstream/gs-ui/1.3/gs-ui-1.3.jar:/home/ai6644/.m2/repository/org/graphstream/gs-algo/1.3/gs-algo-1.3.jar:/home/ai6644/.m2/repository/org/apache/commons/commons-math/2.1/commons-math-2.1.jar:/home/ai6644/.m2/repository/org/scala-lang/scala-library/2.10.1/scala-library-2.10.1.jar:/home/ai6644/Malmo/Tools/jsprit/jsprit-io/target/classes:/home/ai6644/.m2/repository/commons-configuration/commons-configuration/1.9/commons-configuration-1.9.jar:/home/ai6644/.m2/repository/commons-lang/commons-lang/2.6/commons-lang-2.6.jar:/home/ai6644/.m2/repository/commons-logging/commons-logging/1.1.1/commons-logging-1.1.1.jar:/home/ai6644/.m2/repository/xerces/xercesImpl/2.11.0/xercesImpl-2.11.0.jar:/home/ai6644/.m2/repository/xml-apis/xml-apis/1.4.01/xml-apis-1.4.01.jar:/home/ai6644/.m2/repository/org/apache/logging/log4j/log4j-slf4j-impl/2.0.1/log4j-slf4j-impl-2.0.1.jar:/home/ai6644/.m2/repository/org/apache/logging/log4j/log4j-api/2.0.1/log4j-api-2.0.1.jar:/home/ai6644/.m2/repository/org/apache/logging/log4j/log4j-core/2.0.1/log4j-core-2.0.1.jar com.graphhopper.jsprit.examples.DRT_test'], shell=True)
+        rstate = self.env.rand.getstate()
+
         jsprit_call = subprocess.run(['java', '-cp', 'jsprit.jar', 'com.graphhopper.jsprit.examples.DRT_test'],
                                      capture_output=True)
+
+        if self.env.rand.getstate() != rstate:
+            log.warning('Random state has been changed by jsprit: {} to {}'.format(self.env.rand.getstate(), rstate))
+        self.env.rand.setstate(rstate)
+
         if jsprit_call.returncode != 0:
             from shutil import copyfile
             file_id = 'vrp.xml' + str(time.time())
@@ -289,6 +295,8 @@ class DefaultRouting(object):
                           len(persons_end_coords) - len(return_coords)))
 
         start = time.time()
+        # save a state of a random number generator
+        rstate = self.env.rand.getstate()
         coords_to_process_with_otp = list(set(coords_to_process_with_otp))
         if len(coords_to_process_with_otp) > 0:
             self._write_input_file_for_otp_script(coords_to_process_with_otp)
@@ -315,6 +323,10 @@ class DefaultRouting(object):
                 distance = row[3]
                 db_conn.insert_tdm_by_od(origin, destination, at_time, distance)
             otp_tdm_file.close()
+
+        if self.env.rand.getstate() != rstate:
+            log.warning('Random state has been changed by OTP: {} to {}'.format(self.env.rand.getstate(), rstate))
+        self.env.rand.setstate(rstate)
 
         jsprit_tdm_interface.close()
         db_conn.commit()
