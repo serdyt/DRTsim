@@ -43,12 +43,16 @@ class ServiceProvider(Component):
 
         self.unassigned_trips = []
 
-        # self._too_close_for_drt = 0
-        # self._target_bus_stops_outside_drt_zone = 0
         self._drt_undeliverable = 0
         self._drt_unassigned = 0
         self._drt_no_suitable_pt_stop = 0
         self._drt_overnight = 0
+
+        self._drt_too_short_trip = 0
+
+        self._unplannable_persons = 0
+        self._unchoosable_persons = 0
+        self._unactivatable_persons = 0
 
         router = self.env.config.get('service.routing')
         log.info('Setting router: {}'.format(router))
@@ -184,6 +188,7 @@ class ServiceProvider(Component):
 
         if person.direct_trip.distance < self.env.config.get('drt.min_distance'):
             log.info('Person {} has trip length of {}. Ignoring DRT'.format(person.id, person.direct_trip.distance))
+            self._drt_too_short_trip += 1
             return []
 
         # **************************************************
@@ -231,6 +236,7 @@ class ServiceProvider(Component):
         unassigned_legs = 0
         too_close_for_drt = 0
         overnight_trip = 0
+        no_need_in_drt = 0
         for alt in pt_alternatives:
             if not (self.env.now <= alt.legs[0].start_time <= person.next_activity.start_time) or \
                not (self.env.now <= alt.legs[-1].end_time <= person.next_activity.start_time):
@@ -242,7 +248,8 @@ class ServiceProvider(Component):
 
                 # if a PT trip has only one leg or if the last leg is PT - we do not need DRT
                 if len(drt_trip.legs) < 2:
-                    return []
+                    no_need_in_drt += 1
+                    continue
 
                 # **************************************************
                 # **********         Trip in           *************
@@ -313,9 +320,9 @@ class ServiceProvider(Component):
 
         if len(drt_trips) == 0:
             log.warning('Person {} could not be routed by DRT. Undeliverable: {}, Unassigned {},'
-                        'PT stops outside: {}, too close PT stops {}, overnight trips {}'
+                        'PT stops outside: {}, too close PT stops {}, overnight trips {}, one leg journey recieved {}'
                         .format(person.id, undeliverable_legs, unassigned_legs, pt_stop_outside,
-                                too_close_for_drt, overnight_trip))
+                                too_close_for_drt, overnight_trip, no_need_in_drt))
             if undeliverable_legs != 0:
                 self._drt_undeliverable += 1
             elif unassigned_legs != 0:
@@ -622,6 +629,18 @@ class ServiceProvider(Component):
     def log_unassigned_trip(self, person):
         self.unassigned_trips.append(UnassignedTrip(person))
 
+    def log_unplannable(self, person):
+        self._unplannable_persons += 1
+
+    def log_unchoosable(self, person):
+        self._unchoosable_persons += 1
+
+    def log_unactivatable(self, person):
+        self._unactivatable_persons += 1
+
+    def log_unreactivatable(self, person):
+        self.log_unactivatable(person)
+
     def get_result(self, result):
         super(ServiceProvider, self).get_result(result)
         # result['no_unassigned_drt_trips'] = len(self.unassigned_trips)
@@ -631,3 +650,8 @@ class ServiceProvider(Component):
         result['unassigned_drt_trips'] = self._drt_unassigned
         result['no_suitable_pt_stop'] = self._drt_no_suitable_pt_stop
         result['drt_overnight'] = self._drt_overnight
+        result['too_short_direct_trip'] = self._drt_too_short_trip
+
+        result['unplannable_persons'] = self._unplannable_persons
+        result['unchoosable_persons'] = self._unchoosable_persons
+        result['unactivatable_persons'] = self._unactivatable_persons

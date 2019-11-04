@@ -147,21 +147,25 @@ class DefaultBehaviour(StateMachine):
         yield Event(self.env).succeed()
         log.warning('{} going from {} to {} received none alternatives. Ignoring the person.'
                     .format(self.person, self.person.curr_activity.coord, self.person.next_activity.coord))
+        self.person.serviceProvider.log_unplannable(self.person)
 
     def on_unchoosable(self):
         yield Event(self.env).succeed()
         log.warning('{} going from {} to {} received none alternatives. Ignoring the person.'
                     .format(self.person, self.person.curr_activity.coord, self.person.next_activity.coord))
+        self.person.serviceProvider.log_unchoosable(self.person)
 
     def on_unactivatable(self):
         yield Event(self.env).succeed()
         log.warning('{} going from {} to {} cannot reach the destination. Ignoring the person.'
                     .format(self.person, self.person.curr_activity.coord, self.person.next_activity.coord))
+        self.person.serviceProvider.log_unactivatable(self.person)
 
     def on_unreactivatable(self):
         yield Event(self.env).succeed()
         log.warning('{} going from {} to {} cannot reach the destination. Ignoring the person.'
                     .format(self.person, self.person.curr_activity.coord, self.person.next_activity.coord))
+        self.person.serviceProvider.log_unactivatable(self.person)
 
     def on_trip_exception(self):
         raise NotImplementedError()

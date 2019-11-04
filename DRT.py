@@ -134,7 +134,7 @@ config = {
     'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
     'population.input_file': 'data/population.json',
-    'population.input_percentage': 0.0001,
+    'population.input_percentage': 0.0008,
 
     'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],
     'drt.default_tw_left': td(minutes=30).total_seconds(),
@@ -195,6 +195,13 @@ if __name__ == '__main__':
         raise
 
     log.info('Total {} persons'.format(res.get('total_persons')))
+    executed_trips = res.get('executed_trips')  # type: List[Trip]
+    log.info('Executed trips: {}'.format(len(executed_trips)))
+    log.info('Excluded persons due to none or a trivial path {}'
+             .format(res.get('unactivatable_persons') +
+                     res.get('unchoosable_persons') +
+                     res.get('unplannable_persons')))
+    log.info('********************************************')
     log.info('Mode share :')
     if config.get('service.modes') == 'main_modes':
         mode_list = OtpMode.get_main_modes()
@@ -209,6 +216,13 @@ if __name__ == '__main__':
     log.info('DRT_TRANSIT_trips {}'.format(res.get('DRT_TRANSIT_trips')))
 
     log.info('********************************************')
+    log.info('Unassigned DRT trips {}'.format(res.get('unassigned_drt_trips')))
+    log.info('Undeliverable DRT trips {}'.format(res.get('undeliverable_drt')))
+    log.info('Overnight DRT trips {}'.format(res.get('drt_overnight')))
+    log.info('No suitable PT stops for extra-zonal DRT trips {}'.format(res.get('no_suitable_pt_stop')))
+    log.info('Too short trip for intra-zonal trip {}'.format(res.get('too_short_direct_trip')))
+
+    log.info('********************************************')
     log.info('Leg share :')
     for leg in leg_list:
         log.info('{} {}'.format(leg, res.get('{}_legs'.format(leg))))
@@ -221,17 +235,6 @@ if __name__ == '__main__':
     log.info(res.get('planned_trips'))
     log.info(res.get('executed_trips'))
     log.info(res.get('direct_trips'))
-    
-    executed_trips = res.get('executed_trips')  # type: List[Trip]
-    # drt_trips = [trip for trip in executed_trips if trip.main_mode == OtpMode.DRT]
-
-    log.info('Total trips: {}'.format(len(executed_trips)))
-    log.info('DRT_trips {}'.format(res.get('DRT_trips')))
-    log.info('DRT_TRANSIT_trips {}'.format(res.get('DRT_TRANSIT_trips')))
-    log.info('Unassigned DRT trips {}'.format(res.get('unassigned_drt_trips')))
-    log.info('Undeliverable DRT trips {}'.format(res.get('undeliverable_drt')))
-    log.info('Overnight DRT trips {}'.format(res.get('drt_overnight')))
-    log.info('No suitable PT stops for extra-zonal DRT trips {}'.format(res.get('no_suitable_pt_stop')))
 
     delivered_travelers = res.get('delivered_travelers')  # type: List[int]
     vehicle_kilometers = res.get('vehicle_kilometers')  # type: List[int]
