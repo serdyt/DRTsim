@@ -155,7 +155,9 @@ class DefaultRouting(object):
         start = time.time()
         rstate = self.env.rand.getstate()
 
-        jsprit_call = subprocess.run(['java', '-cp', 'jsprit.jar', 'com.graphhopper.jsprit.examples.DRT_test'],
+        jsprit_call = subprocess.run(['java', '-cp', 'jsprit.jar',
+                                      'com.graphhopper.jsprit.examples.DRT_test',
+                                      'print_solution', self.env.config.get('drt.visualize_routes')],
                                      capture_output=True)
 
         if self.env.rand.getstate() != rstate:
@@ -166,7 +168,7 @@ class DefaultRouting(object):
             from shutil import copyfile
             file_id = 'vrp.xml' + str(time.time())
             log.error("Jsprit has crashed. Saving input vrp to {}/{}"
-                      .format(self.env.config.get('jsprit.debug_folder'),file_id))
+                      .format(self.env.config.get('jsprit.debug_folder'), file_id))
             log.error(jsprit_call.stderr.decode("utf-8") .replace('\\n', '\n'))
             copyfile(self.env.config.get('jsprit.vrp_file'), self.env.config.get('jsprit.debug_folder')+'/'+file_id)
         log.debug('jsprit takes {}ms of system time'.format(time.time() - start))
@@ -174,7 +176,8 @@ class DefaultRouting(object):
         # ***********************************************************
         # ************       Parse jsprit output          ***********
         # ***********************************************************
-        solution = jsprit_vrp_interface.read_vrp_solution(self.env.config.get('jsprit.vrp_solution'))  # type: JspritSolution
+        solution = jsprit_vrp_interface.read_vrp_solution(self.env.config.get('jsprit.vrp_solution'))
+        # type: JspritSolution
 
         # ***********************************************************
         # ************         Form a DRT trip            ***********

@@ -47,7 +47,7 @@ class ServiceProvider(Component):
         self._drt_unassigned = 0
         self._drt_no_suitable_pt_stop = 0
         self._drt_overnight = 0
-
+        self._drt_no_suitable_pt_connection = 0
         self._drt_too_short_trip = 0
 
         self._unplannable_persons = 0
@@ -236,7 +236,7 @@ class ServiceProvider(Component):
         unassigned_legs = 0
         too_close_for_drt = 0
         overnight_trip = 0
-        no_need_in_drt = 0
+        one_leg_journey = 0
         for alt in pt_alternatives:
             if not (self.env.now <= alt.legs[0].start_time <= person.next_activity.start_time) or \
                not (self.env.now <= alt.legs[-1].end_time <= person.next_activity.start_time):
@@ -248,7 +248,7 @@ class ServiceProvider(Component):
 
                 # if a PT trip has only one leg or if the last leg is PT - we do not need DRT
                 if len(drt_trip.legs) < 2:
-                    no_need_in_drt += 1
+                    one_leg_journey += 1
                     continue
 
                 # **************************************************
@@ -320,9 +320,9 @@ class ServiceProvider(Component):
 
         if len(drt_trips) == 0:
             log.warning('Person {} could not be routed by DRT. Undeliverable: {}, Unassigned {},'
-                        'PT stops outside: {}, too close PT stops {}, overnight trips {}, one leg journey recieved {}'
+                        'PT stops outside: {}, too close PT stops {}, overnight trips {}, one leg journey received {}'
                         .format(person.id, undeliverable_legs, unassigned_legs, pt_stop_outside,
-                                too_close_for_drt, overnight_trip, no_need_in_drt))
+                                too_close_for_drt, overnight_trip, one_leg_journey))
             if undeliverable_legs != 0:
                 self._drt_undeliverable += 1
             elif unassigned_legs != 0:
@@ -331,6 +331,8 @@ class ServiceProvider(Component):
                 self._drt_overnight += 1
             elif pt_stop_outside != 0 or too_close_for_drt != 0:
                 self._drt_no_suitable_pt_stop += 1
+            elif one_leg_journey != 0:
+                self._drt_no_suitable_pt_connection += 1
             else:
                 log.error('{} could not be delivered by DRT_TRANSIT, but there are zero errors as well.'
                           .format(person, ))
@@ -651,6 +653,7 @@ class ServiceProvider(Component):
         result['no_suitable_pt_stop'] = self._drt_no_suitable_pt_stop
         result['drt_overnight'] = self._drt_overnight
         result['too_short_direct_trip'] = self._drt_too_short_trip
+        result['no_suitable_pt_connection'] = self._drt_no_suitable_pt_connection
 
         result['unplannable_persons'] = self._unplannable_persons
         result['unchoosable_persons'] = self._unchoosable_persons

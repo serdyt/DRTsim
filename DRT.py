@@ -137,8 +137,6 @@ config = {
     'population.input_percentage': 0.0008,
 
     'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],
-    'drt.default_tw_left': td(minutes=30).total_seconds(),
-    'drt.default_tw_right': td(minutes=60).total_seconds(),
     'drt.planning_in_advance': td(hours=24).total_seconds(),
     'drt.time_window_constant': td(minutes=30).total_seconds(),
     'drt.time_window_multiplier': 2,
@@ -147,9 +145,7 @@ config = {
     'drt.min_distance': 2000,
     'drt.walkCarSpeed': 16.6667,
     'drt.max_fake_walk': 1000000,
-
-    # 'trip.planning_in_advance_direct_time_coefficient': 2,
-    # 'trip.planning_in_advance_constant': td(minutes=30).total_seconds(),
+    'drt.visualize_routes': 'true',  # should be a string
     }
 
 
@@ -221,6 +217,7 @@ if __name__ == '__main__':
     log.info('Overnight DRT trips {}'.format(res.get('drt_overnight')))
     log.info('No suitable PT stops for extra-zonal DRT trips {}'.format(res.get('no_suitable_pt_stop')))
     log.info('Too short trip for intra-zonal trip {}'.format(res.get('too_short_direct_trip')))
+    log.info('No walking leg to replace {}'.format(res.get('no_suitable_pt_connection')))
 
     log.info('********************************************')
     log.info('Leg share :')

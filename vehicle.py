@@ -148,7 +148,11 @@ class Vehicle(Component):
                     self.service.get_route_details(self)
 
             # wait for the end of current action or for a rerouted event
-            act_executed = self.env.timeout(self.get_act(0).end_time - self.env.now)  # type: Timeout
+            timeout = self.get_act(0).end_time - self.env.now
+            if timeout < 0:
+                log.error('Negative delay of {} is encountered. Resetting it to zero,'.format(timeout))
+                timeout = 0
+            act_executed = self.env.timeout(timeout)  # type: Timeout
             yield self.rerouted | act_executed
 
             if self.rerouted.triggered:
@@ -172,17 +176,21 @@ class Vehicle(Component):
 
                 if act.type == act.DRIVE:
                     if self.get_route_len() == 0:
-                        log.error('Vehicle {} drove to no action. Probably to depot. Check if this happen'.format(self.id))
+                        log.error('Vehicle {} drove to no action. Probably to depot. Check if this happen'
+                                  .format(self.id))
                         continue
                     else:
-                        log.info('Vehicle {} drove to serve {} at {}'.format(self.id, self._route[0].person, self.env.now))
+                        log.info('Vehicle {} drove to serve {} at {}'
+                                 .format(self.id, self._route[0].person, self.env.now))
 
                     new_act = self.get_act(0)
                     if new_act.type == new_act.DROP_OFF or new_act.type == new_act.DELIVERY:
-                        log.info('Vehicle {} delivering person {} at {}'.format(self.id, new_act.person.id, self.env.now))
+                        log.info('Vehicle {} delivering person {} at {}'
+                                 .format(self.id, new_act.person.id, self.env.now))
                         # self._drop_off_travelers([new_act.person])
                     elif new_act.type == new_act.PICK_UP:
-                        log.info('Vehicle {} picking up person {} at {}'.format(self.id, new_act.person.id, self.env.now))
+                        log.info('Vehicle {} picking up person {} at {}'
+                                 .format(self.id, new_act.person.id, self.env.now))
                         self._pickup_travelers([new_act.person])
                         # When a person request a trip, person is a shipment with PICK_UP and DROP_OFF acts
                         # When a person boards we need to change it to delivery act for jsprit to reroute it correctly
