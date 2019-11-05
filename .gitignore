@@ -537,10 +537,12 @@ __pycache__
 /docs/
 time_distance_matrix.db
 profile.prof
-/data/
 /output/
-/data/
 /pictures/
 /GIS/
 /jsprit_debug/
 /.idea/
+/data/population0,05.json
+/data/population_to_from_within_zones.json
+/data/points.csv
+/data/time_distance_matrix_backup.db
