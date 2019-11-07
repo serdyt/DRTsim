@@ -221,6 +221,10 @@ class ServiceProvider(Component):
         # **************************************************
         # **********       DRT_TRANSIT         *************
         # **************************************************
+
+        if person.id == 125:
+            print('debuggg!')
+
         pt_alternatives = self.router.otp_request(person, OtpMode.TRANSIT,
                                                   {'walkSpeed': self.env.config.get('drt.walkCarSpeed'),
                                                    'fromPlace': person.curr_activity.coord,
@@ -265,6 +269,7 @@ class ServiceProvider(Component):
                     # That would be the scenario to a central station (most likely)
                     try:
                         drt_leg = self._get_leg_for_in_trip(drt_trip, person)
+                        person.set_tw(drt_leg.duration, last_leg=True, drt_leg=drt_leg)
                         pt_walk_leg_index = -1
                     except PTStopServiceOutsideZone as e:
                         # log.info(e.msg)
@@ -277,6 +282,7 @@ class ServiceProvider(Component):
                 elif self.is_out_trip(person):
                     try:
                         drt_leg = self._get_leg_for_out_trip(drt_trip, person)
+                        person.set_tw(drt_leg.duration, first_leg=True, drt_leg=drt_leg)
                         pt_walk_leg_index = 0
                     except PTStopServiceOutsideZone as e:
                         # log.info(e.msg)
@@ -292,8 +298,6 @@ class ServiceProvider(Component):
                 # ********* Common part for in and out *************
                 # **************************************************
                 if drt_leg.distance < self.env.config.get('drt.min_distance'):
-                    # log.info('Zone crossing Person {} has a first/last leg distance {}. Ignoring DRT'
-                    #          .format(person.id, drt_leg.distance))
                     too_close_for_drt += 1
                     continue
 
@@ -301,12 +305,9 @@ class ServiceProvider(Component):
                 try:
                     self._prepare_travelers_for_vrp(person)
                 except DrtUnassigned as e:
-                    # log.warning(e.msg)
-                    # self.log_unassigned_trip(person)
                     unassigned_legs += 1
                     continue
                 except DrtUndeliverable as e:
-                    # log.warning(e.msg)
                     undeliverable_legs += 1
                     continue
 
@@ -347,8 +348,9 @@ class ServiceProvider(Component):
                           end_coord=drt_trip.legs[-1].end_coord,
                           start_time=drt_trip.legs[-1].start_time,
                           end_time=drt_trip.legs[-1].end_time,
-                          distance=drt_trip.legs[-1].distance)
-            person.set_tw(drt_trip.legs[-1].duration, last_leg=True, drt_leg=drt_leg)
+                          distance=drt_trip.legs[-1].distance,
+                          duration=drt_trip.legs[-1].duration)
+            # person.set_tw(drt_leg.duration, last_leg=True, drt_leg=drt_leg)
             return drt_leg
         else:
             # log.info('Person {} has incoming trip, but bus stop {} is not in the zone'
@@ -361,9 +363,11 @@ class ServiceProvider(Component):
             drt_leg = Leg(mode=OtpMode.DRT,
                           start_coord=drt_trip.legs[0].start_coord,
                           end_coord=drt_trip.legs[0].end_coord,
+                          start_time=drt_trip.legs[0].start_time,
                           end_time=drt_trip.legs[0].end_time,
-                          distance=drt_trip.legs[0].distance)
-            person.set_tw(drt_trip.legs[0].duration, first_leg=True, drt_leg=drt_leg)
+                          distance=drt_trip.legs[0].distance,
+                          duration=drt_trip.legs[0].duration)
+            # person.set_tw(drt_leg, first_leg=True, drt_leg=drt_leg)
             return drt_leg
         else:
             raise PTStopServiceOutsideZone('Person {} has outgoing trip, but bus stop is not in the zone'

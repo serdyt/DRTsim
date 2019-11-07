@@ -70,9 +70,9 @@ class DefaultBehaviour(StateMachine):
     def on_plan(self):
         yield Event(self.env).succeed()
         while self.env.peek() == self.env.now:
-            # TODO: this makes sure that a request-replan sequence for a person is not braked
+            # TODO: this makes sure that a request-replan sequence for a person is not broken
             # if it is, we must save multiple requests and have some policy to merge them
-            yield self.person.env.timeout(0.001)
+            yield self.person.env.timeout(0.000001)
         if self.person.planned_trip is None:
             try:
                 alternatives = self.person.serviceProvider.request(self.person)

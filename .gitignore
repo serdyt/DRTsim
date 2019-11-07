@@ -546,3 +546,7 @@ profile.prof
 /data/population_to_from_within_zones.json
 /data/points.csv
 /data/time_distance_matrix_backup.db
+/data/problem-with-solution.xml
+/data/time_distance_matrix.csv
+/data/vrp.xml
+/data/log.zip

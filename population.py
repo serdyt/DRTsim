@@ -42,16 +42,14 @@ class Population(Component):
             raw_json = json.load(input_file)
             persons = raw_json.get('persons')
             pers_id = 0
-            # i = 0
             for json_pers in persons:
-                # print(sum([x for x in self.env.rand.choices([False,True], [0.05, 0.95], k=1)]))
+                pers_id += 1
                 if self.env.rand.choices([False, True],
                                          [self.env.config.get('population.input_percentage'),
                                          1 - self.env.config.get('population.input_percentage')])[0]:
                     continue
 
                 attributes = {'age': 22, 'id': pers_id, 'otp_parameters': {'arriveBy': True}}
-                pers_id = pers_id + 1
 
                 # TODO: sequence of activities has the same end and start times
                 # time window is applied on the planning stage in the behaviour and service

@@ -14,6 +14,7 @@ import os
 import subprocess
 import time
 import json
+from shutil import copyfile
 
 from population import *
 from const import OtpMode, LegMode
@@ -165,7 +166,6 @@ class DefaultRouting(object):
         self.env.rand.setstate(rstate)
 
         if jsprit_call.returncode != 0:
-            from shutil import copyfile
             file_id = 'vrp.xml' + str(time.time())
             log.error("Jsprit has crashed. Saving input vrp to {}/{}"
                       .format(self.env.config.get('jsprit.debug_folder'), file_id))
@@ -187,6 +187,10 @@ class DefaultRouting(object):
                                    'Check this.\n'
                                    'The person will ignore DRT mode.')
         if person.id in solution.unassigned:
+            file_id = 'vrp_{}_{}.xml'.format(str(time.time()), person.id)
+            copyfile(self.env.config.get('jsprit.vrp_file'), self.env.config.get('jsprit.debug_folder')+'/'+file_id)
+            log.debug('Person {} cannot be delivered by DRT. Arrive by {}, tw left {}, tw right {}'
+                      .format(person.id, person.next_activity.start_time, person.get_tw_left(), person.get_tw_right()))
             raise DrtUnassigned('Person {} cannot be delivered by DRT'.format(person.id))
 
         # TODO: I assume that only one route is changed, i.e. insertion algorithm is used.
@@ -265,27 +269,21 @@ class DefaultRouting(object):
         start = time.time()
         coords_to_process_with_otp = []
         # TODO: move coords_to_process_with_otp to return of the function instead of a parameter
-        # self._process_tdm_in_database(vehicle_coords + return_coords + persons_start_coords + persons_end_coords,
-        #                               vehicle_coords + return_coords + persons_start_coords + persons_end_coords,
-        #                               coords_to_process_with_otp)
+        self._process_tdm_in_database(vehicle_coords + return_coords + persons_start_coords + persons_end_coords,
+                                      vehicle_coords + return_coords + persons_start_coords + persons_end_coords,
+                                      coords_to_process_with_otp)
 
-        self._process_tdm_in_database(vehicle_coords, persons_start_coords, coords_to_process_with_otp, reverse=False)
-        self._process_tdm_in_database(vehicle_coords, persons_end_coords, coords_to_process_with_otp)
-        self._process_tdm_in_database(vehicle_coords, return_coords, coords_to_process_with_otp)
-
-        self._process_tdm_in_database(persons_start_coords, vehicle_coords, coords_to_process_with_otp, reverse=False)
-        self._process_tdm_in_database(persons_start_coords, persons_end_coords, coords_to_process_with_otp, reverse=False)
-        self._process_tdm_in_database(persons_end_coords, persons_start_coords, coords_to_process_with_otp)
-        self._process_tdm_in_database(persons_end_coords, return_coords, coords_to_process_with_otp)
-
+        # self._process_tdm_in_database(vehicle_coords, persons_start_coords, coords_to_process_with_otp)
+        # self._process_tdm_in_database(vehicle_coords, persons_end_coords, coords_to_process_with_otp)
+        # self._process_tdm_in_database(vehicle_coords, return_coords, coords_to_process_with_otp)
+        #
         # self._process_tdm_in_database(persons_start_coords, vehicle_coords, coords_to_process_with_otp)
-
-
         # self._process_tdm_in_database(persons_start_coords, persons_end_coords, coords_to_process_with_otp)
         # self._process_tdm_in_database(persons_end_coords, persons_start_coords, coords_to_process_with_otp)
         # self._process_tdm_in_database(persons_end_coords, return_coords, coords_to_process_with_otp)
         #
         # self._process_tdm_in_database(return_coords, persons_start_coords, coords_to_process_with_otp)
+
         log.debug('DB processing time {}'.format(time.time() - start))
 
         log.debug('TDM to process with OTP: {} out of {}'
@@ -366,7 +364,7 @@ class DefaultRouting(object):
         otp_tdm_file.close()
         jsprit_tdm_interface.close()
 
-    def _process_tdm_in_database(self, start_coords, end_coords, coords_to_process_with_otp=None, reverse=False):
+    def _process_tdm_in_database(self, start_coords, end_coords, coords_to_process_with_otp=None):
         """Checks in database if coordinates were already saved in database.
 
         For each start location check if at_time-distance were already calculated and stored in database.
