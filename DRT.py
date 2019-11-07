@@ -115,10 +115,12 @@ config = {
     'service.router_scripting_address': 'http://localhost:8080/otp/scripting/run',
     'service.modes': 'main_modes',  # ['main_modes','all_modes']
     'date': '11-14-2018',
+
     'jsprit.tdm_file': 'data/time_distance_matrix.csv',
     'jsprit.vrp_file': 'data/vrp.xml',
     'jsprit.vrp_solution': 'data/problem-with-solution.xml',
     'jsprit.debug_folder': 'jsprit_debug',
+
     'db.file': 'data/time_distance_matrix.db',
 
     'otp.input_file': 'data/points.csv',
@@ -137,7 +139,7 @@ config = {
     'population.input_percentage': 0.002,
 
     'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],
-    'drt.planning_in_advance': td(hours=24).total_seconds(),
+    'drt.planning_in_advance': td(hours=2).total_seconds(),
     'drt.time_window_constant': td(minutes=30).total_seconds(),
     'drt.time_window_multiplier': 2,
     'drt.time_window_shift_left': 1./4,

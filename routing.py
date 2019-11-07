@@ -158,7 +158,7 @@ class DefaultRouting(object):
 
         jsprit_call = subprocess.run(['java', '-cp', 'jsprit.jar',
                                       'com.graphhopper.jsprit.examples.DRT_test',
-                                      'print_solution', self.env.config.get('drt.visualize_routes')],
+                                      '-print_solution', self.env.config.get('drt.visualize_routes')],
                                      capture_output=True)
 
         if self.env.rand.getstate() != rstate:
