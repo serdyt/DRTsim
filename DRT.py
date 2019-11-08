@@ -105,9 +105,7 @@ config = {
     'sim.duration': '86400 s',
     'sim.duration_sec': 86400,
     'sim.seed': 42,
-    'sim.log': 'output/log',
     'sim.email_notification': True,
-    'sim.log_zip': 'data/log.zip',
 
     'person.behaviour': 'DefaultBehaviour',
     'person.mode_choice': 'DefaultModeChoice',
@@ -117,15 +115,7 @@ config = {
     'service.modes': 'main_modes',  # ['main_modes','all_modes']
     'date': '11-14-2018',
 
-    'jsprit.tdm_file': 'data/time_distance_matrix.csv',
-    'jsprit.vrp_file': 'data/vrp.xml',
-    'jsprit.vrp_solution': 'data/problem-with-solution.xml',
-    'jsprit.debug_folder': 'jsprit_debug',
-
     'db.file': 'data/time_distance_matrix.db',
-
-    'otp.input_file': 'data/points.csv',
-    'otp.tdm_file': 'data/time_distance_matrix_otp.csv',
 
     'person.default_attr.walking_speed': 1.2,
     'person.default_attr.dimensions': {CD.SEATS: 1},
@@ -151,10 +141,10 @@ config = {
     'drt.visualize_routes': 'true',  # should be a string
     }
 
-folder = 'data-p-{}-pre-{}-twc-{}-twm-{}'.format(config.get('population.input_percentage'),
-                                                 config.get('drt.planning_in_advance'),
-                                                 config.get('drt.time_window_constant'),
-                                                 config.get('drt.time_window_multiplier'))
+folder = '-p-{}-pre-{}-twc-{}-twm-{}'.format(config.get('population.input_percentage'),
+                                             config.get('drt.planning_in_advance'),
+                                             config.get('drt.time_window_constant'),
+                                             config.get('drt.time_window_multiplier'))
 try:
     shutil.rmtree(folder)
 except (FileNotFoundError, OSError) as e:
@@ -165,8 +155,25 @@ config.update({
     'jsprit.tdm_file': '{}/time_distance_matrix.csv'.format(folder),
     'jsprit.vrp_file': '{}/vrp.xml'.format(folder),
     'jsprit.vrp_solution': '{}/problem-with-solution.xml'.format(folder),
-})
+    'jsprit.debug_folder': '{}/jsprit_debug'.format(folder),
 
+    'otp.input_file': '{}/points.csv'.format(folder),
+    'otp.tdm_file': '{}/time_distance_matrix_otp.csv'.format(folder),
+    'otp.script_file': '{}/OTP_travel_matrix.py'.format(folder),
+
+    'sim.log': '{}/log'.format(folder),
+    'sim.log_zip': '{}/log.zip'.format(folder),
+    'sim.folder': folder,
+})
+os.mkdir(config.get('jsprit.debug_folder'))
+
+orig_script = open('OTP_travel_matrix.py', 'r')
+data = orig_script.read()
+orig_script.close()
+script = open("{}/OTP_travel_matrix.py".format(folder), 'w')
+workdir = '../../DRTsim'
+script.write('workdir = "{}/{}"'.format(workdir, folder) + data)
+script.close()
 
 """Desmod takes responsibility for instantiating and elaborating the model,
 we only need to pass the configuration dict and the top-level

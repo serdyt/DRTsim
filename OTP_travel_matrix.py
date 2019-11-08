@@ -1,3 +1,4 @@
+
 #!/usr/bin/env jython
 """
 Created on Thu Feb  7 11:21:49 2019
@@ -18,6 +19,8 @@ import sys
 import org.opentripplanner.routing.error.TrivialPathException as TrivialPathException
 import org.opentripplanner.routing.error.PathNotFoundException as PathNotFoundException
 
+import sys
+
 router = otp.getRouter('skane')
 
 # Create a default request for a given time
@@ -29,8 +32,8 @@ req.setModes('CAR')
 
 # HOME = java.lang.System.getProperty("user.home")
 # The file points.csv contains the columns GEOID, X and Y.
-file_name = '../../DRTsim/data/points.csv'
-log_file = '../../DRTsim/output/log'
+file_name = '{}/points.csv'.format(workdir)
+log_file = '{}/log'.format(workdir)
 LOG = None
 points = []
 matrixCsv = otp.createCSVOutput()
@@ -76,6 +79,6 @@ with open(file_name, 'r') as file:
             raise
 
 # Save the result
-matrixCsv.save('../../DRTsim/data/time_distance_matrix_otp.csv')
+matrixCsv.save('{}/time_distance_matrix_otp.csv'.format(workdir))
 if LOG is not None:
     LOG.close()

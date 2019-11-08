@@ -162,6 +162,7 @@ class DefaultRouting(object):
                                       '-vrpFile', self.env.config.get('jsprit.vrp_file'),
                                       '-tdmFile', self.env.config.get('jsprit.tdm_file'),
                                       '-outFile', self.env.config.get('jsprit.vrp_solution'),
+                                      '-simLog', self.env.config.get('sim.log'),
                                       ],
                                      capture_output=True)
 
@@ -307,9 +308,9 @@ class DefaultRouting(object):
             self._write_input_file_for_otp_script(coords_to_process_with_otp)
 
             # Call OTP script to calculate OD time-distance missing in the database
-            multipart_form_data = {'scriptfile': ('OTP_travel_matrix.py', open('OTP_travel_matrix.py', 'rb'))}
-            r = requests.post(url=self.env.config.get('service.router_scripting_address'), files=multipart_form_data)
-            # raise an exception if script returned an error
+            multipart_form_data = {'scriptfile': ('OTP_travel_matrix.py', open(self.env.config.get('otp.script_file'), 'rb'))}
+            r = requests.post(url=self.env.config.get('service.router_scripting_address'),
+                              files=multipart_form_data)
             try:
                 r.raise_for_status()
             except requests.exceptions.HTTPError as e:
