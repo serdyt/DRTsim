@@ -318,7 +318,10 @@ class Vehicle(Component):
         if current_time > self.env.now:
             return act.end_coord, current_time
         else:
-            raise Exception('There is not enough of steps at_time to fill the act')
+            log.error('There is not enough of steps at_time to fill the act, returning end of a current act.'
+                      'now {}\n{}'.format(self.env.now, act.flush()))
+            return act.end_coord, current_time
+            # raise Exception('There is not enough of steps at_time to fill the act')
 
     def get_current_step(self) -> Step:
         """Finds current step of a vehicle route
@@ -341,7 +344,11 @@ class Vehicle(Component):
                 return step
             else:
                 pass
-        raise Exception('There is not enough of steps at_time to fill the act')
+
+        log.error('There is not enough of steps at_time to fill the act, returning the last step.'
+                  'now {}\n{}'.format(self.env.now, act.flush()))
+        return act.steps[-1]
+        # raise Exception('There is not enough of steps at_time to fill the act')
 
     def get_passed_steps(self):
         """Returns steps which vehicle has executed by now. DOES NOT include current step"""

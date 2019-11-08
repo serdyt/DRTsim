@@ -292,6 +292,9 @@ class DrtAct(ActType):
     def __repr__(self):
         return self.__str__()
 
+    def flush(self):
+        return '{}\n{}'.format(self.__str__(), [s.__str__() for s in self.steps])
+
     def get_deep_copy(self):
         return DrtAct(type_=copy.deepcopy(self.type),
                       person=self.person,
