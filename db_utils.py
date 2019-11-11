@@ -39,13 +39,23 @@ class SqliteConnector(object):
         self.cur.execute('DROP TABLE {}'.format(self.TDM))
         self._create_tdm()
 
-    def select_tdm_by_origin(self, origin):
-        """
-        :param origin:
-        :return: [(to_lat, to_lon, time, distance)]
-        """
-        self.cur.execute('SELECT to_lat, to_lon, time, distance FROM {} WHERE from_lat={} and from_lon={}'.format(self.TDM, origin.lat, origin.lon))
-        return self.cur.fetchall()
+    # def select_tdm_by_origin(self, origin):
+    #     """
+    #     :param origin:
+    #     :return: [(to_lat, to_lon, time, distance)]
+    #     """
+    #     self.cur.execute('SELECT to_lat, to_lon, time, distance FROM {} WHERE from_lat={} and from_lon={}'.format(self.TDM, origin.lat, origin.lon))
+    #
+    #     # TODO: we do not need to fetch all, but in this case we would need to modify operations with this
+    #     # return self.cur
+    #     return self.cur.fetchall()
+
+    def select_from_tdm_by_pair(self, origin, destination):
+        """returns (time, distance) or none?"""
+        self.cur.execute('SELECT time, distance FROM {} '
+                         'WHERE to_lat={} and to_lon={} and from_lat={} and from_lon={}'
+                         .format(self.TDM, destination.lat, destination.lon, origin.lat, origin.lon))
+        return self.cur.fetchone()
 
     def insert_tdm_by_od(self, origin_coord, dest_coord, time, distance):
         try:

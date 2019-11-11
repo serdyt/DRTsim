@@ -433,6 +433,21 @@ class ServiceProvider(Component):
             trip.set_empty_trip(OtpMode.DRT, act.start_coord, act.end_coord)
         except OTPNoPath as e:
             log.error(e.msg + str(e.context))
+            log.error('Trying to create a trip with a single leg and a single step.')
+            trip = Trip()
+            trip.duration = act.duration
+            trip.distance = act.distance
+            trip.main_mode = OtpMode.DRT
+            trip.legs = [Leg(mode=OtpMode.DRT,
+                             start_coord=act.start_coord,
+                             end_coord=act.end_coord,
+                             start_time=act.start_time,
+                             end_time=act.end_time,
+                             distance=act.distance,
+                             duration=act.duration,
+                             steps=[Step(coord=act.start_coord,
+                                         distance=act.distance,
+                                         duration=act.duration)])]
 
         if len(trip.legs) > 1:
             log.error('OTP returned multiple legs for DRT trip from {} to {}.'.format(act.start_coord, act.end_coord))

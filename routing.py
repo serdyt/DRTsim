@@ -290,15 +290,18 @@ class DefaultRouting(object):
         # self._process_tdm_in_database(return_coords, persons_start_coords, coords_to_process_with_otp)
 
         log.debug('DB processing time {}'.format(time.time() - start))
-
         log.debug('TDM to process with OTP: {} out of {}'
                   .format(len(set(coords_to_process_with_otp)),
-                          len(vehicle_coords)*len(persons_start_coords) +
-                          len(persons_start_coords)*len(persons_end_coords) +
-                          len(vehicle_coords)*len(return_coords) +
-                          len(persons_end_coords)*len(return_coords) -
-                          len(vehicle_coords) - len(persons_start_coords) -
-                          len(persons_end_coords) - len(return_coords)))
+                          len(vehicle_coords + return_coords + persons_start_coords + persons_end_coords)**2))
+
+        # log.debug('TDM to process with OTP: {} out of {}'
+        #           .format(len(set(coords_to_process_with_otp)),
+        #                   len(vehicle_coords)*len(persons_start_coords) +
+        #                   len(persons_start_coords)*len(persons_end_coords) +
+        #                   len(vehicle_coords)*len(return_coords) +
+        #                   len(persons_end_coords)*len(return_coords) -
+        #                   len(vehicle_coords) - len(persons_start_coords) -
+        #                   len(persons_end_coords) - len(return_coords)))
 
         start = time.time()
         # save a state of a random number generator
@@ -377,28 +380,41 @@ class DefaultRouting(object):
 
         :param coords_to_process_with_otp: coordinates missing from database are saved to this list
         """
+
         for start_coord in start_coords:
-            tdm_table = db_conn.select_tdm_by_origin(start_coord)
-            # row = [(to_lat, to_lon, time, distance)]
-            end_coords_in_db = [Coord(lat=row[0], lon=row[1]) for row in tdm_table]
             for end_coord in end_coords:
-                if end_coord == start_coord:
-                    continue
-                if end_coord in end_coords_in_db:
-                    db_row = tdm_table[end_coords_in_db.index(end_coord)]
-                    # add existing time to jsprit file
+                td = db_conn.select_from_tdm_by_pair(start_coord, end_coord)
+                if td is not None:
                     jsprit_tdm_interface.add_row_to_tdm(origin=self.coord_to_geoid.get(start_coord),
                                                         destination=self.coord_to_geoid.get(end_coord),
-                                                        time=db_row[2], distance=db_row[3])
-                    # I think this may cause integrity errors
-                    # if reverse:
-                    #     jsprit_tdm_interface.add_row_to_tdm(origin=self.coord_to_geoid.get(end_coord),
-                    #                                         destination=self.coord_to_geoid.get(start_coord),
-                    #                                         time=db_row[2], distance=db_row[3])
+                                                        time=td[0], distance=td[1])
                 else:
-                    # if end_coord not in otp_coords_to_process:
                     if coords_to_process_with_otp is not None:
                         coords_to_process_with_otp.append((start_coord, end_coord))
+
+    # def _process_tdm_in_database(self, start_coords, end_coords, coords_to_process_with_otp=None):
+    #     for start_coord in start_coords:
+    #         tdm_table = db_conn.select_tdm_by_origin(start_coord)
+    #         # row = [(to_lat, to_lon, time, distance)]
+    #         end_coords_in_db = [Coord(lat=row[0], lon=row[1]) for row in tdm_table]
+    #         for end_coord in end_coords:
+    #             if end_coord == start_coord:
+    #                 continue
+    #             if end_coord in end_coords_in_db:
+    #                 db_row = tdm_table[end_coords_in_db.index(end_coord)]
+    #                 # add existing time to jsprit file
+    #                 jsprit_tdm_interface.add_row_to_tdm(origin=self.coord_to_geoid.get(start_coord),
+    #                                                     destination=self.coord_to_geoid.get(end_coord),
+    #                                                     time=db_row[2], distance=db_row[3])
+    #                 # I think this may cause integrity errors
+    #                 # if reverse:
+    #                 #     jsprit_tdm_interface.add_row_to_tdm(origin=self.coord_to_geoid.get(end_coord),
+    #                 #                                         destination=self.coord_to_geoid.get(start_coord),
+    #                 #                                         time=db_row[2], distance=db_row[3])
+    #             else:
+    #                 # if end_coord not in otp_coords_to_process:
+    #                 if coords_to_process_with_otp is not None:
+    #                     coords_to_process_with_otp.append((start_coord, end_coord))
 
     def _write_input_file_for_otp_script(self, coords):
         with open(self.env.config.get('otp.input_file'), 'w') as file:
