@@ -34,7 +34,7 @@ class Population(Component):
         
     def _init_persons(self):
         self.read_json()
-        log.info('Population of {} persons created.'.format(len(self.person_list)))
+        log.info('{}: Population of {} persons created.'.format(self.env.now, len(self.person_list)))
 
     def read_json(self):
         """Reads json input file and generates persons to simulate"""
@@ -98,7 +98,7 @@ class Population(Component):
             ]
             self.person_list.append(Person(parent=self, attributes=attributes, activities=activities))
         
-        log.info("Population size {0}".format(len(self.person_list)))
+        log.info("{}: Population size {0}".format(self.env.now, len(self.person_list)))
 
     def get_person(self, id):
         ids = [p.id for p in self.person_list]
@@ -214,8 +214,8 @@ class Person(Component):
         #     - self.env.now
 
         if timeout < 0:
-            log.debug('{} cannot plan {} seconds in advance due to the beginning of the day'
-                      .format(self, self.env.config.get('drt.planning_in_advance')))
+            log.debug('{}: {} cannot plan {} seconds in advance due to the beginning of the day'
+                      .format(self.env.now, self, self.env.config.get('drt.planning_in_advance')))
             timeout = 0
         return timeout
 
@@ -264,7 +264,8 @@ class Person(Component):
         if OtpMode.CAR in modes:
             self.direct_trip = alternatives[modes.index(OtpMode.CAR)]
         else:
-            log.warning('Person {} does not have a car alternative. Taking the fastest one'.format(self.id))
+            log.warning('{}: Person {} does not have a car alternative. Taking the fastest one'
+                        .format(self.env.now, self.id))
             times = [a.duration for a in alternatives]
             self.direct_trip = alternatives[times.index(max(times))]
 

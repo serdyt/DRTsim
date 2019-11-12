@@ -150,7 +150,8 @@ class Vehicle(Component):
             # wait for the end of current action or for a rerouted event
             timeout = self.get_act(0).end_time - self.env.now
             if timeout < 0:
-                log.error('Negative delay of {} is encountered. Resetting it to zero,'.format(timeout))
+                log.error('{}: Negative delay of {} is encountered. Resetting it to zero,'
+                          .format(self.env.now, timeout))
                 timeout = 0
             act_executed = self.env.timeout(timeout)  # type: Timeout
             yield self.rerouted | act_executed
@@ -176,21 +177,21 @@ class Vehicle(Component):
 
                 if act.type == act.DRIVE:
                     if self.get_route_len() == 0:
-                        log.error('Vehicle {} drove to no action. Probably to depot. Check if this happen'
-                                  .format(self.id))
+                        log.error('{}: Vehicle {} drove to no action. Probably to depot. Check if this happen'
+                                  .format(self.env.now, self.id))
                         continue
                     else:
-                        log.info('Vehicle {} drove to serve {} at {}'
-                                 .format(self.id, self._route[0].person, self.env.now))
+                        log.info('{}: Vehicle {} drove to serve {} at {}'
+                                 .format(self.env.now, self.id, self._route[0].person, self.env.now))
 
                     new_act = self.get_act(0)
                     if new_act.type == new_act.DROP_OFF or new_act.type == new_act.DELIVERY:
-                        log.info('Vehicle {} delivering person {} at {}'
-                                 .format(self.id, new_act.person.id, self.env.now))
+                        log.info('{}: Vehicle {} delivering person {} at {}'
+                                 .format(self.env.now, self.id, new_act.person.id, self.env.now))
                         # self._drop_off_travelers([new_act.person])
                     elif new_act.type == new_act.PICK_UP:
-                        log.info('Vehicle {} picking up person {} at {}'
-                                 .format(self.id, new_act.person.id, self.env.now))
+                        log.info('{}: Vehicle {} picking up person {} at {}'
+                                 .format(self.env.now, self.id, new_act.person.id, self.env.now))
                         self._pickup_travelers([new_act.person])
                         # When a person request a trip, person is a shipment with PICK_UP and DROP_OFF acts
                         # When a person boards we need to change it to delivery act for jsprit to reroute it correctly
@@ -199,16 +200,17 @@ class Vehicle(Component):
                         delivery_act[0].type = DrtAct.DELIVERY
 
                 elif act.type == act.DROP_OFF or act.type == act.DELIVERY:
-                    log.info('Vehicle {} delivered person {} at {}'.format(self.id, act.person.id, self.env.now))
+                    log.info('{}: Vehicle {} delivered person {}'.format(self.env.now, self.id, act.person.id))
                     self._drop_off_travelers([act.person])
                 elif act.type == act.PICK_UP:
-                    log.info('Vehicle {} picked up person {} at {}'.format(self.id, act.person.id, self.env.now))
+                    log.info('{}: Vehicle {} picked up person {}'.format(self.env.now, self.id, act.person.id))
                 elif act.type == act.WAIT:
-                    log.info('Vehicle {} ended waiting after picking up a person at {}'.format(self.id, self.env.now))
+                    log.info('{}: Vehicle {} ended waiting after picking up a person'
+                             .format(self.env.now, self.id))
                 elif act.type == act.RETURN:
-                    log.info('Vehicle {} returned to depot'.format(self.id))
+                    log.info('{}: Vehicle {} returned to depot'.format(self.env.now, self.id))
                 else:
-                    log.error('Unexpected act type happened {}'.format(act))
+                    log.error('{}: Unexpected act type happened {}'.format(self.env.now, act))
 
     def _drop_off_travelers(self, persons):
         """Remove person from the list of current passengers and calculate statistics"""
@@ -242,8 +244,8 @@ class Vehicle(Component):
         if self.env.now > person.get_tw_left() or self.env.now < person.get_tw_right():
             return True
         else:
-            log.error('Person {} has been served  at {} outside the requested time window: {} - {}'
-                      .format(person.id, self.env.now, person.get_tw_left(), person.get_tw_right()))
+            log.error('{}: Person {} has been served  at {} outside the requested time window: {} - {}'
+                      .format(self.env.now, person.id, self.env.now, person.get_tw_left(), person.get_tw_right()))
             return False
 
     def update_partially_executed_trips(self):
@@ -300,8 +302,8 @@ class Vehicle(Component):
         act = self._route[0]
         current_time = act.start_time
         if len(act.steps) == 0:
-            log.error('Getting current vehicle position, vehicle {} got no steps in {}\n'
-                      'Returning end position of the act'.format(self.id, act))
+            log.error('{}: Getting current vehicle position, vehicle {} got no steps in {}\n'
+                      'Returning end position of the act'.format(self.env.now, self.id, act))
             return act.end_coord, act.end_time
 
         if current_time == self.env.now:
@@ -318,8 +320,8 @@ class Vehicle(Component):
         if current_time > self.env.now:
             return act.end_coord, current_time
         else:
-            log.error('There is not enough of steps at_time to fill the act, returning end of a current act.'
-                      'now {}\n{}'.format(self.env.now, act.flush()))
+            log.error('{}: There is not enough of steps at_time to fill the act, returning end of a current act.\n{}'
+                      .format(self.env.now, act.flush()))
             return act.end_coord, current_time
             # raise Exception('There is not enough of steps at_time to fill the act')
 
@@ -345,8 +347,8 @@ class Vehicle(Component):
             else:
                 pass
 
-        log.error('There is not enough of steps at_time to fill the act, returning the last step.'
-                  'now {}\n{}'.format(self.env.now, act.flush()))
+        log.error('{}: There is not enough of steps at_time to fill the act, returning the last step.\n{}'
+                  .format(self.env.now, act.flush()))
         return act.steps[-1]
         # raise Exception('There is not enough of steps at_time to fill the act')
 
@@ -357,7 +359,7 @@ class Vehicle(Component):
         current_time = act.start_time
 
         if len(act.steps) == 0:
-            raise Exception('Vehicle {} has an empty act\n{}'.format(self.id, self.flush()))
+            raise Exception('{}: Vehicle {} has an empty act\n{}'.format(self.env.now, self.id, self.flush()))
         if current_time == self.env.now:
             return []
 

@@ -62,8 +62,8 @@ class DefaultBehaviour(StateMachine):
             yield self.person.env.timeout(timeout)
             self.env.process(self.plan())
         except (OTPNoPath, OTPTrivialPath) as e:
-            log.warning('{}\n{}'.format(e.msg,  e.context))
-            log.warning('Person {} will be excluded from the simulation'.format(self.person))
+            log.warning('{}: {}\n{}'.format(self.env.now, e.msg,  e.context))
+            log.warning('{}: Person {} will be excluded from the simulation'.format(self.env.now, self.person))
             yield Event(self.env).succeed()
             self.env.process(self.unactivatable())
 
@@ -80,7 +80,7 @@ class DefaultBehaviour(StateMachine):
                 self.env.process(self.choose())
             except (OTPTrivialPath, OTPUnreachable) as e:
                 log.warning('{}'.format(e.msg))
-                log.warning('Excluding person from simulation. {}'.format(self.person))
+                log.warning('{}: Excluding person from simulation. {}'.format(self.env.now, self.person))
                 self.env.process(self.unplannable())
 
     def on_choose(self):
@@ -89,14 +89,14 @@ class DefaultBehaviour(StateMachine):
         yield Event(self.env).succeed()
         chosen_trip = self.person.mode_choice.choose(self.person.alternatives)
         if chosen_trip is None:
-            log.warning('Trip could not be selected for Person {}.'
+            log.warning('{}: Trip could not be selected for Person {}.'
                         'It is possibly because there is no PT and person has no driving license.\n'
                         'Person will be excluded from simulation.'
-                        .format(self.person.id))
+                        .format(self.env.now, self.person.id))
             log.debug('{}\n{}'.format(self.person, self.person.alternatives))
             self.env.process()
         else:
-            log.info('Person {} have chosen trip {}'.format(self.person.id, chosen_trip))
+            log.info('{}: Person {} have chosen trip {}'.format(self.env.now, self.person.id, chosen_trip))
             self.person.planned_trip = chosen_trip
             self.person.init_actual_trip()
             self.person.serviceProvider.start_trip(self.person)
@@ -107,7 +107,7 @@ class DefaultBehaviour(StateMachine):
     def on_execute_trip(self):
         self.env.process(self.person.serviceProvider.execute_trip(self.person))
         yield self.person.delivered
-        log.info('Person {} has finished trip {}'.format(self.person.id, self.person.actual_trip))
+        log.info('{}: Person {} has finished trip {}'.format(self.env.now, self.person.id, self.person.actual_trip))
         self.person.reset_delivery()
         self.person.log_executed_trip()
         if self.person.change_activity() == -1:
@@ -130,7 +130,7 @@ class DefaultBehaviour(StateMachine):
             self.env.process(self.plan())
         except OTPNoPath as e:
             log.warning('{}\n{}'.format(e.msg,  e.context))
-            log.warning('Person {} will be excluded from the simulation'.format(self.person))
+            log.warning('{}: Person {} will be excluded from the simulation'.format(self.env.now, self.person))
             self.env.process(self.unreactivatable())
 
         # timeout = self.person.get_planning_time()
@@ -145,26 +145,26 @@ class DefaultBehaviour(StateMachine):
 
     def on_unplannable(self):
         yield Event(self.env).succeed()
-        log.warning('{} going from {} to {} received none alternatives. Ignoring the person.'
-                    .format(self.person, self.person.curr_activity.coord, self.person.next_activity.coord))
+        log.warning('{}: {} going from {} to {} received none alternatives. Ignoring the person.'
+                    .format(self.env.now, self.person, self.person.curr_activity.coord, self.person.next_activity.coord))
         self.person.serviceProvider.log_unplannable(self.person)
 
     def on_unchoosable(self):
         yield Event(self.env).succeed()
-        log.warning('{} going from {} to {} received none alternatives. Ignoring the person.'
-                    .format(self.person, self.person.curr_activity.coord, self.person.next_activity.coord))
+        log.warning('{}: {} going from {} to {} received none alternatives. Ignoring the person.'
+                    .format(self.env.now, self.person, self.person.curr_activity.coord, self.person.next_activity.coord))
         self.person.serviceProvider.log_unchoosable(self.person)
 
     def on_unactivatable(self):
         yield Event(self.env).succeed()
-        log.warning('{} going from {} to {} cannot reach the destination. Ignoring the person.'
-                    .format(self.person, self.person.curr_activity.coord, self.person.next_activity.coord))
+        log.warning('{}: {} going from {} to {} cannot reach the destination. Ignoring the person.'
+                    .format(self.env.now, self.person, self.person.curr_activity.coord, self.person.next_activity.coord))
         self.person.serviceProvider.log_unactivatable(self.person)
 
     def on_unreactivatable(self):
         yield Event(self.env).succeed()
-        log.warning('{} going from {} to {} cannot reach the destination. Ignoring the person.'
-                    .format(self.person, self.person.curr_activity.coord, self.person.next_activity.coord))
+        log.warning('{}: {} going from {} to {} cannot reach the destination. Ignoring the person.'
+                    .format(self.env.now, self.person, self.person.curr_activity.coord, self.person.next_activity.coord))
         self.person.serviceProvider.log_unactivatable(self.person)
 
     def on_trip_exception(self):

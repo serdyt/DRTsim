@@ -53,9 +53,12 @@ class SqliteConnector(object):
     def select_from_tdm_by_pair(self, origin, destination):
         """returns (time, distance) or none?"""
         self.cur.execute('SELECT time, distance FROM {} '
-                         'WHERE to_lat={} and to_lon={} and from_lat={} and from_lon={}'
-                         .format(self.TDM, destination.lat, destination.lon, origin.lat, origin.lon))
+                         'WHERE to_lat=(?) and to_lon=(?) and from_lat=(?) and from_lon=(?)'
+                         .format(self.TDM), (destination.lat, destination.lon, origin.lat, origin.lon))
         return self.cur.fetchone()
+
+    # def begin_write_transaction(self):
+    #     self.cur.execute(db, "BEGIN TRANSACTION", NULL, NULL, &sErrMsg);
 
     def insert_tdm_by_od(self, origin_coord, dest_coord, time, distance):
         try:
@@ -64,6 +67,14 @@ class SqliteConnector(object):
                 .format(self.TDM, origin_coord.lat, origin_coord.lon, dest_coord.lat, dest_coord.lon, time, distance))
         except sqlite3.IntegrityError as e:
             log.error('{}\n from {} to {}'.format(e.args[0], origin_coord, dest_coord))
+
+    def insert_tdm_many(self, tdm):
+        try:
+            self.cur.executemany(
+                'INSERT INTO {} (from_lat, from_lon, to_lat, to_lon, time, distance) VALUES (?,?,?,?,?,?)'
+                    .format(self.TDM), tdm)
+        except sqlite3.IntegrityError as e:
+            log.error('{}\n from {},{} to {},{}'.format(e.args[0], tdm[0], tdm[1], tdm[2], tdm[3]))
 
     def commit(self):
         self.conn.commit()

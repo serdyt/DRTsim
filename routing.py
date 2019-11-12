@@ -303,13 +303,15 @@ class DefaultRouting(object):
         #                   len(vehicle_coords) - len(persons_start_coords) -
         #                   len(persons_end_coords) - len(return_coords)))
 
-        start = time.time()
         # save a state of a random number generator
         rstate = self.env.rand.getstate()
         coords_to_process_with_otp = list(set(coords_to_process_with_otp))
         if len(coords_to_process_with_otp) > 0:
+            start = time.time()
             self._write_input_file_for_otp_script(coords_to_process_with_otp)
+            log.debug('write input for OTP script {}'.format(time.time() - start))
 
+            start = time.time()
             # Call OTP script to calculate OD time-distance missing in the database
             multipart_form_data = {'scriptfile': ('OTP_travel_matrix.py', open(self.env.config.get('otp.script_file'), 'rb'))}
             r = requests.post(url=self.env.config.get('service.router_scripting_address'),
@@ -320,25 +322,33 @@ class DefaultRouting(object):
                 log.critical('OTP could not build a TDM. {}'.format(e))
                 raise OTPException('OTP could not build a TDM.', e)
 
-            log.debug('tdm calculation time {}'.format(time.time() - start))
+            log.debug('OTP script time {}'.format(time.time() - start))
 
+            start = time.time()
             # Save OTP time-distance matrix to the database for future use
             otp_tdm_file = open(self.env.config.get('otp.tdm_file'), 'r')
             reader = csv.reader(otp_tdm_file, delimiter=',')
-            for coords, row in zip(coords_to_process_with_otp, reader):
-                origin = coords[0]
-                destination = coords[1]
-                at_time = row[2]
-                distance = row[3]
-                db_conn.insert_tdm_by_od(origin, destination, at_time, distance)
+
+            db_conn.insert_tdm_many(
+                [(coords[0].lat, coords[0].lon,
+                  coords[1].lat, coords[1].lon,
+                  row[2], row[3]) for coords, row in zip(coords_to_process_with_otp, reader)])
+            db_conn.commit()
+
+            # for coords, row in zip(coords_to_process_with_otp, reader):
+            #     origin = coords[0]
+            #     destination = coords[1]
+            #     at_time = row[2]
+            #     distance = row[3]
+            #     db_conn.insert_tdm_by_od(origin, destination, at_time, distance)
             otp_tdm_file.close()
+            log.debug('saving to database time {}'.format(time.time() - start))
 
         if self.env.rand.getstate() != rstate:
             log.warning('Random state has been changed by OTP: {} to {}'.format(self.env.rand.getstate(), rstate))
         self.env.rand.setstate(rstate)
 
         jsprit_tdm_interface.close()
-        db_conn.commit()
 
         # merge responses from the database and OTP
         if len(coords_to_process_with_otp) > 0:
@@ -420,9 +430,11 @@ class DefaultRouting(object):
         with open(self.env.config.get('otp.input_file'), 'w') as file:
             csvwriter = csv.writer(file, delimiter=',')
             # csvwriter.writerow(['GEOID_from', 'lat_from', 'lon_from', 'GEOID_to', 'lat_to', 'lon_to'])
-            for coord in coords:
-                csvwriter.writerow([self.coord_to_geoid[coord[0]], coord[0].lat, coord[0].lon,
-                                    self.coord_to_geoid[coord[1]], coord[1].lat, coord[1].lon])
+            csvwriter.writerows([(self.coord_to_geoid[coord[0]], coord[0].lat, coord[0].lon,
+                                  self.coord_to_geoid[coord[1]], coord[1].lat, coord[1].lon) for coord in coords])
+            # for coord in coords:
+            #     csvwriter.writerow([self.coord_to_geoid[coord[0]], coord[0].lat, coord[0].lon,
+            #                         self.coord_to_geoid[coord[1]], coord[1].lat, coord[1].lon])
             file.close()
 
 
