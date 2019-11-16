@@ -67,7 +67,7 @@ class ServiceProvider(Component):
     def _init_vehicles(self):
         """Should read and initialise vehicles from the database or something
         """
-        for i in range(5):
+        for i in range(10):
             # if you want to change ID assignment method, you should change get_vehicle_by_id() method too
             attrib = {'id': i}
             # coord = Coord(lat=self.env.rand.uniform(minLat, maxLat), lon=self.env.rand.uniform(minLon, maxLon))
@@ -75,13 +75,13 @@ class ServiceProvider(Component):
             v_type = self.vehicle_types.get(0)
             self.vehicles.append(Vehicle(parent=self, attrib=attrib, return_coord=coord, vehicle_type=v_type))
 
-        for i in range(5, 10):
-            # if you want to change ID assignment method, you should change get_vehicle_by_id() method too
-            attrib = {'id': i}
-            # coord = Coord(lat=self.env.rand.uniform(minLat, maxLat), lon=self.env.rand.uniform(minLon, maxLon))
-            coord = Coord(lat=55.546315, lon=13.949113)
-            v_type = self.vehicle_types.get(1)
-            self.vehicles.append(Vehicle(parent=self, attrib=attrib, return_coord=coord, vehicle_type=v_type))
+        # for i in range(5, 10):
+        #     # if you want to change ID assignment method, you should change get_vehicle_by_id() method too
+        #     attrib = {'id': i}
+        #     # coord = Coord(lat=self.env.rand.uniform(minLat, maxLat), lon=self.env.rand.uniform(minLon, maxLon))
+        #     coord = Coord(lat=55.546315, lon=13.949113)
+        #     v_type = self.vehicle_types.get(1)
+        #     self.vehicles.append(Vehicle(parent=self, attrib=attrib, return_coord=coord, vehicle_type=v_type))
 
     def get_vehicle_by_id(self, idx):
         """Currently IDs are assigned in order"""
@@ -91,7 +91,7 @@ class ServiceProvider(Component):
         """
         :return: a dictionary with ID as a key and object as its value
         """
-        for i in range(2):
+        for i in range(1):
             self.vehicle_types[i] = VehicleType(attrib={'id': i})
             # self.vehicle_types[i] = VehicleType(attrib={
             #         'id': i,

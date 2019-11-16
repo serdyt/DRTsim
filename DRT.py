@@ -127,10 +127,10 @@ config = {
     'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
     'population.input_file': 'data/population.json',
-    'population.input_percentage': 0.0002,
+    'population.input_percentage': 0.1,
 
     'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],
-    'drt.planning_in_advance': td(hours=24).total_seconds(),
+    'drt.planning_in_advance': td(hours=2).total_seconds(),
     'drt.time_window_constant': td(minutes=60).total_seconds(),
     'drt.time_window_multiplier': 4,
     'drt.time_window_shift_left': 1./4,

@@ -44,10 +44,10 @@ class Population(Component):
             pers_id = 0
             for json_pers in persons:
                 pers_id += 1
-                if self.env.rand.choices([False, True],
-                                         [self.env.config.get('population.input_percentage'),
-                                         1 - self.env.config.get('population.input_percentage')])[0]:
-                    continue
+                # if self.env.rand.choices([False, True],
+                #                          [self.env.config.get('population.input_percentage'),
+                #                          1 - self.env.config.get('population.input_percentage')])[0]:
+                #     continue
 
                 attributes = {'age': 22, 'id': pers_id, 'otp_parameters': {'arriveBy': True}}
 
@@ -78,7 +78,15 @@ class Population(Component):
                                  zone=zone
                                  )
                     )
-                self.person_list.append(Person(self, attributes, activities))
+                if activities[0].zone in self.env.config.get('drt.zones') \
+                    or activities[1].zone in self.env.config.get('drt.zones'):
+
+                    if self.env.rand.choices([False, True],
+                                             [self.env.config.get('population.input_percentage'),
+                                              1 - self.env.config.get('population.input_percentage')])[0]:
+                        continue
+
+                    self.person_list.append(Person(self, attributes, activities))
 
     def _random_persons(self):
         """Not used. Generates persons at random geographical points with default parameters"""
