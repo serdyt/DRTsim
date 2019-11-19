@@ -126,11 +126,11 @@ config = {
 
     'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
-    'population.input_file': 'data/population.json',
-    'population.input_percentage': 0.0002,
+    'population.input_file': 'data/population_ruta.json',
+    'population.input_percentage': 0.01,
 
     'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],
-    'drt.planning_in_advance': td(hours=24).total_seconds(),
+    'drt.planning_in_advance': td(hours=2).total_seconds(),
     'drt.time_window_constant': td(minutes=60).total_seconds(),
     'drt.time_window_multiplier': 4,
     'drt.time_window_shift_left': 1./4,
@@ -139,12 +139,14 @@ config = {
     'drt.walkCarSpeed': 16.6667,
     'drt.max_fake_walk': 1000000,
     'drt.visualize_routes': 'true',  # should be a string
+    'drt.number_vehicles': 30,
     }
 
-folder = '-p-{}-pre-{}-twc-{}-twm-{}'.format(config.get('population.input_percentage'),
-                                             config.get('drt.planning_in_advance'),
-                                             config.get('drt.time_window_constant'),
-                                             config.get('drt.time_window_multiplier'))
+folder = '-p-{}-pre-{}-twc-{}-twm-{}-nv-{}'.format(config.get('population.input_percentage'),
+                                                   config.get('drt.planning_in_advance'),
+                                                   config.get('drt.time_window_constant'),
+                                                   config.get('drt.time_window_multiplier'),
+                                                   config.get('drt.number_vehicles'))
 try:
     shutil.rmtree(folder)
 except (FileNotFoundError, OSError) as e:
