@@ -39,16 +39,23 @@ class DefaultRouting(object):
         self.service = service
         self.coord_to_geoid = {}
 
-    def otp_request(self, person: population.Person, mode: str, attributes={}):
+    def otp_request(self,
+                    from_place,
+                    to_place,
+                    at_time,
+                    mode: str,
+                    attributes=None):
+        """Performs a web request to OTP and parses the output to a list of Trips"""
 
-        default_attributes = {'fromPlace': str(person.curr_activity.coord),
-                              'toPlace': str(person.next_activity.coord),
-                              'time': trunc_microseconds(str(td(seconds=person.next_activity.start_time))),
+        default_attributes = {'fromPlace': str(from_place),
+                              'toPlace': str(to_place),
+                              'time': trunc_microseconds(str(td(seconds=at_time))),
                               'date': self.env.config.get('date'),
                               'mode': mode,
                               'maxWalkDistance': 2000}
-        default_attributes.update(person.otp_parameters)
-        default_attributes.update(attributes)
+        # default_attributes.update(person.otp_parameters)
+        if attributes is not None:
+            default_attributes.update(attributes)
         resp = requests.get(self.url, params=default_attributes)
         # payload = Payload(attributes=default_attributes, config=self.env.config)
 
@@ -216,23 +223,6 @@ class DefaultRouting(object):
         self.service.pending_drt_requests[person.id] = solution
 
     @staticmethod
-    def find_singles(s):
-        """Finds elements that do not repeat"""
-        order = []
-        counts = {}
-        for x in s:
-            if x in counts:
-                counts[x] += 1
-            else:
-                counts[x] = 1
-                order.append(x)
-        singles = []
-        for x in order:
-            if counts[x] == 1:
-                singles.append(x)
-        return singles
-
-    @staticmethod
     def _get_person_route(person, solution):
         routes = solution.routes
         for route in routes:
@@ -304,55 +294,34 @@ class DefaultRouting(object):
         #                   len(persons_end_coords) - len(return_coords)))
 
         # save a state of a random number generator
-        rstate = self.env.rand.getstate()
         coords_to_process_with_otp = list(set(coords_to_process_with_otp))
         if len(coords_to_process_with_otp) > 0:
             start = time.time()
-            self._write_input_file_for_otp_script(coords_to_process_with_otp)
-            log.debug('write input for OTP script {}'.format(time.time() - start))
+            tdm = []
+            for origin, destination in coords_to_process_with_otp:
+                try:
+                    trip = self.otp_request(origin, destination, 40000, OtpMode.CAR)[0]
+                    tdm.append([origin, destination, trip.duration, trip.distance])
+                except OTPTrivialPath:
+                    tdm.append([origin, destination, 0, 0])
+                except OTPUnreachable:
+                    continue
+            log.debug('tdm calculation time {}'.format(time.time() - start))
 
             start = time.time()
-            # Call OTP script to calculate OD time-distance missing in the database
-            multipart_form_data = {'scriptfile': ('OTP_travel_matrix.py', open(self.env.config.get('otp.script_file'), 'rb'))}
-            r = requests.post(url=self.env.config.get('service.router_scripting_address'),
-                              files=multipart_form_data)
-            try:
-                r.raise_for_status()
-            except requests.exceptions.HTTPError as e:
-                log.critical('OTP could not build a TDM. {}'.format(e))
-                raise OTPException('OTP could not build a TDM.', e)
-
-            log.debug('OTP script time {}'.format(time.time() - start))
-
-            start = time.time()
-            # Save OTP time-distance matrix to the database for future use
-            otp_tdm_file = open(self.env.config.get('otp.tdm_file'), 'r')
-            reader = csv.reader(otp_tdm_file, delimiter=',')
-
             db_conn.insert_tdm_many(
-                [(coords[0].lat, coords[0].lon,
-                  coords[1].lat, coords[1].lon,
-                  row[2], row[3]) for coords, row in zip(coords_to_process_with_otp, reader)])
+                [(origin.lat, origin.lon,
+                  destination.lat, destination.lon,
+                  t, d) for origin, destination, t, d in tdm])
             db_conn.commit()
-
-            # for coords, row in zip(coords_to_process_with_otp, reader):
-            #     origin = coords[0]
-            #     destination = coords[1]
-            #     at_time = row[2]
-            #     distance = row[3]
-            #     db_conn.insert_tdm_by_od(origin, destination, at_time, distance)
-            otp_tdm_file.close()
             log.debug('saving to database time {}'.format(time.time() - start))
 
-        if self.env.rand.getstate() != rstate:
-            log.warning('Random state has been changed by OTP: {} to {}'.format(self.env.rand.getstate(), rstate))
-        self.env.rand.setstate(rstate)
+            for origin, destination, t, d in tdm:
+                jsprit_tdm_interface.add_row_to_tdm(origin=self.coord_to_geoid.get(origin),
+                                                    destination=self.coord_to_geoid.get(destination),
+                                                    time=t, distance=d)
 
         jsprit_tdm_interface.close()
-
-        # merge responses from the database and OTP
-        if len(coords_to_process_with_otp) > 0:
-            self._merge_tdms()
 
     def _add_zero_length_connections(self, coords):
         """There may be requests from exactly the same points
@@ -362,8 +331,8 @@ class DefaultRouting(object):
         for coord_start in coords:
             # for coord_end in coords:
             #     if coord_start == coord_end:
-                    coord_id = self.coord_to_geoid[coord_start]
-                    jsprit_tdm_interface.matrix_writer.writerow([coord_id, coord_id, 0, 0])
+            coord_id = self.coord_to_geoid[coord_start]
+            jsprit_tdm_interface.matrix_writer.writerow([coord_id, coord_id, 0, 0])
         jsprit_tdm_interface.close()
 
     def _prepare_geoid(self, coords):

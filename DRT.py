@@ -127,11 +127,11 @@ config = {
     'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
     'population.input_file': 'data/population_ruta.json',
-    'population.input_percentage': 0.01,
+    'population.input_percentage': 0.001,
 
     'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],
     'drt.planning_in_advance': td(hours=2).total_seconds(),
-    'drt.time_window_constant': td(minutes=60).total_seconds(),
+    'drt.time_window_constant': td(minutes=61).total_seconds(),
     'drt.time_window_multiplier': 4,
     'drt.time_window_shift_left': 1./4,
     'drt.PT_stops_file': 'data/zone_stops.csv',
@@ -216,7 +216,7 @@ if __name__ == '__main__':
                        files=[config.get('sim.log')], zip_file=config.get('sim.log_zip'))
         log.error(e)
         log.error(e.args)
-        raise
+        raise 
 
     log.info('Total {} persons'.format(res.get('total_persons')))
     executed_trips = res.get('executed_trips')  # type: List[Trip]
