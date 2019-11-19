@@ -67,7 +67,7 @@ class ServiceProvider(Component):
     def _init_vehicles(self):
         """Should read and initialise vehicles from the database or something
         """
-        for i in range(10):
+        for i in range(self.env.config.get('drt.number_vehicles')):
             # if you want to change ID assignment method, you should change get_vehicle_by_id() method too
             attrib = {'id': i}
             # coord = Coord(lat=self.env.rand.uniform(minLat, maxLat), lon=self.env.rand.uniform(minLon, maxLon))
