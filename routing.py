@@ -397,7 +397,6 @@ class DefaultRouting(object):
 
         :param coords_to_process_with_otp: coordinates missing from database are saved to this list
         """
-
         for start_coord in start_coords:
             for end_coord in end_coords:
                 if start_coord == end_coord:
@@ -414,12 +413,8 @@ class DefaultRouting(object):
     def _write_input_file_for_otp_script(self, coords):
         with open(self.env.config.get('otp.input_file'), 'w') as file:
             csvwriter = csv.writer(file, delimiter=',')
-            # csvwriter.writerow(['GEOID_from', 'lat_from', 'lon_from', 'GEOID_to', 'lat_to', 'lon_to'])
             csvwriter.writerows([(self.coord_to_geoid[coord[0]], coord[0].lat, coord[0].lon,
                                   self.coord_to_geoid[coord[1]], coord[1].lat, coord[1].lon) for coord in coords])
-            # for coord in coords:
-            #     csvwriter.writerow([self.coord_to_geoid[coord[0]], coord[0].lat, coord[0].lon,
-            #                         self.coord_to_geoid[coord[1]], coord[1].lat, coord[1].lon])
             file.close()
 
 
