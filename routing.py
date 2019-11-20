@@ -39,16 +39,23 @@ class DefaultRouting(object):
         self.service = service
         self.coord_to_geoid = {}
 
-    def otp_request(self, person: population.Person, mode: str, attributes={}):
+    def otp_request(self,
+                    from_place,
+                    to_place,
+                    at_time,
+                    mode: str,
+                    attributes=None):
+        """Performs a web request to OTP and parses the output to a list of Trips"""
 
-        default_attributes = {'fromPlace': str(person.curr_activity.coord),
-                              'toPlace': str(person.next_activity.coord),
-                              'time': trunc_microseconds(str(td(seconds=person.next_activity.start_time))),
+        default_attributes = {'fromPlace': str(from_place),
+                              'toPlace': str(to_place),
+                              'time': trunc_microseconds(str(td(seconds=at_time))),
                               'date': self.env.config.get('date'),
                               'mode': mode,
                               'maxWalkDistance': 2000}
-        default_attributes.update(person.otp_parameters)
-        default_attributes.update(attributes)
+        # default_attributes.update(person.otp_parameters)
+        if attributes is not None:
+            default_attributes.update(attributes)
         resp = requests.get(self.url, params=default_attributes)
         # payload = Payload(attributes=default_attributes, config=self.env.config)
 
@@ -139,11 +146,13 @@ class DefaultRouting(object):
                             persons_start_coords + persons_end_coords + return_vehicle_coords)
 
         start = time.time()
-        try:
-            self._calculate_time_distance_matrix(current_vehicle_coords, return_vehicle_coords,
-                                                 persons_start_coords, persons_end_coords)
+        shipment_start_coords = [pers.drt_leg.start_coord for pers in shipment_persons]
+        shipment_end_coords = [pers.drt_leg.end_coord for pers in shipment_persons]
+        delivery_end_coord = [pers.drt_leg.end_coord for pers in service_persons]
+
         # TODO: catch the exceptions for TDM
-        except:sdfsdf
+        self._calculate_time_distance_matrix(current_vehicle_coords, set(return_vehicle_coords),
+                                             shipment_start_coords, shipment_end_coords, delivery_end_coord)
 
         jsprit_vrp_interface.write_vrp(self.env.config.get('jsprit.vrp_file'),
                                        self.service.vehicle_types, self.service.vehicles, vehicle_coords_times,
@@ -216,23 +225,6 @@ class DefaultRouting(object):
         self.service.pending_drt_requests[person.id] = solution
 
     @staticmethod
-    def find_singles(s):
-        """Finds elements that do not repeat"""
-        order = []
-        counts = {}
-        for x in s:
-            if x in counts:
-                counts[x] += 1
-            else:
-                counts[x] = 1
-                order.append(x)
-        singles = []
-        for x in order:
-            if counts[x] == 1:
-                singles.append(x)
-        return singles
-
-    @staticmethod
     def _get_person_route(person, solution):
         routes = solution.routes
         for route in routes:
@@ -257,7 +249,8 @@ class DefaultRouting(object):
         trip.set_main_mode(OtpMode.DRT)
         return trip
 
-    def _calculate_time_distance_matrix(self, vehicle_coords, return_coords, persons_start_coords, persons_end_coords):
+    def _calculate_time_distance_matrix(self, vehicle_coords, return_coords,
+                                        shipment_start_coords, shipment_end_coords, delivery_end_coord):
         """Forms a time-distance matrix for jsprit.
 
         If a pair of coordinate has been processed previously, time and distance are fetched from the database.
@@ -266,45 +259,78 @@ class DefaultRouting(object):
 
         Output from OTP and a local database are merged into a one file.
         """
-
-        # Check which OD pairs are in the database save those to a file for jsprit.
-        # The missing pairs saved to coords_to_process_with_otp and sent to OTP
         jsprit_tdm_interface.set_writer(self.env.config.get('jsprit.tdm_file'), 'w')
 
         start = time.time()
         coords_to_process_with_otp = []
-        # TODO: move coords_to_process_with_otp to return of the function instead of a parameter
-        self._process_tdm_in_database(vehicle_coords + return_coords + persons_start_coords + persons_end_coords,
-                                      vehicle_coords + return_coords + persons_start_coords + persons_end_coords,
-                                      coords_to_process_with_otp)
 
-        # self._process_tdm_in_database(vehicle_coords, persons_start_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(vehicle_coords, persons_end_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(vehicle_coords, return_coords, coords_to_process_with_otp)
-        #
-        # self._process_tdm_in_database(persons_start_coords, vehicle_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(persons_start_coords, persons_end_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(persons_end_coords, persons_start_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(persons_end_coords, return_coords, coords_to_process_with_otp)
-        #
-        # self._process_tdm_in_database(return_coords, persons_start_coords, coords_to_process_with_otp)
+        vehicle_coords = set(vehicle_coords)
+        return_coords = set(return_coords)
+        shipment_start_coords = set(shipment_start_coords)
+        shipment_end_coords = set(shipment_end_coords)
+        delivery_end_coord = set(delivery_end_coord)
+
+        self._process_tdm_in_database(vehicle_coords, shipment_start_coords, coords_to_process_with_otp)
+        self._process_tdm_in_database(vehicle_coords, delivery_end_coord, coords_to_process_with_otp)
+        self._process_tdm_in_database(vehicle_coords, return_coords, coords_to_process_with_otp)
+
+        self._process_tdm_in_database(shipment_start_coords, vehicle_coords, coords_to_process_with_otp)
+        self._process_tdm_in_database(shipment_end_coords, vehicle_coords, coords_to_process_with_otp)
+        self._process_tdm_in_database(delivery_end_coord, vehicle_coords, coords_to_process_with_otp)
+
+        self._process_tdm_in_database(shipment_start_coords, shipment_end_coords, coords_to_process_with_otp)
+        self._process_tdm_in_database(shipment_start_coords, shipment_start_coords, coords_to_process_with_otp)
+        self._process_tdm_in_database(shipment_start_coords, delivery_end_coord, coords_to_process_with_otp)
+
+        self._process_tdm_in_database(shipment_end_coords, shipment_start_coords, coords_to_process_with_otp)
+        self._process_tdm_in_database(shipment_end_coords, delivery_end_coord, coords_to_process_with_otp)
+        self._process_tdm_in_database(shipment_end_coords, shipment_end_coords, coords_to_process_with_otp)
+        self._process_tdm_in_database(shipment_end_coords, return_coords, coords_to_process_with_otp)
+
+        self._process_tdm_in_database(delivery_end_coord, return_coords, coords_to_process_with_otp)
+        self._process_tdm_in_database(delivery_end_coord, shipment_start_coords, coords_to_process_with_otp)
+        self._process_tdm_in_database(delivery_end_coord, shipment_end_coords, coords_to_process_with_otp)
+        self._process_tdm_in_database(delivery_end_coord, delivery_end_coord, coords_to_process_with_otp)
 
         log.debug('DB processing time {}'.format(time.time() - start))
         log.debug('TDM to process with OTP: {} out of {}'
                   .format(len(set(coords_to_process_with_otp)),
-                          len(vehicle_coords + return_coords + persons_start_coords + persons_end_coords)**2))
+                          len(vehicle_coords)*len(shipment_start_coords) +
+                          len(vehicle_coords)*len(delivery_end_coord) +
+                          len(vehicle_coords)*len(return_coords) +
 
-        # log.debug('TDM to process with OTP: {} out of {}'
-        #           .format(len(set(coords_to_process_with_otp)),
-        #                   len(vehicle_coords)*len(persons_start_coords) +
-        #                   len(persons_start_coords)*len(persons_end_coords) +
-        #                   len(vehicle_coords)*len(return_coords) +
-        #                   len(persons_end_coords)*len(return_coords) -
-        #                   len(vehicle_coords) - len(persons_start_coords) -
-        #                   len(persons_end_coords) - len(return_coords)))
+                          len(shipment_start_coords)*len(vehicle_coords) +
+                          len(delivery_end_coord)*len(vehicle_coords) +
 
-        # save a state of a random number generator
-        rstate = self.env.rand.getstate()
+                          len(shipment_start_coords)*len(shipment_end_coords) +
+                          len(shipment_start_coords)*len(shipment_start_coords) +
+                          len(shipment_start_coords)*len(delivery_end_coord) +
+
+                          len(shipment_end_coords)*len(shipment_start_coords) +
+                          len(shipment_end_coords)*len(delivery_end_coord) +
+                          len(shipment_end_coords)*len(shipment_end_coords) +
+                          len(shipment_end_coords)*len(return_coords) +
+
+                          len(delivery_end_coord)*len(return_coords) +
+                          len(delivery_end_coord)*len(shipment_start_coords) +
+                          len(delivery_end_coord)*len(shipment_end_coords) +
+                          len(delivery_end_coord)*len(delivery_end_coord)
+                          ))
+
+        log.debug('saved tdm records {}'.format(
+            len(vehicle_coords)*len(shipment_end_coords) +
+
+            len(shipment_start_coords)*len(return_coords) +
+            len(shipment_start_coords)*len(return_coords) +
+
+            len(return_coords)*len(vehicle_coords) +
+            len(return_coords)*len(shipment_start_coords) +
+            len(return_coords)*len(shipment_end_coords) +
+            len(return_coords)*len(delivery_end_coord)+
+
+            len(shipment_end_coords)*len(vehicle_coords)
+        ))
+
         coords_to_process_with_otp = list(set(coords_to_process_with_otp))
         if len(coords_to_process_with_otp) > 0:
             start = time.time()
@@ -344,9 +370,10 @@ class DefaultRouting(object):
             otp_tdm_file.close()
             log.debug('saving to database time {}'.format(time.time() - start))
 
-        if self.env.rand.getstate() != rstate:
-            log.warning('Random state has been changed by OTP: {} to {}'.format(self.env.rand.getstate(), rstate))
-        self.env.rand.setstate(rstate)
+            for origin, destination, t, d in tdm:
+                jsprit_tdm_interface.add_row_to_tdm(origin=self.coord_to_geoid.get(origin),
+                                                    destination=self.coord_to_geoid.get(destination),
+                                                    time=t, distance=d)
 
         jsprit_tdm_interface.close()
 
@@ -362,8 +389,8 @@ class DefaultRouting(object):
         for coord_start in coords:
             # for coord_end in coords:
             #     if coord_start == coord_end:
-                    coord_id = self.coord_to_geoid[coord_start]
-                    jsprit_tdm_interface.matrix_writer.writerow([coord_id, coord_id, 0, 0])
+            coord_id = self.coord_to_geoid[coord_start]
+            jsprit_tdm_interface.matrix_writer.writerow([coord_id, coord_id, 0, 0])
         jsprit_tdm_interface.close()
 
     def _prepare_geoid(self, coords):
@@ -390,9 +417,10 @@ class DefaultRouting(object):
 
         :param coords_to_process_with_otp: coordinates missing from database are saved to this list
         """
-
         for start_coord in start_coords:
             for end_coord in end_coords:
+                if start_coord == end_coord:
+                    continue
                 td = db_conn.select_from_tdm_by_pair(start_coord, end_coord)
                 if td is not None:
                     jsprit_tdm_interface.add_row_to_tdm(origin=self.coord_to_geoid.get(start_coord),
@@ -402,39 +430,11 @@ class DefaultRouting(object):
                     if coords_to_process_with_otp is not None:
                         coords_to_process_with_otp.append((start_coord, end_coord))
 
-    # def _process_tdm_in_database(self, start_coords, end_coords, coords_to_process_with_otp=None):
-    #     for start_coord in start_coords:
-    #         tdm_table = db_conn.select_tdm_by_origin(start_coord)
-    #         # row = [(to_lat, to_lon, time, distance)]
-    #         end_coords_in_db = [Coord(lat=row[0], lon=row[1]) for row in tdm_table]
-    #         for end_coord in end_coords:
-    #             if end_coord == start_coord:
-    #                 continue
-    #             if end_coord in end_coords_in_db:
-    #                 db_row = tdm_table[end_coords_in_db.index(end_coord)]
-    #                 # add existing time to jsprit file
-    #                 jsprit_tdm_interface.add_row_to_tdm(origin=self.coord_to_geoid.get(start_coord),
-    #                                                     destination=self.coord_to_geoid.get(end_coord),
-    #                                                     time=db_row[2], distance=db_row[3])
-    #                 # I think this may cause integrity errors
-    #                 # if reverse:
-    #                 #     jsprit_tdm_interface.add_row_to_tdm(origin=self.coord_to_geoid.get(end_coord),
-    #                 #                                         destination=self.coord_to_geoid.get(start_coord),
-    #                 #                                         time=db_row[2], distance=db_row[3])
-    #             else:
-    #                 # if end_coord not in otp_coords_to_process:
-    #                 if coords_to_process_with_otp is not None:
-    #                     coords_to_process_with_otp.append((start_coord, end_coord))
-
     def _write_input_file_for_otp_script(self, coords):
         with open(self.env.config.get('otp.input_file'), 'w') as file:
             csvwriter = csv.writer(file, delimiter=',')
-            # csvwriter.writerow(['GEOID_from', 'lat_from', 'lon_from', 'GEOID_to', 'lat_to', 'lon_to'])
             csvwriter.writerows([(self.coord_to_geoid[coord[0]], coord[0].lat, coord[0].lon,
                                   self.coord_to_geoid[coord[1]], coord[1].lat, coord[1].lon) for coord in coords])
-            # for coord in coords:
-            #     csvwriter.writerow([self.coord_to_geoid[coord[0]], coord[0].lat, coord[0].lon,
-            #                         self.coord_to_geoid[coord[1]], coord[1].lat, coord[1].lon])
             file.close()
 
 

@@ -165,7 +165,11 @@ class ServiceProvider(Component):
             if mode in ['DRT']:
                 continue
             try:
-                traditional_alternatives += self.router.otp_request(person, mode)
+                traditional_alternatives += self.router.otp_request(person.curr_activity.coord,
+                                                                    person.next_activity.coord,
+                                                                    person.next_activity.start_time,
+                                                                    mode,
+                                                                    person.otp_parameters)
             except OTPNoPath as e:
                 log.warning('{}\n{}'.format(e.msg,  e.context))
                 continue
@@ -222,16 +226,17 @@ class ServiceProvider(Component):
         # **********       DRT_TRANSIT         *************
         # **************************************************
 
-        if person.id == 125:
-            print('debuggg!')
-
-        pt_alternatives = self.router.otp_request(person, OtpMode.TRANSIT,
-                                                  {'walkSpeed': self.env.config.get('drt.walkCarSpeed'),
-                                                   'fromPlace': person.curr_activity.coord,
-                                                   'toPlace': person.next_activity.coord,
-
-                                                   'arriveBy': True,
-                                                   'maxWalkDistance': self.env.config.get('drt.max_fake_walk')})
+        params = copy.copy(person.otp_parameters)
+        params.update({'walkSpeed': self.env.config.get('drt.walkCarSpeed'),
+                       'arriveBy': True,
+                       'maxWalkDistance': self.env.config.get('drt.max_fake_walk')
+                       })
+        pt_alternatives = self.router.otp_request(person.curr_activity.coord,
+                                                  person.next_activity.coord,
+                                                  person.next_activity.start_time,
+                                                  OtpMode.TRANSIT,
+                                                  params
+                                                  )
         # TODO: currently checking a first trip that fits person's time window
         # check all feasible trips
         drt_trips = []
@@ -397,7 +402,11 @@ class ServiceProvider(Component):
                                 shipment_persons, service_persons)
 
     def standalone_request(self, person, mode, otp_attributes):
-        return self.router.otp_request(person, mode, otp_attributes)
+        return self.router.otp_request(person.curr_activity.coord,
+                                       person.next_activity.coord,
+                                       person.next_activity.start_time,
+                                       mode,
+                                       person.otp_parameters.update(otp_attributes))
 
     def _get_current_vehicle_positions(self):
         coords_times = []
