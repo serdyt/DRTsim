@@ -15,6 +15,7 @@ import subprocess
 import time
 import json
 from shutil import copyfile
+from multiprocessing.pool import ThreadPool
 
 from population import *
 from const import OtpMode, LegMode
@@ -335,15 +336,14 @@ class DefaultRouting(object):
         coords_to_process_with_otp = list(set(coords_to_process_with_otp))
         if len(coords_to_process_with_otp) > 0:
             start = time.time()
-            tdm = []
+            pool = ThreadPool(2)
+            pool_res = []
             for origin, destination in coords_to_process_with_otp:
-                try:
-                    trip = self.otp_request(origin, destination, 40000, OtpMode.CAR)[0]
-                    tdm.append([origin, destination, trip.duration, trip.distance])
-                except OTPTrivialPath:
-                    tdm.append([origin, destination, 0, 0])
-                except OTPUnreachable:
-                    continue
+                pool_res.append(pool.apply_async(self._otp_tdm_request, args=(origin, destination)))
+            pool.close()
+            pool.join()
+            tdm = [r.get() for r in pool_res if r.get() is not None]
+
             log.debug('tdm calculation time {}'.format(time.time() - start))
 
             start = time.time()
@@ -360,6 +360,15 @@ class DefaultRouting(object):
                                                     time=t, distance=d)
 
         jsprit_tdm_interface.close()
+
+    def _otp_tdm_request(self, origin, destination):
+        try:
+            trip = self.otp_request(origin, destination, 40000, OtpMode.CAR)[0]
+            return origin, destination, trip.duration, trip.distance
+        except OTPTrivialPath:
+            return origin, destination, 0, 0
+        except OTPUnreachable:
+            return None
 
     def _add_zero_length_connections(self, coords):
         """There may be requests from exactly the same points
