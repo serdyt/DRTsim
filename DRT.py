@@ -126,6 +126,8 @@ config = {
 
     'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
+    'otp.request_threads': os.cpu_count() - 2,
+
     'population.input_file': 'data/population_ruta.json',
     'population.input_percentage': 0.001,
 

@@ -336,7 +336,7 @@ class DefaultRouting(object):
         coords_to_process_with_otp = list(set(coords_to_process_with_otp))
         if len(coords_to_process_with_otp) > 0:
             start = time.time()
-            pool = ThreadPool(2)
+            pool = ThreadPool(self.env.config.get('otp.request_threads'))
             pool_res = []
             for origin, destination in coords_to_process_with_otp:
                 pool_res.append(pool.apply_async(self._otp_tdm_request, args=(origin, destination)))
