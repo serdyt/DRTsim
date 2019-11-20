@@ -411,30 +411,6 @@ class DefaultRouting(object):
                     if coords_to_process_with_otp is not None:
                         coords_to_process_with_otp.append((start_coord, end_coord))
 
-    # def _process_tdm_in_database(self, start_coords, end_coords, coords_to_process_with_otp=None):
-    #     for start_coord in start_coords:
-    #         tdm_table = db_conn.select_tdm_by_origin(start_coord)
-    #         # row = [(to_lat, to_lon, time, distance)]
-    #         end_coords_in_db = [Coord(lat=row[0], lon=row[1]) for row in tdm_table]
-    #         for end_coord in end_coords:
-    #             if end_coord == start_coord:
-    #                 continue
-    #             if end_coord in end_coords_in_db:
-    #                 db_row = tdm_table[end_coords_in_db.index(end_coord)]
-    #                 # add existing time to jsprit file
-    #                 jsprit_tdm_interface.add_row_to_tdm(origin=self.coord_to_geoid.get(start_coord),
-    #                                                     destination=self.coord_to_geoid.get(end_coord),
-    #                                                     time=db_row[2], distance=db_row[3])
-    #                 # I think this may cause integrity errors
-    #                 # if reverse:
-    #                 #     jsprit_tdm_interface.add_row_to_tdm(origin=self.coord_to_geoid.get(end_coord),
-    #                 #                                         destination=self.coord_to_geoid.get(start_coord),
-    #                 #                                         time=db_row[2], distance=db_row[3])
-    #             else:
-    #                 # if end_coord not in otp_coords_to_process:
-    #                 if coords_to_process_with_otp is not None:
-    #                     coords_to_process_with_otp.append((start_coord, end_coord))
-
     def _write_input_file_for_otp_script(self, coords):
         with open(self.env.config.get('otp.input_file'), 'w') as file:
             csvwriter = csv.writer(file, delimiter=',')
