@@ -370,11 +370,6 @@ class DefaultRouting(object):
             otp_tdm_file.close()
             log.debug('saving to database time {}'.format(time.time() - start))
 
-            for origin, destination, t, d in tdm:
-                jsprit_tdm_interface.add_row_to_tdm(origin=self.coord_to_geoid.get(origin),
-                                                    destination=self.coord_to_geoid.get(destination),
-                                                    time=t, distance=d)
-
         jsprit_tdm_interface.close()
 
         # merge responses from the database and OTP
