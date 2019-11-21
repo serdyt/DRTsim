@@ -182,6 +182,10 @@ we only need to pass the configuration dict and the top-level
 Component class (Top) to simulate().
 """
 if __name__ == '__main__':
+
+    message = 'This run is ...'
+    log.info(message)
+
     try:
         os.remove(config.get('sim.log'))
     except FileNotFoundError:
@@ -212,7 +216,7 @@ if __name__ == '__main__':
     except Exception as e:
         import zipfile
         if config.get('sim.email_notification'):
-            send_email(subject='Simulation failed', text=str(e.args),
+            send_email(subject='Simulation failed', text='{}\n{}'.format(message, str(e.args)),
                        files=[config.get('sim.log')], zip_file=config.get('sim.log_zip'))
         log.error(e)
         log.error(e.args)
@@ -280,7 +284,7 @@ if __name__ == '__main__':
     log.info(pp.pformat(config))
 
     if config.get('sim.email_notification'):
-        send_email(subject='Simulation success', text='congratulations',
+        send_email(subject='Simulation success', text='{}\n{}'.format(message, 'congratulations'),
                    files=[config.get('sim.log')], zip_file=config.get('sim.log_zip'))
 
 # if __name__ == '__main__':
