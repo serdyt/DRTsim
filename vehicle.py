@@ -317,7 +317,7 @@ class Vehicle(Component):
                 pass
 
         current_time += act.steps[-1].duration
-        if current_time > self.env.now:
+        if current_time >= self.env.now:
             return act.end_coord, current_time
         else:
             log.error('{}: There is not enough of steps at_time to fill the act, returning end of a current act.\n{}'
