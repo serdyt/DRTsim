@@ -165,7 +165,7 @@ class DefaultRouting(object):
         start = time.time()
         rstate = self.env.rand.getstate()
 
-        jsprit_call = subprocess.run(['java', '-cp', 'jsprit.jar',
+        jsprit_call = subprocess.run(['java', '-Xmx1g', '-cp', 'jsprit.jar',
                                       'com.graphhopper.jsprit.examples.DRT_test',
                                       '-printSolution', self.env.config.get('drt.visualize_routes'),
                                       '-vrpFile', self.env.config.get('jsprit.vrp_file'),
