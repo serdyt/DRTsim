@@ -94,27 +94,29 @@ class Leg(object):
 
 class Step(object):
     """Arguments:|
-    coord       <Coord>|
+    start_coord       <Coord>|
     distance    <int>|
     duration    <int>|
     """
-    def __init__(self, coord, distance, duration):
-        self.start_coord = coord
+    def __init__(self, start_coord, end_coord, distance, duration):
+        self.start_coord = start_coord
+        self.end_coord = end_coord
         self.distance = distance
         self.duration = duration
 
     @staticmethod
     def get_empty_step(coord):
-        return Step(coord=coord, distance=0, duration=0)
+        return Step(start_coord=coord, end_coord=coord, distance=0, duration=0)
 
     def deepcopy(self):
-        return Step(coord=copy.copy(self.start_coord),
+        return Step(start_coord=copy.copy(self.start_coord),
+                    end_coord=copy.copy(self.end_coord),
                     distance=copy.copy(self.distance),
                     duration=copy.copy(self.duration),
                     )
 
     def __str__(self):
-        return 'Step distance {}, duration {}'.format(self.distance, self.duration)
+        return 'Step distance {:.1f}, duration {:.1f}'.format(self.distance, self.duration)
 
     def __repr__(self):
         return self.__str__()
@@ -137,7 +139,7 @@ class Trip(object):
         self.set_distance(0)
         self.main_mode = mode
         self.legs = [Leg(mode=mode, start_coord=coord_start, end_coord=coord_end, distance=0, duration=0,
-                         steps=[Step(coord_start, 0, 0)])]
+                         steps=[Step(coord_start, coord_end, 0, 0)])]
 
     def get_leg_modes(self):
         """Returns a list of modes from the legs"""
@@ -330,17 +332,17 @@ class DrtAct(ActType):
          Opposite to remove_embark_step
         """
         self.duration += embark_time
-        self.steps.append(Step(self.steps[-1].start_coord, 0, embark_time))
+        self.steps.append(Step(self.steps[-1].start_coord, self.steps[-1].end_coord, 0, embark_time))
 
     def add_embark_step(self, embark_time, embark_coord):
         """Adds a step for boarding or getting off a vehicle. Step has zero distance.
          Opposite to remove_embark_step
         """
         self.duration += embark_time
-        self.steps = [Step(embark_coord, 0, embark_time)] + self.steps
+        self.steps = [Step(embark_coord, embark_coord, 0, embark_time)] + self.steps
 
     def add_wait_step(self, duration):
-        self.steps.append(Step(self.steps[-1].start_coord, 0, duration))
+        self.steps.append(Step(self.steps[-1].start_coord, self.steps[-1].start_coord, 0, duration))
 
 
 class JspritRoute(object):

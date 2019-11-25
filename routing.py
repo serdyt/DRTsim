@@ -70,8 +70,9 @@ class DefaultRouting(object):
 
     @staticmethod
     def step_from_raw(raw_step):
-        return Step(coord=Coord(lat=raw_step.get('lat'),
-                                lon=raw_step.get('lon')),
+        return Step(start_coord=Coord(lat=raw_step.get('lat'),
+                                      lon=raw_step.get('lon')),
+                    end_coord=None,
                     distance=raw_step.get('distance'),
                     duration=raw_step.get('duration')
                     )
@@ -123,6 +124,46 @@ class DefaultRouting(object):
             trips.append(trip)
 
         return trips
+
+    def osrm_request(self, from_place, to_place):
+        url_coords = '{}{},{};{},{}' \
+            .format(self.env.config.get('service.osrm_route'),
+            from_place.lon, from_place.lat, to_place.lon, to_place.lat)
+        url_full = url_coords + '?annotations=true&geometries=geojson&steps=true'
+        resp = requests.get(url=url_full)
+        return self._parse_osrm_response(resp)
+
+    def _parse_osrm_response(self, resp):
+        if resp.status_code != requests.codes.ok:
+            resp.raise_for_status()
+
+        jresp = resp.json()
+        if jresp.get('code') != 'Ok':
+            log.error(jresp.get('code'))
+            log.error(jresp.get('message'))
+            raise Exception
+
+        trip = Trip()
+        trip.legs = [Leg()]
+        trip.legs[0].steps = []
+
+        legs = jresp.get('routes')[0].get('legs')
+        for leg in legs:
+            steps = leg.get('steps')
+            for step in steps:
+                new_step = Step(distance=step.get('distance'),
+                                duration=step.get('duration'),
+                                start_coord=Coord(lon=step.get('geometry').get('coordinates')[0][0],
+                                                  lat=step.get('geometry').get('coordinates')[0][1]),
+                                end_coord=Coord(lon=step.get('geometry').get('coordinates')[-1][0],
+                                                lat=step.get('geometry').get('coordinates')[-1][1]))
+                # OSRM makes circles on roundabouts. And makes empty step in the end. Exclude these cases from a route
+                if new_step.start_coord != new_step.end_coord:
+                    trip.legs[0].steps.append(new_step)
+                trip.legs[0].steps[-1].coords = step.get('geometry').get('coordinates')
+        trip.distance = jresp.get('routes')[0].get('distance')
+        trip.duration = jresp.get('routes')[0].get('duration')
+        return trip
 
     def drt_request(self, person, vehicle_coords_times, return_vehicle_coords,
                     shipment_persons, service_persons):

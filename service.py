@@ -427,7 +427,6 @@ class ServiceProvider(Component):
             self._start_traditional_trip(person)
 
     def get_route_details(self, vehicle):
-        # nothing to request
         if vehicle.get_route_len() == 0:
             raise Exception('Cannot request DRT trip for vehicle with no route')
 
@@ -454,7 +453,8 @@ class ServiceProvider(Component):
                              end_time=act.end_time,
                              distance=act.distance,
                              duration=act.duration,
-                             steps=[Step(coord=act.start_coord,
+                             steps=[Step(start_coord=act.start_coord,
+                                         end_coord=act.end_coord,
                                          distance=act.distance,
                                          duration=act.duration)])]
 
@@ -550,7 +550,7 @@ class ServiceProvider(Component):
             action = DrtAct(type_=njact.type, person=person, duration=duration, distance=0,
                             end_coord=drt_acts[-1].end_coord, start_coord=drt_acts[-1].end_coord,
                             start_time=drt_acts[-1].end_time, end_time=drt_acts[-1].end_time + duration)
-            action.steps = [Step(coord=action.end_coord, distance=0, duration=duration)]
+            action.steps = [Step(start_coord=action.start_coord, end_coord=action.end_coord, distance=0, duration=duration)]
             drt_acts.append(action)
 
             # *************************************************************
@@ -560,16 +560,12 @@ class ServiceProvider(Component):
                 wait_act = DrtAct(type_=ActType.WAIT, person=None, duration=njact.end_time - drt_acts[-1].end_time,
                                   end_coord=drt_acts[-1].end_coord, start_coord=drt_acts[-1].end_coord,
                                   distance=0, start_time=drt_acts[-1].end_time, end_time=njact.end_time)
-                wait_act.steps = [Step(coord=wait_act.end_coord, distance=0, duration=wait_act.duration)]
+                wait_act.steps = [Step(start_coord=wait_act.start_coord, end_coord=wait_act.end_coord, distance=0, duration=wait_act.duration)]
                 drt_acts.append(wait_act)
 
         if drt_acts[-1].type == DrtAct.DRIVE:
             drt_acts[-1].type = DrtAct.RETURN
         return drt_acts
-
-    # def _start_drt_transit_trip(self, person):
-    #     if person.planned_trip.legs[0].mode == OtpMode.DRT:
-    #         person
 
     def _start_drt_trip(self, person):
         jsprit_solution = self.pending_drt_requests.pop(person.id)

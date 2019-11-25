@@ -358,10 +358,10 @@ class Vehicle(Component):
         act = self.get_act(0)
         current_time = act.start_time
 
-        if len(act.steps) == 0:
-            raise Exception('{}: Vehicle {} has an empty act\n{}'.format(self.env.now, self.id, self.flush()))
         if current_time == self.env.now:
             return []
+        if len(act.steps) == 0:
+            raise Exception('{}: Vehicle {} has an empty act\n{}'.format(self.env.now, self.id, self.flush()))
 
         for step in act.steps:
             current_time += step.duration
