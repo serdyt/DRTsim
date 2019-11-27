@@ -213,6 +213,7 @@ class DefaultRouting(object):
                                       '-tdmFile', self.env.config.get('jsprit.tdm_file'),
                                       '-outFile', self.env.config.get('jsprit.vrp_solution'),
                                       '-simLog', self.env.config.get('sim.log'),
+                                      '-picFolder', self.env.config.get('drt.picture_folder'),
                                       ],
                                      capture_output=True)
 

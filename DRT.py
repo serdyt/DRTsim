@@ -106,6 +106,7 @@ config = {
     'sim.duration_sec': 86400,
     'sim.seed': 42,
     'sim.email_notification': True,
+    'sim.purpose': 'testing',
 
     'person.behaviour': 'DefaultBehaviour',
     'person.mode_choice': 'DefaultModeChoice',
@@ -129,7 +130,7 @@ config = {
     'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
     'population.input_file': 'data/population_ruta.json',
-    'population.input_percentage': 0.001,
+    'population.input_percentage': 0.0001,
 
     'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],
     'drt.planning_in_advance': td(hours=2).total_seconds(),
@@ -140,7 +141,8 @@ config = {
     'drt.min_distance': 2000,
     'drt.walkCarSpeed': 16.6667,
     'drt.max_fake_walk': 1000000,
-    'drt.visualize_routes': 'true',  # should be a string
+    'drt.visualize_routes': 'false',  # should be a string
+    'drt.picture_folder': 'pictures/',
     'drt.number_vehicles': 30,
     }
 
@@ -168,8 +170,15 @@ config.update({
     'sim.log': '{}/log'.format(folder),
     'sim.log_zip': '{}/log.zip'.format(folder),
     'sim.folder': folder,
+
+    'drt.picture_folder': '{}/pictures/'.format(folder),
 })
 os.mkdir(config.get('jsprit.debug_folder'))
+if config.get('drt.visualize_routes') == 'true':
+    try:
+        os.mkdir(config.get('drt.picture_folder'))
+    except OSError:
+        pass
 
 orig_script = open('OTP_travel_matrix.py', 'r')
 data = orig_script.read()
@@ -185,7 +194,7 @@ Component class (Top) to simulate().
 """
 if __name__ == '__main__':
 
-    message = 'This run is ...'
+    message = config.get('sim.purpose')
     log.info(message)
 
     try:
