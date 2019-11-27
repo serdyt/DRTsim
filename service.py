@@ -213,10 +213,10 @@ class ServiceProvider(Component):
                 log.warning(e.msg)
                 self._drt_undeliverable += 1
                 return []
-            # except DrtUnassigned as e:
-            #     log.warning(e.msg)
-            #     self._drt_unassigned += 1
-            #     return []
+            except DrtUnassigned as e:
+                log.warning(e.msg)
+                self._drt_unassigned += 1
+                return []
 
             drt_trip.legs[0] = person.drt_leg
             drt_trip.duration = drt_trip.legs[0].duration

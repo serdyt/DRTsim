@@ -106,7 +106,7 @@ config = {
     'sim.duration_sec': 86400,
     'sim.seed': 42,
     'sim.email_notification': True,
-    'sim.purpose': 'Comparing osrm results with OTP. This is OSRM run',
+    'sim.purpose': 'Comparing osrm results with OTP. This is OSRM run with -p-0.02-pre-7200.0-twc-1800.0-twm-2-nv-30',
 
     'person.behaviour': 'DefaultBehaviour',
     'person.mode_choice': 'DefaultModeChoice',
@@ -130,12 +130,12 @@ config = {
     'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
     'population.input_file': 'data/population_ruta.json',
-    'population.input_percentage': 0.001,
+    'population.input_percentage': 0.02,
 
     'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],
     'drt.planning_in_advance': td(hours=2).total_seconds(),
-    'drt.time_window_constant': td(minutes=60).total_seconds(),
-    'drt.time_window_multiplier': 4,
+    'drt.time_window_constant': td(minutes=30).total_seconds(),
+    'drt.time_window_multiplier': 2,
     'drt.time_window_shift_left': 1./4,
     'drt.PT_stops_file': 'data/zone_stops.csv',
     'drt.min_distance': 2000,
