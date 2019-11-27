@@ -476,9 +476,11 @@ class ServiceProvider(Component):
 
         extra_time = act.duration - (act.end_time - act.start_time)
         if extra_time != 0:
-            log.error('Act\'s end time does not correspond to its duration. '
-                      'Vehicle\'s route need to be moved by {} seconds.'
-                      .format(extra_time))
+            if extra_time > 1:
+                log.error('Act\'s end time does not correspond to its duration. '
+                          'Vehicle\'s route need to be moved by {} seconds.'
+                          .format(extra_time))
+
             for a in vehicle.get_route_with_return():
                 a.start_time += extra_time
                 a.end_time += extra_time
