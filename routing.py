@@ -125,23 +125,24 @@ class DefaultRouting(object):
 
         return trips
 
-    def osrm_request(self, from_place, to_place):
+    def osrm_route_request(self, from_place, to_place):
         url_coords = '{}{},{};{},{}' \
             .format(self.env.config.get('service.osrm_route'),
-            from_place.lon, from_place.lat, to_place.lon, to_place.lat)
+                    from_place.lon, from_place.lat, to_place.lon, to_place.lat)
         url_full = url_coords + '?annotations=true&geometries=geojson&steps=true'
         resp = requests.get(url=url_full)
         return self._parse_osrm_response(resp)
 
-    def _parse_osrm_response(self, resp):
-        if resp.status_code != requests.codes.ok:
-            resp.raise_for_status()
+    @staticmethod
+    def _parse_osrm_response(resp):
+        # if resp.status_code != requests.codes.ok:
+        #     resp.raise_for_status()
 
         jresp = resp.json()
         if jresp.get('code') != 'Ok':
             log.error(jresp.get('code'))
             log.error(jresp.get('message'))
-            raise Exception
+            resp.raise_for_status()
 
         trip = Trip()
         trip.legs = [Leg()]
@@ -160,9 +161,15 @@ class DefaultRouting(object):
                 # OSRM makes circles on roundabouts. And makes empty step in the end. Exclude these cases from a route
                 if new_step.start_coord != new_step.end_coord:
                     trip.legs[0].steps.append(new_step)
-                trip.legs[0].steps[-1].coords = step.get('geometry').get('coordinates')
-        trip.distance = jresp.get('routes')[0].get('distance')
-        trip.duration = jresp.get('routes')[0].get('duration')
+        trip.legs[0].start_coord = trip.legs[0].steps[0].start_coord
+        trip.legs[0].end_coord = trip.legs[0].steps[-1].end_coord
+        trip.legs[0].duration = sum([step.duration for step in trip.legs[0].steps])
+        trip.legs[0].distance = sum([step.distance for step in trip.legs[0].steps])
+        trip.legs[0].mode = OtpMode.DRT
+
+        trip.distance = trip.legs[0].distance
+        trip.duration = trip.legs[0].duration
+        trip.main_mode = OtpMode.CAR
         return trip
 
     def drt_request(self, person, vehicle_coords_times, return_vehicle_coords,
@@ -276,20 +283,22 @@ class DefaultRouting(object):
         return None
 
     def get_drt_route_details(self, coord_start, coord_end, at_time):
-        payload = Payload(attributes={'fromPlace': str(coord_start),
-                                      'toPlace': str(coord_end),
-                                      'time': trunc_microseconds(str(td(seconds=at_time))),
-                                      'date': self.env.config.get('date'),
-                                      'mode': OtpMode.CAR},
-                          config=self.env.config)
+        # payload = Payload(attributes={'fromPlace': str(coord_start),
+        #                               'toPlace': str(coord_end),
+        #                               'time': trunc_microseconds(str(td(seconds=at_time))),
+        #                               'date': self.env.config.get('date'),
+        #                               'mode': OtpMode.CAR},
+        #                   config=self.env.config)
+        #
+        # resp = requests.get(self.url, params=payload.get_payload())
+        # # If OTP returns more than one route, take the first one
+        # # TODO: may be we want to take the fastest option
+        # trips = self.parse_otp_response(resp)
+        # trip = trips[0]
+        # trip.set_main_mode(OtpMode.DRT)
+        # return trip
 
-        resp = requests.get(self.url, params=payload.get_payload())
-        # If OTP returns more than one route, take the first one
-        # TODO: may be we want to take the fastest option
-        trips = self.parse_otp_response(resp)
-        trip = trips[0]
-        trip.set_main_mode(OtpMode.DRT)
-        return trip
+        return self.osrm_route_request(coord_start, coord_end)
 
     def _calculate_time_distance_matrix(self, vehicle_coords, return_coords,
                                         shipment_start_coords, shipment_end_coords, delivery_end_coord):
