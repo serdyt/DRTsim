@@ -115,7 +115,6 @@ class ServiceProvider(Component):
 
         if len(traditional_alternatives) == 0:
             raise OTPUnreachable('No traditional alternatives received')
-        person.set_direct_trip(traditional_alternatives)
 
         try:
             drt_alternatives = self._drt_request(person)
@@ -402,11 +401,12 @@ class ServiceProvider(Component):
                                 shipment_persons, service_persons)
 
     def standalone_request(self, person, mode, otp_attributes):
-        return self.router.otp_request(person.curr_activity.coord,
-                                       person.next_activity.coord,
-                                       person.next_activity.start_time,
-                                       mode,
-                                       person.otp_parameters.update(otp_attributes))
+        otp = self.router.otp_request(person.curr_activity.coord,
+                                      person.next_activity.coord,
+                                      person.next_activity.start_time,
+                                      mode,
+                                      person.otp_parameters.update(otp_attributes))
+        return self.router.osrm_route_request(person.curr_activity.coord, person.next_activity.coord)
 
     def _get_current_vehicle_positions(self):
         coords_times = []

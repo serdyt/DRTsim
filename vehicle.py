@@ -60,6 +60,7 @@ class Vehicle(Component):
         self._route = []
         self.vehicle_kilometers = 0
         self.ride_time = 0
+        self.occupancy_by_time = [(0,0)]
         self.delivered_travelers = 0
 
         self.rerouted = self.env.event()
@@ -119,14 +120,17 @@ class Vehicle(Component):
         super(Vehicle, self).get_result(result)
         if 'delivered_travelers' not in result.keys():
             result['delivered_travelers'] = []
-        if 'vehicle_kilometers' not in result.keys():
-            result['vehicle_kilometers'] = []
+        if 'vehicle_meters' not in result.keys():
+            result['vehicle_meters'] = []
         if 'ride_time' not in result.keys():
             result['ride_time'] = []
+        if 'occupancy' not in result.keys():
+            result['occupancy'] = []
 
         result['delivered_travelers'] = result.get('delivered_travelers') + [self.delivered_travelers]
-        result['vehicle_kilometers'] = result.get('vehicle_kilometers') + [self.vehicle_kilometers]
+        result['vehicle_meters'] = result.get('vehicle_meters') + [self.vehicle_kilometers]
         result['ride_time'] = result.get('ride_time') + [self.ride_time]
+        result['occupancy'] = result.get('occupancy') + [self.occupancy_by_time]
 
     def flush(self):
         return 'Vehicle {}\n Onboard persons: {}\nRoute: {}'.format(self.id, self.passengers, self._route)
@@ -227,6 +231,7 @@ class Vehicle(Component):
 
         n = len(persons)
         self.delivered_travelers += n
+        self.occupancy_by_time.append((self.env.now, len(self.passengers)))
 
     def _pickup_travelers(self, persons):
         """Append persons to the list of current passengers
@@ -239,6 +244,8 @@ class Vehicle(Component):
                     raise Exception('Person has boarded to a vehicle while it has not enough space')
 
             self._is_person_served_within_tw(person)
+
+        self.occupancy_by_time.append((self.env.now, len(self.passengers)))
 
     def _is_person_served_within_tw(self, person):
         if self.env.now > person.get_tw_left() or self.env.now < person.get_tw_right():

@@ -213,8 +213,8 @@ class Person(Component):
         """Calculates a time to wait until the moment a person starts planning a trip
         returns: int in seconds when planning should happen
         """
-        timeout = int((self.direct_trip.legs[0].start_time - self.env.now -
-                       self.env.config.get('drt.planning_in_advance')))
+        timeout = int((self.next_activity.start_time - self.direct_trip.legs[0].duration
+                       - self.env.config.get('drt.planning_in_advance') - self.env.now))
 
         # request time relative to direct time
         # timeout = self.direct_trip.legs[0].start_time - self.env.config.get('trip.planning_in_advance_constant') \
@@ -267,15 +267,16 @@ class Person(Component):
         self.executed_trips.append(self.actual_trip)
         self.direct_trips.append(self.direct_trip)
 
-    def set_direct_trip(self, alternatives):
-        modes = [a.main_mode for a in alternatives]
-        if OtpMode.CAR in modes:
-            self.direct_trip = alternatives[modes.index(OtpMode.CAR)]
-        else:
-            log.warning('{}: Person {} does not have a car alternative. Taking the fastest one'
-                        .format(self.env.now, self.id))
-            times = [a.duration for a in alternatives]
-            self.direct_trip = alternatives[times.index(max(times))]
+    def set_direct_trip(self, trip):
+        # modes = [a.main_mode for a in alternatives]
+        # if OtpMode.CAR in modes:
+        #     self.direct_trip = alternatives[modes.index(OtpMode.CAR)]
+        # else:
+        #     log.warning('{}: Person {} does not have a car alternative. Taking the fastest one'
+        #                 .format(self.env.now, self.id))
+        #     times = [a.duration for a in alternatives]
+        #     self.direct_trip = alternatives[times.index(max(times))]
+        self.direct_trip = trip
 
     def update_planned_drt_trip(self, drt_route):
         """Jsprit solution does not provide distances. # TODO: check if it is possible to include this in jsprit

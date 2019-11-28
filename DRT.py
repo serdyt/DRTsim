@@ -106,7 +106,7 @@ config = {
     'sim.duration_sec': 86400,
     'sim.seed': 42,
     'sim.email_notification': True,
-    'sim.purpose': 'Comparing osrm results with OTP. This is OSRM run with -p-0.02-pre-7200.0-twc-1800.0-twm-2-nv-30',
+    'sim.purpose': 'Testing direct minutes',
 
     'person.behaviour': 'DefaultBehaviour',
     'person.mode_choice': 'DefaultModeChoice',
@@ -130,7 +130,7 @@ config = {
     'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
     'population.input_file': 'data/population_ruta.json',
-    'population.input_percentage': 0.02,
+    'population.input_percentage': 0.001,
 
     'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],
     'drt.planning_in_advance': td(hours=2).total_seconds(),
@@ -143,7 +143,7 @@ config = {
     'drt.max_fake_walk': 1000000,
     'drt.visualize_routes': 'false',  # should be a string
     'drt.picture_folder': 'pictures/',
-    'drt.number_vehicles': 30,
+    'drt.number_vehicles': 2,
     }
 
 folder = '-p-{}-pre-{}-twc-{}-twm-{}-nv-{}'.format(config.get('population.input_percentage'),
@@ -272,23 +272,72 @@ if __name__ == '__main__':
 
     log.info('elapsed at_time {}'.format(time.time() - start))
 
-    log.info(res.get('planned_trips'))
-    log.info(res.get('executed_trips'))
-    log.info(res.get('direct_trips'))
+    # log.info(res.get('planned_trips'))
+    # log.info(res.get('executed_trips'))
+    # log.info(res.get('direct_trips'))
 
     delivered_travelers = res.get('delivered_travelers')  # type: List[int]
-    vehicle_kilometers = res.get('vehicle_kilometers')  # type: List[int]
+    vehicle_meters = res.get('vehicle_meters')  # type: List[int]
 
     log.info('delivered travelers per vehicle {}'.format(sum(delivered_travelers) / len(delivered_travelers)))
-    log.info('Vehicle kilometers {}'.format(sum(vehicle_kilometers) / 1000))
+    log.info('Vehicle kilometers {}'.format(sum(vehicle_meters) / 1000))
     try:
         log.info('delivered travelers per Vehicle kilometers {}'
-                 .format(sum(delivered_travelers) / (sum(vehicle_kilometers) / 1000)))
+                 .format(sum(delivered_travelers) / (sum(vehicle_meters) / 1000)))
     except ZeroDivisionError:
         pass
+    log.info('delivered travelers per vehicle kilometer {}'
+             .format(sum(delivered_travelers) / (sum(vehicle_meters) / 1000)))
+
+    import xlsxwriter
+    import pandas as pd
+    writer = pd.ExcelWriter('{}/occupancy.xlsx'.format(folder), engine='xlsxwriter')
+    workbook = writer.book
+    chart = workbook.add_chart({'type': 'scatter'})
+    import datetime
+    for i, veh in enumerate(res.get('occupancy')):
+        # worksheet = workbook.add_worksheet('vehicle{}'.format(i))
+        # worksheet = writer.sheets['vehicle{}'.format(i)]
+        df = pd.DataFrame(veh, columns=['time', 'v{}_onboard'.format(i)])
+
+        def pr(sec):
+            hours = sec // 3600
+            minutes = (sec // 60) - (hours * 60)
+            return datetime.time(hour=int(hours), minute=int(minutes))
+
+        df['time'] = df.time.apply(pr)
+        # print(df)
+        df.to_excel(writer, sheet_name='vehicle{}'.format(i), index=False)
+        worksheet = writer.sheets['vehicle{}'.format(i)]
+        time_format = workbook.add_format({'num_format': 'hh:mm'})
+        for k, t in enumerate(df.time.iteritems(), start=2):
+            worksheet.write_datetime('A{}'.format(k), t[1], time_format)
+
+        chart.add_series({'name':       'vehicle{}'.format(i),
+                          'categories': '=vehicle{}!$A$2:$A$104857'.format(i),
+                          'values':     '=vehicle{}!$B$2:$B$1048576'.format(i),
+                          'marker':     {'type': 'circle', 'size': 6}})
+    worksheet = writer.sheets['vehicle{}'.format(0)]
+    worksheet.insert_chart('K2', chart)
+    writer.save()
+
+    log.info('Vehicle occupancy: {}')
 
     log.info('Delivered travelers: {}'.format(delivered_travelers))
-    log.info('Vehicle kilometers: {}'.format(vehicle_kilometers))
+    log.info('Vehicle kilometers: {}'.format(vehicle_meters))
+
+    log.info('********************************************')
+
+    direct_seconds = [trip.duration for trip in res.get('direct_trips')]
+    log.info('Direct minutes: {}'.format(sum(direct_seconds)))
+    log.info('Service hours: {}'.format(24 * config.get('drt.number_vehicles')))
+    log.info('Direct minutes per service hour: {}'
+             .format((sum(direct_seconds) / 60) / (24 * config.get('drt.number_vehicles'))))
+    log.info('Vehicle kilometer per direct minute: {}'.format((sum(vehicle_meters)/1000) / (sum(direct_seconds)/60)))
+
+    travel_times = [trip.duration for trip in res.get('executed_trips')]
+    deviation_times = [tt - dt for tt, dt in zip(travel_times, direct_seconds)]
+    log.info('Deviation time per total travel time: {}'.format(sum(deviation_times) / sum(travel_times)))
 
     import pprint
     pp = pprint.PrettyPrinter()
