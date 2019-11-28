@@ -15,8 +15,16 @@ conda install -c anaconda requests
 
 conda install -c anaconda pyyaml
 
-## Assumptions
+## installing OSRM
 
-You have OpenTripPlanner server running at localhost:8080 with scripting
-enabled, and its working directory is in ../XXX/XXX
+sudo install docker docker.io
 
+wget http://download.geofabrik.de/europe/sweden-latest.osm.pbf
+sudo docker run -t -v "/home/username/osrm:/data" osrm/osrm-backend osrm-extract -p /opt/car.lua /data/sweden-latest.osm.pbf
+sudo docker run -t -v "/home/username/osrm:/data" osrm/osrm-backend osrm-partition /data/sweden-latest.osrm
+sudo docker run -t -v "/home/username/osrm:/data" osrm/osrm-backend osrm-customize /data/sweden-latest.osrm
+sudo docker run  -t -i -p 5000:5000 -v "/home/username/osrm/:/data" osrm/osrm-backend osrm-routed --max-table-size 1000000  --algorithm MLD /data/sweden-latest.osrm
+
+## Assumptions for OTP
+
+You have OpenTripPlanner server running at localhost:8080
