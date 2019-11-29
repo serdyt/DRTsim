@@ -60,7 +60,8 @@ class Vehicle(Component):
         self._route = []
         self.vehicle_kilometers = 0
         self.ride_time = 0
-        self.occupancy_by_time = [(0,0)]
+        self.occupancy_by_time = [(0, 0)]
+        self.meters_by_occupancy = [0 for _ in range(self.capacity_dimensions.get(CD.SEATS))]
         self.delivered_travelers = 0
 
         self.rerouted = self.env.event()
@@ -126,11 +127,14 @@ class Vehicle(Component):
             result['ride_time'] = []
         if 'occupancy' not in result.keys():
             result['occupancy'] = []
+        if 'meters_by_occupancy' not in result.keys():
+            result['meters_by_occupancy'] = []
 
         result['delivered_travelers'] = result.get('delivered_travelers') + [self.delivered_travelers]
         result['vehicle_meters'] = result.get('vehicle_meters') + [self.vehicle_kilometers]
         result['ride_time'] = result.get('ride_time') + [self.ride_time]
         result['occupancy'] = result.get('occupancy') + [self.occupancy_by_time]
+        result['meters_by_occupancy'] = result.get('meters_by_occupancy') + [self.meters_by_occupancy]
 
     def flush(self):
         return 'Vehicle {}\n Onboard persons: {}\nRoute: {}'.format(self.id, self.passengers, self._route)
@@ -146,6 +150,7 @@ class Vehicle(Component):
             if self.get_route_len() == 0:
                 yield self.rerouted
                 self.rerouted = self.env.event()
+                self.occupancy_by_time.append((self.env.now, len(self.passengers)))
 
             if self.get_route_len() != 0:
                 if self.get_act(0).type in [DrtAct.DRIVE, DrtAct.RETURN]:
@@ -176,8 +181,8 @@ class Vehicle(Component):
                 self.ride_time += act.duration
                 self.coord = act.end_coord
 
-                if len(self.passengers) != 0:
-                    self.update_executed_passengers_routes(act.steps, act.end_coord)
+                # if len(self.passengers) != 0:
+                self.update_executed_passengers_routes(act.steps, act.end_coord)
 
                 if act.type == act.DRIVE:
                     if self.get_route_len() == 0:
@@ -265,6 +270,8 @@ class Vehicle(Component):
                 self.ride_time += sum([step.duration for step in passed_steps])
 
     def update_executed_passengers_routes(self, executed_steps, end_coord):
+        self.meters_by_occupancy[len(self.passengers)] += \
+            sum([step.distance for step in executed_steps])
         for person in self.passengers:
             person.update_actual_trip(executed_steps, end_coord)
 
