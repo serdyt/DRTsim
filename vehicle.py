@@ -56,11 +56,10 @@ class Vehicle(Component):
         self.id = attrib.get('id')
         self.capacity_dimensions = copy.deepcopy(vehicle_type.capacity_dimensions)
         self.passengers = []
-        # TODO: implement Act or Activity for vehicles with route, start_time, end_time similar to Jsprit_route
         self._route = []
         self.vehicle_kilometers = 0
         self.ride_time = 0
-        self.occupancy_by_time = [(0, 0)]
+        self.occupancy_stamps = [(0, -1)]
         self.meters_by_occupancy = [0 for _ in range(self.capacity_dimensions.get(CD.SEATS))]
         self.delivered_travelers = 0
 
@@ -70,9 +69,6 @@ class Vehicle(Component):
 
     def set_route(self, route):
         self._route = route
-
-    # def create_return_act(self):
-    #     self._route.append(DrtAct(type_=DrtAct.RETURN, person=None, return_coord=self.return_coord))
 
     def get_route_without_return(self):
         return self._route[:-1]
@@ -117,6 +113,9 @@ class Vehicle(Component):
                 return self.get_act(-1)
         return None
 
+    def post_simulate(self):
+        self.occupancy_stamps.append((self.env.config.get('sim.duration_sec')-1, -1))
+
     def get_result(self, result):
         super(Vehicle, self).get_result(result)
         if 'delivered_travelers' not in result.keys():
@@ -133,7 +132,7 @@ class Vehicle(Component):
         result['delivered_travelers'] = result.get('delivered_travelers') + [self.delivered_travelers]
         result['vehicle_meters'] = result.get('vehicle_meters') + [self.vehicle_kilometers]
         result['ride_time'] = result.get('ride_time') + [self.ride_time]
-        result['occupancy'] = result.get('occupancy') + [self.occupancy_by_time]
+        result['occupancy'] = result.get('occupancy') + [self.occupancy_stamps]
         result['meters_by_occupancy'] = result.get('meters_by_occupancy') + [self.meters_by_occupancy]
 
     def flush(self):
@@ -148,9 +147,10 @@ class Vehicle(Component):
         """
         while True:
             if self.get_route_len() == 0:
+                self.occupancy_stamps.append((self.env.now, -1))
                 yield self.rerouted
                 self.rerouted = self.env.event()
-                self.occupancy_by_time.append((self.env.now, len(self.passengers)))
+                self.occupancy_stamps.append((self.env.now, 0))
 
             if self.get_route_len() != 0:
                 if self.get_act(0).type in [DrtAct.DRIVE, DrtAct.RETURN]:
@@ -236,7 +236,7 @@ class Vehicle(Component):
 
         n = len(persons)
         self.delivered_travelers += n
-        self.occupancy_by_time.append((self.env.now, len(self.passengers)))
+        self.occupancy_stamps.append((self.env.now, len(self.passengers)))
 
     def _pickup_travelers(self, persons):
         """Append persons to the list of current passengers
@@ -250,7 +250,7 @@ class Vehicle(Component):
 
             self._is_person_served_within_tw(person)
 
-        self.occupancy_by_time.append((self.env.now, len(self.passengers)))
+        self.occupancy_stamps.append((self.env.now, len(self.passengers)))
 
     def _is_person_served_within_tw(self, person):
         if self.env.now > person.get_tw_left() or self.env.now < person.get_tw_right():

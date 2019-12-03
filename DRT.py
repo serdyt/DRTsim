@@ -24,6 +24,7 @@ from jsprit_utils import jsprit_tdm_interface
 from db_utils import db_conn
 from const import CapacityDimensions as CD
 from utils import Trip
+from xls_utils import xls_create_occupancy_charts
 
 log = logging.getLogger(__name__)
 
@@ -106,6 +107,7 @@ config = {
     'sim.duration_sec': 86400,
     'sim.seed': 42,
     'sim.email_notification': True,
+    'sim.create_excel': True,
     'sim.purpose': 'Testing bar chart for occupancy',
 
     'person.behaviour': 'DefaultBehaviour',
@@ -129,10 +131,11 @@ config = {
 
     'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
-    'population.input_file': 'data/population_ruta.json',
-    'population.input_percentage': 0.001,
+    'population.input_file': 'data/population.json',
+    'population.input_percentage': 0.0001,
 
-    'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],
+    # 'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],
+    'drt.zones': [z for z in range(12650001, 12650018)],
     'drt.planning_in_advance': td(hours=2).total_seconds(),
     'drt.time_window_constant': td(minutes=30).total_seconds(),
     'drt.time_window_multiplier': 2,
@@ -144,7 +147,18 @@ config = {
     'drt.visualize_routes': 'false',  # should be a string
     'drt.picture_folder': 'pictures/',
     'drt.number_vehicles': 2,
-    }
+    'drt.vehicle_type': 'minibus',
+
+    'drt.vehicle_types': {
+        'minibus': {
+            'capacity_dimensions': {CD.SEATS: 8, CD.WHEELCHAIRS: 1}
+        },
+        'taxi': {
+            'capacity_dimensions': {CD.SEATS: 4}
+        }
+    },
+
+}
 
 folder = '-p-{}-pre-{}-twc-{}-twm-{}-nv-{}'.format(config.get('population.input_percentage'),
                                                    config.get('drt.planning_in_advance'),
@@ -290,7 +304,7 @@ if __name__ == '__main__':
              .format(sum(delivered_travelers) / (sum(vehicle_meters) / 1000)))
 
     log.info('Delivered travelers: {}'.format(delivered_travelers))
-    log.info('Vehicle kilometers: {}'.format(vehicle_meters))
+    log.info('Vehicle kilometers: {}'.format([int(vm / 1000) for vm in vehicle_meters]))
 
     log.info('********************************************')
 
@@ -309,114 +323,22 @@ if __name__ == '__main__':
     pp = pprint.PrettyPrinter()
     log.info(pp.pformat(config))
 
+    if config.get('sim.create_excel'):
+        try:
+            xls_create_occupancy_charts(res, folder,
+                                        config.get('drt.vehicle_types')
+                                        .get(config.get('drt.vehicle_type'))
+                                        .get('capacity_dimensions')
+                                        .get(CD.SEATS))
+            files = [config.get('sim.log'), '{}/occupancy.xlsx'.format(folder)]
+        except Exception as e:
+            log.error('Failed to create excel file')
+            log.error(e.args)
+            files = [config.get('sim.log')]
+
     if config.get('sim.email_notification'):
         send_email(subject='Simulation success', text='{}\n{}'.format(message, 'congratulations'),
-                   files=[config.get('sim.log')], zip_file=config.get('sim.log_zip'))
-
-    # ***************** xls ****************
-    import xlsxwriter
-    import pandas as pd
-    import datetime
-
-    meters_by_occupancy = res.get('meters_by_occupancy')
-    print(meters_by_occupancy)
-
-    writer = pd.ExcelWriter('{}/occupancy.xlsx'.format(folder), engine='xlsxwriter')
-    workbook = writer.book
-    chart = workbook.add_chart({'type': 'scatter'})
-    chart_bar = workbook.add_chart({'type': 'column'})
-    chart_time_bar = workbook.add_chart({'type': 'column'})
-
-    for i, occupancy_stamps in enumerate(res.get('occupancy')):
-        # worksheet = workbook.add_worksheet('vehicle{}'.format(i))
-        # worksheet = writer.sheets['vehicle{}'.format(i)]
-        df = pd.DataFrame(occupancy_stamps, columns=['time', 'v{}_onboard'.format(i)])
-
-        def pr(sec):
-            hours = sec // 3600
-            minutes = (sec // 60) - (hours * 60)
-            return datetime.time(hour=int(hours), minute=int(minutes))
-
-        df['time'] = df.time.apply(pr)
-        # print(df)
-        df.to_excel(writer, sheet_name='vehicle{}'.format(i), index=False)
-        worksheet = writer.sheets['vehicle{}'.format(i)]
-        time_format = workbook.add_format({'num_format': 'hh:mm'})
-        for row, t in enumerate(df.time.iteritems(), start=2):
-            worksheet.write_datetime('A{}'.format(row), t[1], time_format)
-
-        # ************** bar_seconds chart ****************
-        time_bar = [0 for _ in range(8)]
-        standing_bar = 0
-        for stamp1, stamp2 in zip(occupancy_stamps, occupancy_stamps[1:]):
-            duration = stamp2[0] - stamp1[0]
-            if stamp1[1] == 0 and stamp2[1] == 0:
-                standing_bar += duration
-            time_bar[stamp1[1]] += duration
-
-        worksheet.write_string('G1', 'occupancy')
-        worksheet.write_string('G2', 'idle')
-        worksheet.write_string('H1', 'time')
-        worksheet.write_number('H2', standing_bar)
-        for row in range(8):
-            worksheet.write_number('G{}'.format(row+3), row)
-            worksheet.write_number('H{}'.format(row+3), time_bar[row]/60)
-
-        chart_time_bar.add_series({'name':       'vehicle{}'.format(i),
-                                   'categories': '=vehicle{}!$G$2:$G$10'.format(i),
-                                   'values':     '=vehicle{}!$H$2:$H$10'.format(i)})
-        # ************** bar_seconds chart ****************
-
-        chart.add_series({'name':       'vehicle{}'.format(i),
-                          'categories': '=vehicle{}!$A$2:$A$1048576'.format(i),
-                          'values':     '=vehicle{}!$B$2:$B$1048576'.format(i),
-                          'marker':     {'type': 'circle', 'size': 2}})
-
-        # ************** bar_meters chart ****************
-        worksheet.write_string('D1', 'occupancy')
-        worksheet.write_string('E1', 'kilometers')
-        for row, heights in enumerate(meters_by_occupancy[i], start=2):
-            worksheet.write_number('D{}'.format(row), row-2)
-            worksheet.write_number('E{}'.format(row), heights/1000)
-
-        chart_bar.add_series({'name':       'vehicle{}'.format(i),
-                              'categories': '=vehicle{}!$D$2:$D$9'.format(i),
-                              'values':     '=vehicle{}!$E$2:$E$9'.format(i)})
-        # ************** bar_meters chart ****************
-
-    worksheet = workbook.add_worksheet('average')
-    # pd.DataFrame().to_excel(writer, sheet_name='average', index=False)
-    # worksheet = writer.sheets['average']
-    import itertools
-    for row, col in itertools.product(range(1, 11), ['E', 'H']):
-        worksheet.write_formula('{}{}'.format(col, row),
-                                '=AVERAGE(vehicle0:vehicle{}!{}{})'.format(len(res.get('occupancy'))-1, col, row))
-    for row, col in itertools.product(range(1, 11), ['D', 'G']):
-        worksheet.write_formula('{}{}'.format(col, row),
-                                '=vehicle0!{}{})'.format(col, row))
-
-    chart_bar.add_series({'name':       'average',
-                          'categories': '=average!$D$2:$D$9',
-                          'values':     '=average!$E$2:$E$9'})
-    chart_time_bar.add_series({'name':       'average',
-                               'categories': '=average!$G$2:$G$10',
-                               'values':     '=average!$H$2:$H$10'})
-
-    chart.set_x_axis({'name': 'Time of day'})
-    chart.set_y_axis({'name': 'Persons in a vehicle'})
-
-    chart_bar.set_x_axis({'name': 'People in a vehicle'})
-    chart_bar.set_y_axis({'name': 'Kilometers'})
-
-    chart_time_bar.set_x_axis({'name': 'People in a vehicle'})
-    chart_time_bar.set_y_axis({'name': 'minutes'})
-
-    worksheet = writer.sheets['vehicle{}'.format(0)]
-    worksheet.insert_chart('K2', chart)
-    worksheet.insert_chart('K22', chart_bar)
-    worksheet.insert_chart('K42', chart_time_bar)
-    writer.save()
-    # ***************** xls *****************
+                   files=files, zip_file=config.get('sim.log_zip'))
 
 # if __name__ == '__main__':
 #     import cProfile
