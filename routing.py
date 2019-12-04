@@ -45,8 +45,21 @@ class DefaultRouting(object):
                     at_time,
                     mode: str,
                     attributes=None):
-        """Performs a web request to OTP and parses the output to a list of Trips"""
+        """Performs a web request to OTP and parses the output to a list of Trips
+        Tries to repeat request if OTP exception has occured
+        """
 
+        try:
+            return self._otp_request(from_place, to_place, at_time, mode, attributes)
+        except OTPGeneralRouting as e:
+            return self._otp_request(from_place, to_place, at_time, mode, attributes)
+
+    def _otp_request(self,
+                     from_place,
+                     to_place,
+                     at_time,
+                     mode: str,
+                     attributes=None):
         default_attributes = {'fromPlace': str(from_place),
                               'toPlace': str(to_place),
                               'time': trunc_microseconds(str(td(seconds=at_time))),
