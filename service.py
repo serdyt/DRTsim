@@ -16,12 +16,12 @@ import routing
 from desmod.component import Component
 from simpy import Event
 
-from const import OtpMode
+from const import OtpMode, DrtStatus
 from const import maxLat, minLat, maxLon, minLon
 from const import CapacityDimensions as CD
-from utils import Coord, JspritAct, Step, JspritSolution, JspritRoute, UnassignedTrip
+from sim_utils import Coord, JspritAct, Step, JspritSolution, JspritRoute, UnassignedTrip
 from vehicle import Vehicle, VehicleType
-from utils import ActType, DrtAct, Trip, Leg
+from sim_utils import ActType, DrtAct, Trip, Leg
 from population import Person, Population
 from exceptions import *
 
@@ -117,7 +117,8 @@ class ServiceProvider(Component):
             raise OTPUnreachable('No traditional alternatives received')
 
         try:
-            drt_alternatives = self._drt_request(person)
+            drt_alternatives, status = self._drt_request(person)
+            person.drt_status.append(status)
         except OTPNoPath as e:
             log.warning('{}\n{}'.format(e.msg,  e.context))
             log.warning('Person {} will not consider DRT'.format(person))
@@ -192,7 +193,7 @@ class ServiceProvider(Component):
         if person.direct_trip.distance < self.env.config.get('drt.min_distance'):
             log.info('Person {} has trip length of {}. Ignoring DRT'.format(person.id, person.direct_trip.distance))
             self._drt_too_short_trip += 1
-            return []
+            return [], DrtStatus.too_short_local
 
         # **************************************************
         # **********        Local trip         *************
@@ -207,19 +208,19 @@ class ServiceProvider(Component):
             person.set_tw(person.direct_trip.duration, single_leg=True)
 
             try:
-                self._prepare_travelers_for_vrp(person)
+                self._drt_request_routine(person)
             except DrtUndeliverable as e:
                 log.warning(e.msg)
                 self._drt_undeliverable += 1
-                return []
+                return [], DrtStatus.undeliverable
             except DrtUnassigned as e:
                 log.warning(e.msg)
                 self._drt_unassigned += 1
-                return []
+                return [], DrtStatus.unassigned
 
             drt_trip.legs[0] = person.drt_leg
             drt_trip.duration = drt_trip.legs[0].duration
-            return [drt_trip]
+            return [drt_trip], DrtStatus.routed
 
         # **************************************************
         # **********       DRT_TRANSIT         *************
@@ -296,7 +297,7 @@ class ServiceProvider(Component):
                 else:
                     log.error('Could not determine where person is going. {}'.format(person.id))
                     self._drt_undeliverable += 1
-                    return []
+                    return [], DrtStatus.undeliverable
 
                 # **************************************************
                 # ********* Common part for in and out *************
@@ -307,7 +308,7 @@ class ServiceProvider(Component):
 
                 person.drt_leg = drt_leg
                 try:
-                    self._prepare_travelers_for_vrp(person)
+                    self._drt_request_routine(person)
                 except DrtUnassigned as e:
                     unassigned_legs += 1
                     continue
@@ -316,6 +317,8 @@ class ServiceProvider(Component):
                     continue
 
                 drt_trip.legs[pt_walk_leg_index] = person.drt_leg
+                drt_trip.legs[pt_walk_leg_index].start_coord = person.drt_leg.start_coord
+                drt_trip.legs[pt_walk_leg_index].end_coord = person.drt_leg.start_coord
                 drt_trip.distance = 0
                 drt_trip.duration = sum(leg.duration for leg in drt_trip.legs)
 
@@ -323,6 +326,7 @@ class ServiceProvider(Component):
                 # just take one DRT trip.
                 break
 
+        status = DrtStatus.routed
         if len(drt_trips) == 0:
             log.warning('Person {} could not be routed by DRT. Undeliverable: {}, Unassigned {},'
                         'PT stops outside: {}, too close PT stops {}, overnight trips {}, one leg journey received {}'
@@ -330,19 +334,24 @@ class ServiceProvider(Component):
                                 too_close_for_drt, overnight_trip, one_leg_journey))
             if undeliverable_legs != 0:
                 self._drt_undeliverable += 1
+                status = DrtStatus.undeliverable
             elif unassigned_legs != 0:
                 self._drt_unassigned += 1
+                status = DrtStatus.unassigned
             elif overnight_trip != 0:
                 self._drt_overnight += 1
+                status = DrtStatus.overnight_trip
             elif pt_stop_outside != 0 or too_close_for_drt != 0:
                 self._drt_no_suitable_pt_stop += 1
+                status = DrtStatus.no_stop
             elif one_leg_journey != 0:
                 self._drt_no_suitable_pt_connection += 1
+                status = DrtStatus.one_leg
             else:
                 log.error('{} could not be delivered by DRT_TRANSIT, but there are zero errors as well.'
                           .format(person, ))
 
-        return drt_trips
+        return drt_trips, status
 
     def _get_leg_for_in_trip(self, drt_trip, person):
         """Extract a walk leg, that should be replaced by DRT, from a PT trip"""
@@ -377,7 +386,7 @@ class ServiceProvider(Component):
             raise PTStopServiceOutsideZone('Person {} has outgoing trip, but bus stop is not in the zone'
                                            .format(person.id, drt_trip.legs[1].from_stop))
 
-    def _prepare_travelers_for_vrp(self, person: Person):
+    def _drt_request_routine(self, person: Person):
         """Prepares coordinate lists for routing
         NOTE: peron.drt_leg will be updated
 
@@ -415,11 +424,7 @@ class ServiceProvider(Component):
         return coords_times
 
     def start_trip(self, person: Person):
-        # TODO: this should not be the case. If it is, person should be explicitly removed from the simulation
-        if person.planned_trip is None:
-            self.env.results['unassigned_drt_trips'] += 1
-            log.warning('{} received no feasible trip options'.format(person.scope))
-        elif person.planned_trip.main_mode == OtpMode.DRT:
+        if person.planned_trip.main_mode == OtpMode.DRT:
             self._start_drt_trip(person)
         elif person.planned_trip.main_mode == OtpMode.DRT_TRANSIT:
             self._start_drt_trip(person)
@@ -593,12 +598,15 @@ class ServiceProvider(Component):
         pass
 
     def execute_trip(self, person: Person):
+        person.init_actual_trip()
         if person.planned_trip.main_mode == OtpMode.DRT:
+            person.init_drt_leg()
             yield person.drt_executed
             person.delivered.succeed()
         elif person.planned_trip.main_mode == OtpMode.DRT_TRANSIT:
             if person.planned_trip.legs[0].mode == OtpMode.DRT:
                 # if DRT is first leg - wait for it to be executed and teleport a person to its destination after PT
+                person.init_drt_leg()
                 yield person.drt_executed
                 yield self.env.timeout(person.planned_trip.legs[-1].end_time - self.env.now)
                 person.append_pt_legs_to_actual_trip(person.planned_trip.legs[1:])
@@ -606,6 +614,7 @@ class ServiceProvider(Component):
             else:
                 # if DRT is a last leg, just assume that PT part is executed correctly
                 person.append_pt_legs_to_actual_trip(person.planned_trip.legs[:-1])
+                person.init_drt_leg()
                 yield person.drt_executed
                 person.delivered.succeed()
         else:

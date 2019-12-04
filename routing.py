@@ -18,7 +18,7 @@ from shutil import copyfile
 
 from population import *
 from const import OtpMode, LegMode
-from utils import Trip, Leg, Coord, Step, trunc_microseconds, DrtAct, JspritSolution, otp_time_to_sec
+from sim_utils import Trip, Leg, Coord, Step, trunc_microseconds, DrtAct, JspritSolution, otp_time_to_sec
 from db_utils import db_conn
 from jsprit_utils import jsprit_tdm_interface, jsprit_vrp_interface
 from exceptions import *
@@ -52,6 +52,7 @@ class DefaultRouting(object):
                               'time': trunc_microseconds(str(td(seconds=at_time))),
                               'date': self.env.config.get('date'),
                               'mode': mode,
+                              'arriveBy': 'True',
                               'maxWalkDistance': 2000}
         # default_attributes.update(person.otp_parameters)
         if attributes is not None:

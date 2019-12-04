@@ -12,7 +12,7 @@ from desmod.component import Component
 import behaviour
 import mode_choice
 
-from utils import Activity, Coord, seconds_from_str, Trip, Leg, Step
+from sim_utils import Activity, Coord, seconds_from_str, Trip, Leg, Step
 from const import ActivityType as actType
 from const import maxLat, minLat, maxLon, minLon
 from const import CapacityDimensions as CD
@@ -79,7 +79,7 @@ class Population(Component):
                                  )
                     )
                 if activities[0].zone in self.env.config.get('drt.zones') \
-                    or activities[1].zone in self.env.config.get('drt.zones'):
+                        or activities[1].zone in self.env.config.get('drt.zones'):
 
                     if self.env.rand.choices([False, True],
                                              [self.env.config.get('population.input_percentage'),
@@ -169,6 +169,7 @@ class Person(Component):
         self.executed_trips = []
         self.direct_trips = []
         self.planned_trips = []
+        self.drt_status = []
 
         # we need to store that so that drt rerouting would know drt leg coordinates.
         # TODO: move this to a container in ServiceProvider
@@ -185,29 +186,34 @@ class Person(Component):
         for attr in attributes.items():
             setattr(self, attr[0], attr[1])
 
+    def get_arrive_by(self):
+        if self.next_activity.type == actType.WORK:
+            return 'True'
+        else:
+            return 'False'
+
+    def update_otp_params(self):
+        """Sets new otp params for a new trip. Params are deducted from activity"""
+        self.otp_parameters.update({'arriveBy': self.get_arrive_by()})
+
     def get_result(self, result):
         """Save trip results to the result dictionary"""
         super(Person, self).get_result(result)
-        if 'executed_trips' not in result.keys():
-            result['executed_trips'] = []
-        if 'direct_trips' not in result.keys():
-            result['direct_trips'] = []
-        if 'planned_trips' not in result.keys():
-            result['planned_trips'] = []
+        if 'Persons' not in result.keys():
+            result['Persons'] = []
 
-        result['executed_trips'] = result.get('executed_trips') + self.executed_trips
-        result['planned_trips'] = result.get('planned_trips') + self.planned_trips
-        result['direct_trips'] = result.get('direct_trips') + self.direct_trips
+        result['Persons'].append(self)
 
     def init_actual_trip(self):
-        """Inits an empty actual_trip to append executed acts to it"""
+        """Initiates an empty actual_trip to append executed legs and acts to it"""
         self.actual_trip = Trip()
         self.actual_trip.main_mode = self.planned_trip.main_mode
         self.actual_trip.legs = []
-        # TODO: should create trip legs during the trip also
-        for planned_leg in self.planned_trip.legs:
-            leg = Leg(steps=[], duration=0, distance=0, start_coord=planned_leg.start_coord, mode=planned_leg.mode)
-            self.actual_trip.legs.append(leg)
+
+    def init_drt_leg(self):
+        self.actual_trip.legs.append(
+            Leg(steps=[], duration=0, distance=0, mode=OtpMode.DRT)
+        )
 
     def get_planning_time(self):
         """Calculates a time to wait until the moment a person starts planning a trip
@@ -242,12 +248,17 @@ class Person(Component):
 
     def append_pt_legs_to_actual_trip(self, legs):
         for leg in legs:
-            # if leg.mode == OtpMode.DRT:
-            #     break
-            # else:
             self.actual_trip.legs.append(leg)
+        # No matter when DRT trip has finished, PT leg would start and end at the same time as planned
         self.actual_trip.duration = sum([leg.duration for leg in self.actual_trip.legs])
         self.actual_trip.distance = sum([leg.distance for leg in self.actual_trip.legs])
+
+    def finish_actual_drt_trip(self, end_time):
+        self.actual_trip.legs[-1].end_time = end_time
+
+    def start_actual_drt_trip(self, start_time, start_coord):
+        self.actual_trip.legs[-1].start_time = start_time
+        self.actual_trip.legs[-1].start_coord = start_coord
 
     def reset_delivery(self):
         """Create ne delivery events"""

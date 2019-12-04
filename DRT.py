@@ -12,18 +12,19 @@ import shutil
 
 import os
 import sys
-from typing import List
+from typing import List, Any, Union
+import pprint
 
 from desmod.simulation import simulate
 from desmod.component import Component
 
 from population import Population
 from service import ServiceProvider
-from const import OtpMode, LegMode
+from const import OtpMode, LegMode, DrtStatus
 from jsprit_utils import jsprit_tdm_interface
 from db_utils import db_conn
 from const import CapacityDimensions as CD
-from utils import Trip
+from sim_utils import Trip
 from xls_utils import xls_create_occupancy_charts
 
 log = logging.getLogger(__name__)
@@ -35,14 +36,14 @@ class Top(Component):
         super(Top, self).__init__(*args, **kwargs)
 
         self.population = Population(self)
-        
+
         self.serviceProvider = ServiceProvider(self)
 
         self._init_results()
 
         jsprit_tdm_interface.set_writer(self.env.config.get('jsprit.tdm_file'), 'w')
         db_conn.connect(self.env.config.get('db.file'))
-        
+
     def connect_children(self):
         for person in self.population.person_list:
             self.connect(person, 'serviceProvider')
@@ -108,7 +109,7 @@ config = {
     'sim.seed': 42,
     'sim.email_notification': True,
     'sim.create_excel': True,
-    'sim.purpose': 'Testing bar chart for occupancy',
+    'sim.purpose': 'Testing creating files for visualization of trips',
 
     'person.behaviour': 'DefaultBehaviour',
     'person.mode_choice': 'DefaultModeChoice',
@@ -132,14 +133,14 @@ config = {
     'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
     'population.input_file': 'data/population.json',
-    'population.input_percentage': 0.0001,
+    'population.input_percentage': 0.008,
 
     # 'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],
     'drt.zones': [z for z in range(12650001, 12650018)],
     'drt.planning_in_advance': td(hours=2).total_seconds(),
     'drt.time_window_constant': td(minutes=30).total_seconds(),
     'drt.time_window_multiplier': 2,
-    'drt.time_window_shift_left': 1./4,
+    'drt.time_window_shift_left': 1. / 4,
     'drt.PT_stops_file': 'data/zone_stops.csv',
     'drt.min_distance': 2000,
     'drt.walkCarSpeed': 16.6667,
@@ -235,11 +236,13 @@ if __name__ == '__main__':
     log.info("Starting the simulation")
 
     import time
+
     start = time.time()
     try:
         res = simulate(config, Top)
     except Exception as e:
         import zipfile
+
         if config.get('sim.email_notification'):
             send_email(subject='Simulation failed', text='{}\n{}'.format(message, str(e.args)),
                        files=[config.get('sim.log')], zip_file=config.get('sim.log_zip'))
@@ -248,7 +251,8 @@ if __name__ == '__main__':
         raise
 
     log.info('Total {} persons'.format(res.get('total_persons')))
-    executed_trips = res.get('executed_trips')  # type: List[Trip]
+    persons = res.get('Persons')  # List(Person)
+    executed_trips = [trip for person in persons for trip in person.executed_trips]
     log.info('Executed trips: {}'.format(len(executed_trips)))
     log.info('Excluded persons due to none or a trivial path {}'
              .format(res.get('unactivatable_persons') +
@@ -286,9 +290,25 @@ if __name__ == '__main__':
 
     log.info('elapsed at_time {}'.format(time.time() - start))
 
-    # log.info(res.get('planned_trips'))
-    # log.info(res.get('executed_trips'))
-    # log.info(res.get('direct_trips'))
+    from utils import VisualTrip, VisualTripWrapper
+    import json
+
+    drt_trips = []
+    drt_routed = []
+    drt_unassigned = []
+    for person in persons:
+        for ex, pl, st in zip(person.executed_trips, person.planned_trips, person.drt_status):
+            if st == DrtStatus.routed:
+                drt_trips.append((ex, person.id, st))
+            else:
+                drt_trips.append((pl, person.id, st))
+
+    drt_vis = VisualTripWrapper([VisualTrip(trip, pid, st.value) for trip, pid, st in drt_trips])
+    # drt_vis_unassigned = VisualTripWrapper([VisualTrip(trip, pid) for trip, pid in drt_unassigned])
+
+    json_drt = json.loads(drt_vis.to_json())
+    with open('{}/drt_routed.json'.format(folder), 'w') as outfile:
+        json.dump(json_drt, outfile)
 
     delivered_travelers = res.get('delivered_travelers')  # type: List[int]
     vehicle_meters = res.get('vehicle_meters')  # type: List[int]
@@ -308,18 +328,19 @@ if __name__ == '__main__':
 
     log.info('********************************************')
 
-    direct_seconds = [trip.duration for trip in res.get('direct_trips')]
-    log.info('Direct minutes: {}'.format(sum(direct_seconds)/60))
+    direct_trips = [trip for person in persons for trip in person.direct_trips]
+    direct_seconds = [trip.duration for trip in direct_trips]
+    log.info('Direct minutes: {}'.format(sum(direct_seconds) / 60))
     log.info('Service hours: {}'.format(24 * config.get('drt.number_vehicles')))
     log.info('Direct minutes per service hour: {}'
              .format((sum(direct_seconds) / 60) / (24 * config.get('drt.number_vehicles'))))
-    log.info('Vehicle kilometer per direct minute: {}'.format((sum(vehicle_meters)/1000) / (sum(direct_seconds)/60)))
+    log.info(
+        'Vehicle kilometer per direct minute: {}'.format((sum(vehicle_meters) / 1000) / (sum(direct_seconds) / 60)))
 
-    travel_times = [trip.duration for trip in res.get('executed_trips')]
+    travel_times = [trip.duration for trip in executed_trips]
     deviation_times = [tt - dt for tt, dt in zip(travel_times, direct_seconds)]
     log.info('Deviation time per total travel time: {}'.format(sum(deviation_times) / sum(travel_times)))
 
-    import pprint
     pp = pprint.PrettyPrinter()
     log.info(pp.pformat(config))
 

@@ -10,8 +10,8 @@ import xml.etree.ElementTree as ET
 # from lxml import etree as ET
 import logging
 
-from utils import JspritSolution, JspritAct, JspritRoute
-from utils import DrtAct
+from sim_utils import JspritSolution, JspritAct, JspritRoute
+from sim_utils import DrtAct
 
 log = logging.getLogger(__name__)
 

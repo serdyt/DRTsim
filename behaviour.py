@@ -14,7 +14,7 @@ from statemachine import StateMachine, State
 from exceptions import *
 import population
 
-from utils import OtpMode
+from sim_utils import OtpMode
 
 log = logging.getLogger(__name__)
 
@@ -51,9 +51,8 @@ class DefaultBehaviour(StateMachine):
 
     def on_activate(self):
         otp_attributes = {'walkSpeed': self.env.config.get('drt.walkCarSpeed'),
-                          'fromPlace': self.person.curr_activity.coord,
-                          'toPlace': self.person.next_activity.coord,
                           'maxWalkDistance': self.env.config.get('drt.max_fake_walk')}
+        self.person.update_otp_params()
         try:
             direct_trip = self.person.serviceProvider.standalone_request(self.person, OtpMode.CAR, otp_attributes)
             self.person.set_direct_trip(direct_trip)
@@ -118,9 +117,8 @@ class DefaultBehaviour(StateMachine):
     def on_reactivate(self):
         yield Event(self.env).succeed()
         otp_attributes = {'walkSpeed': self.env.config.get('drt.walkCarSpeed'),
-                          'fromPlace': self.person.curr_activity.coord,
-                          'toPlace': self.person.next_activity.coord,
                           'maxWalkDistance': self.env.config.get('drt.max_fake_walk')}
+        self.person.update_otp_params()
         try:
             direct_trip = self.person.serviceProvider.standalone_request(self.person, OtpMode.CAR, otp_attributes)
             self.person.set_direct_trip(direct_trip)

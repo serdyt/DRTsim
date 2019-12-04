@@ -146,3 +146,13 @@ class TripAttr(Enum):
     TIME = 'TIME'
     MODE = 'MODE'
     DIST = 'DIST'
+
+
+class DrtStatus(Enum):
+    routed = 'routed'  # normal DRT operation, currently all routed trips are executed
+    undeliverable = 'undeliverable'  # request cannot be delivered due to OTP errors (if no path found)
+    unassigned = 'unassigned'  # request went to jsprit, but it was unable to route it
+    overnight_trip = 'overnight_trip'
+    no_stop = 'no_stop'  # no stop for extra-zonal DRT trip found (either too close, or outside of DRT boundaries)
+    one_leg = 'one_leg'  # only one leg returned by DRT, most likely OD coordinates are close to PT stops
+    too_short_local = 'too_short_local'

@@ -8,7 +8,7 @@ from simpy import Event
 from simpy.events import Event, Timeout
 from simpy.core import Environment
 
-from utils import DrtAct, Coord, Step
+from sim_utils import DrtAct, Coord, Step
 from population import Person
 
 from const import CapacityDimensions as CD
@@ -226,6 +226,7 @@ class Vehicle(Component):
         self.passengers = [p for p in self.passengers if p not in persons]
 
         for person in persons:
+            person.finish_actual_drt_trip(self.env.now)
             for dimension in person.dimensions.items():
                 self.capacity_dimensions[dimension[0]] += dimension[1]
             if person.drt_executed is None:
@@ -243,6 +244,7 @@ class Vehicle(Component):
         and reduce capacity dimensions according to traveler's attributes"""
         self.passengers += persons
         for person in persons:
+            person.start_actual_drt_trip(self.env.now, self.coord)
             for dimension in person.dimensions.items():
                 self.capacity_dimensions[dimension[0]] -= dimension[1]
                 if self.capacity_dimensions[dimension[0]] < 0:
