@@ -20,7 +20,6 @@ log = logging.getLogger(__name__)
 
 
 class DefaultBehaviour(StateMachine):
-
     person = ...  #: population.Person
 
     initial = State('initial', initial=True)
@@ -57,13 +56,14 @@ class DefaultBehaviour(StateMachine):
         try:
             direct_trip = self.person.serviceProvider.standalone_osrm_request(self.person)
             self.person.set_direct_trip(direct_trip)
-            transit_trip = self.person.serviceProvider.standalone_otp_request(self.person, OtpMode.TRANSIT, otp_attributes)
+            transit_trip = self.person.serviceProvider.standalone_otp_request(self.person, OtpMode.TRANSIT,
+                                                                              otp_attributes)
             timeout = self.person.get_planning_time(transit_trip[0])
 
             yield self.person.env.timeout(timeout)
             self.env.process(self.plan())
         except (OTPNoPath, OTPTrivialPath) as e:
-            log.warning('{}: {}\n{}'.format(self.env.now, e.msg,  e.context))
+            log.warning('{}: {}\n{}'.format(self.env.now, e.msg, e.context))
             log.warning('{}: Person {} will be excluded from the simulation'.format(self.env.now, self.person))
             yield Event(self.env).succeed()
             self.env.process(self.unactivatable())
@@ -125,13 +125,14 @@ class DefaultBehaviour(StateMachine):
         try:
             direct_trip = self.person.serviceProvider.standalone_osrm_request(self.person)
             self.person.set_direct_trip(direct_trip)
-            transit_trip = self.person.serviceProvider.standalone_otp_request(self.person, OtpMode.TRANSIT, otp_attributes)
+            transit_trip = self.person.serviceProvider.standalone_otp_request(self.person, OtpMode.TRANSIT,
+                                                                              otp_attributes)
             timeout = self.person.get_planning_time(transit_trip[0])
             # log.info('{} activating at {}'.format(self.person.scope, self.person.env.now))
             yield self.person.env.timeout(timeout)
             self.env.process(self.plan())
         except OTPNoPath as e:
-            log.warning('{}\n{}'.format(e.msg,  e.context))
+            log.warning('{}\n{}'.format(e.msg, e.context))
             log.warning('{}: Person {} will be excluded from the simulation'.format(self.env.now, self.person))
             self.env.process(self.unreactivatable())
 
@@ -148,29 +149,33 @@ class DefaultBehaviour(StateMachine):
     def on_unplannable(self):
         yield Event(self.env).succeed()
         log.warning('{}: {} going from {} to {} received none alternatives. Ignoring the person.'
-                    .format(self.env.now, self.person, self.person.curr_activity.coord, self.person.next_activity.coord))
+                    .format(self.env.now, self.person, self.person.curr_activity.coord,
+                            self.person.next_activity.coord))
         self.person.serviceProvider.log_unplannable(self.person)
 
     def on_unchoosable(self):
         yield Event(self.env).succeed()
         log.warning('{}: {} going from {} to {} received none alternatives. Ignoring the person.'
-                    .format(self.env.now, self.person, self.person.curr_activity.coord, self.person.next_activity.coord))
+                    .format(self.env.now, self.person, self.person.curr_activity.coord,
+                            self.person.next_activity.coord))
         self.person.serviceProvider.log_unchoosable(self.person)
 
     def on_unactivatable(self):
         yield Event(self.env).succeed()
         log.warning('{}: {} going from {} to {} cannot reach the destination. Ignoring the person.'
-                    .format(self.env.now, self.person, self.person.curr_activity.coord, self.person.next_activity.coord))
+                    .format(self.env.now, self.person, self.person.curr_activity.coord,
+                            self.person.next_activity.coord))
         self.person.serviceProvider.log_unactivatable(self.person)
 
     def on_unreactivatable(self):
         yield Event(self.env).succeed()
         log.warning('{}: {} going from {} to {} cannot reach the destination. Ignoring the person.'
-                    .format(self.env.now, self.person, self.person.curr_activity.coord, self.person.next_activity.coord))
+                    .format(self.env.now, self.person, self.person.curr_activity.coord,
+                            self.person.next_activity.coord))
         self.person.serviceProvider.log_unactivatable(self.person)
 
     def on_trip_exception(self):
         raise NotImplementedError()
-        
+
     def on_activity_exception(self):
         raise NotImplementedError()

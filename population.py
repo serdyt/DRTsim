@@ -219,13 +219,8 @@ class Person(Component):
         """Calculates a time to wait until the moment a person starts planning a trip
         returns: int in seconds when planning should happen
         """
-        timeout = int((self.next_activity.start_time - trip.duration
+        timeout = int((self.next_activity.start_time - trip.legs[0].start_time
                        - self.env.config.get('drt.planning_in_advance') - self.env.now))
-
-        # request time relative to direct time
-        # timeout = self.direct_trip.legs[0].start_time - self.env.config.get('trip.planning_in_advance_constant') \
-        #     - self.direct_trip.duration * self.env.config.get('trip.planning_in_advance_direct_time_coefficient')
-        #     - self.env.now
 
         if timeout < 0:
             log.debug('{}: {} cannot plan {} seconds in advance due to the beginning of the day'

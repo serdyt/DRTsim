@@ -67,7 +67,6 @@ class DefaultRouting(object):
                               'mode': mode,
                               'arriveBy': 'True',
                               'maxWalkDistance': 2000}
-        # default_attributes.update(person.otp_parameters)
         if attributes is not None:
             default_attributes.update(attributes)
         resp = requests.get(self.url, params=default_attributes)

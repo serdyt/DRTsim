@@ -110,7 +110,7 @@ config = {
     'sim.duration': '86400 s',
     'sim.duration_sec': 86400,
     'sim.seed': 42,
-    'sim.email_notification': True,
+    'sim.email_notification': False,
     'sim.create_excel': True,
     'sim.purpose': 'Testing overnight trips',
 
@@ -138,7 +138,7 @@ config = {
     'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
     'population.input_file': 'data/population.json',
-    'population.input_percentage': 0.0001,
+    'population.input_percentage': 0.002,
 
     # 'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],
     'drt.zones': [z for z in range(12650001, 12650018)],

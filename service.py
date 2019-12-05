@@ -170,7 +170,7 @@ class ServiceProvider(Component):
                                                                     person.next_activity.coord,
                                                                     person.next_activity.start_time,
                                                                     mode,
-                                                                    person.otp_parameters)
+                                                                    copy.copy(person.otp_parameters))
             except OTPNoPath as e:
                 log.warning('{}\n{}'.format(e.msg,  e.context))
                 continue
@@ -354,7 +354,7 @@ class ServiceProvider(Component):
                 status = DrtStatus.one_leg
             elif too_late_request != 0:
                 self._drt_too_late_request += 1
-                status = DrtStatus
+                status = DrtStatus.too_late_request
             else:
                 log.error('{} could not be delivered by DRT_TRANSIT, but there are zero errors as well.'
                           .format(person, ))
@@ -421,11 +421,14 @@ class ServiceProvider(Component):
         return self.router.osrm_route_request(person.curr_activity.coord, person.next_activity.coord)
 
     def standalone_otp_request(self, person, mode, otp_attributes):
+        attributes = copy.copy(person.otp_parameters)
+        attributes.update(otp_attributes)
         return self.router.otp_request(person.curr_activity.coord,
                                        person.next_activity.coord,
                                        person.next_activity.start_time,
                                        mode,
-                                       person.otp_parameters.update(otp_attributes))
+                                       attributes
+                                       )
 
     def _get_current_vehicle_positions(self):
         coords_times = []
