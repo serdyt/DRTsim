@@ -124,8 +124,8 @@ class DefaultRouting(object):
                 leg.mode = raw_leg.get('mode')
                 leg.steps = [self.step_from_raw(s) for s in raw_leg.get('steps')]
 
-                leg.start_time = otp_time_to_sec(raw_leg.get('startTime'))
-                leg.end_time = otp_time_to_sec(raw_leg.get('endTime'))
+                leg.start_time = int(raw_leg.get('startTime'))/1000 - self.env.config.get('date.unix_epoch')
+                leg.end_time = int(raw_leg.get('endTime'))/1000 - self.env.config.get('date.unix_epoch')
 
                 if leg.mode in OtpMode.get_pt_modes():
                     # OTP has id in the following format: 'SE-st:9022012065015001'

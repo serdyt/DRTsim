@@ -215,11 +215,11 @@ class Person(Component):
             Leg(steps=[], duration=0, distance=0, mode=OtpMode.DRT)
         )
 
-    def get_planning_time(self):
+    def get_planning_time(self, trip):
         """Calculates a time to wait until the moment a person starts planning a trip
         returns: int in seconds when planning should happen
         """
-        timeout = int((self.next_activity.start_time - self.direct_trip.legs[0].duration
+        timeout = int((self.next_activity.start_time - trip.duration
                        - self.env.config.get('drt.planning_in_advance') - self.env.now))
 
         # request time relative to direct time

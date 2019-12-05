@@ -14,6 +14,7 @@ import os
 import sys
 from typing import List, Any, Union
 import pprint
+import time
 
 from desmod.simulation import simulate
 from desmod.component import Component
@@ -103,13 +104,15 @@ def send_email(subject, text, files, zip_file):
     server.close()
 
 
+os.environ['TZ'] = 'Sweden'
+time.tzset()
 config = {
     'sim.duration': '86400 s',
     'sim.duration_sec': 86400,
     'sim.seed': 42,
     'sim.email_notification': True,
     'sim.create_excel': True,
-    'sim.purpose': 'Testing creating files for visualization of trips',
+    'sim.purpose': 'Testing overnight trips',
 
     'person.behaviour': 'DefaultBehaviour',
     'person.mode_choice': 'DefaultModeChoice',
@@ -120,6 +123,8 @@ config = {
     'service.osrm_tdm': 'http://0.0.0.0:5000/table/v1/driving/',
     'service.modes': 'main_modes',  # ['main_modes','all_modes']
     'date': '11-14-2018',
+    'date.struct_time': time.localtime(1542153600),
+    'date.unix_epoch': 1542153600,
 
     'db.file': 'data/time_distance_matrix.db',
 
@@ -133,13 +138,13 @@ config = {
     'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
     'population.input_file': 'data/population.json',
-    'population.input_percentage': 0.008,
+    'population.input_percentage': 0.0001,
 
     # 'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],
     'drt.zones': [z for z in range(12650001, 12650018)],
-    'drt.planning_in_advance': td(hours=2).total_seconds(),
-    'drt.time_window_constant': td(minutes=30).total_seconds(),
-    'drt.time_window_multiplier': 2,
+    'drt.planning_in_advance': td(hours=1).total_seconds(),
+    'drt.time_window_constant': td(minutes=15).total_seconds(),
+    'drt.time_window_multiplier': 1.5,
     'drt.time_window_shift_left': 1. / 4,
     'drt.PT_stops_file': 'data/zone_stops.csv',
     'drt.min_distance': 2000,
@@ -276,6 +281,7 @@ if __name__ == '__main__':
     log.info('Unassigned DRT trips {}'.format(res.get('unassigned_drt_trips')))
     log.info('Undeliverable DRT trips {}'.format(res.get('undeliverable_drt')))
     log.info('Overnight DRT trips {}'.format(res.get('drt_overnight')))
+    log.info('To late request to be served by DRT {}'.format(res.get('too_late_request')))
     log.info('No suitable PT stops for extra-zonal DRT trips {}'.format(res.get('no_suitable_pt_stop')))
     log.info('Too short trip for intra-zonal trip {}'.format(res.get('too_short_direct_trip')))
     log.info('No walking leg to replace {}'.format(res.get('no_suitable_pt_connection')))

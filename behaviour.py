@@ -51,12 +51,14 @@ class DefaultBehaviour(StateMachine):
 
     def on_activate(self):
         otp_attributes = {'walkSpeed': self.env.config.get('drt.walkCarSpeed'),
-                          'maxWalkDistance': self.env.config.get('drt.max_fake_walk')}
+                          'maxWalkDistance': self.env.config.get('drt.max_fake_walk'),
+                          'numItineraries': 1}
         self.person.update_otp_params()
         try:
-            direct_trip = self.person.serviceProvider.standalone_request(self.person, OtpMode.CAR, otp_attributes)
+            direct_trip = self.person.serviceProvider.standalone_osrm_request(self.person)
             self.person.set_direct_trip(direct_trip)
-            timeout = self.person.get_planning_time()
+            transit_trip = self.person.serviceProvider.standalone_otp_request(self.person, OtpMode.TRANSIT, otp_attributes)
+            timeout = self.person.get_planning_time(transit_trip[0])
 
             yield self.person.env.timeout(timeout)
             self.env.process(self.plan())
@@ -117,12 +119,14 @@ class DefaultBehaviour(StateMachine):
     def on_reactivate(self):
         yield Event(self.env).succeed()
         otp_attributes = {'walkSpeed': self.env.config.get('drt.walkCarSpeed'),
-                          'maxWalkDistance': self.env.config.get('drt.max_fake_walk')}
+                          'maxWalkDistance': self.env.config.get('drt.max_fake_walk'),
+                          'numItineraries': 1}
         self.person.update_otp_params()
         try:
-            direct_trip = self.person.serviceProvider.standalone_request(self.person, OtpMode.CAR, otp_attributes)
+            direct_trip = self.person.serviceProvider.standalone_osrm_request(self.person)
             self.person.set_direct_trip(direct_trip)
-            timeout = self.person.get_planning_time()
+            transit_trip = self.person.serviceProvider.standalone_otp_request(self.person, OtpMode.TRANSIT, otp_attributes)
+            timeout = self.person.get_planning_time(transit_trip[0])
             # log.info('{} activating at {}'.format(self.person.scope, self.person.env.now))
             yield self.person.env.timeout(timeout)
             self.env.process(self.plan())

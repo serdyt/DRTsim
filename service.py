@@ -49,6 +49,7 @@ class ServiceProvider(Component):
         self._drt_overnight = 0
         self._drt_no_suitable_pt_connection = 0
         self._drt_too_short_trip = 0
+        self._drt_too_late_request = 0
 
         self._unplannable_persons = 0
         self._unchoosable_persons = 0
@@ -246,9 +247,9 @@ class ServiceProvider(Component):
         too_close_for_drt = 0
         overnight_trip = 0
         one_leg_journey = 0
+        too_late_request = 0
         for alt in pt_alternatives:
-            if not (self.env.now <= alt.legs[0].start_time <= person.next_activity.start_time) or \
-               not (self.env.now <= alt.legs[-1].end_time <= person.next_activity.start_time):
+            if alt.legs[0].start_time < 0 or alt.legs[-1].end_time > self.env.config.get('sim.duration_sec'):
                 overnight_trip += 1
                 continue
             else:
@@ -306,6 +307,10 @@ class ServiceProvider(Component):
                     too_close_for_drt += 1
                     continue
 
+                if person.get_tw_right() < self.env.now or person.drt_tw_left > self.env.config.get('sim.duration_sec'):
+                    too_late_request += 1
+                    continue
+
                 person.drt_leg = drt_leg
                 try:
                     self._drt_request_routine(person)
@@ -347,6 +352,9 @@ class ServiceProvider(Component):
             elif one_leg_journey != 0:
                 self._drt_no_suitable_pt_connection += 1
                 status = DrtStatus.one_leg
+            elif too_late_request != 0:
+                self._drt_too_late_request += 1
+                status = DrtStatus
             else:
                 log.error('{} could not be delivered by DRT_TRANSIT, but there are zero errors as well.'
                           .format(person, ))
@@ -409,13 +417,15 @@ class ServiceProvider(Component):
         self.router.drt_request(person, vehicle_coords_times, vehicle_return_coords,
                                 shipment_persons, service_persons)
 
-    def standalone_request(self, person, mode, otp_attributes):
-        otp = self.router.otp_request(person.curr_activity.coord,
-                                      person.next_activity.coord,
-                                      person.next_activity.start_time,
-                                      mode,
-                                      person.otp_parameters.update(otp_attributes))
+    def standalone_osrm_request(self, person):
         return self.router.osrm_route_request(person.curr_activity.coord, person.next_activity.coord)
+
+    def standalone_otp_request(self, person, mode, otp_attributes):
+        return self.router.otp_request(person.curr_activity.coord,
+                                       person.next_activity.coord,
+                                       person.next_activity.start_time,
+                                       mode,
+                                       person.otp_parameters.update(otp_attributes))
 
     def _get_current_vehicle_positions(self):
         coords_times = []
@@ -689,6 +699,7 @@ class ServiceProvider(Component):
         result['drt_overnight'] = self._drt_overnight
         result['too_short_direct_trip'] = self._drt_too_short_trip
         result['no_suitable_pt_connection'] = self._drt_no_suitable_pt_connection
+        result['too_late_request'] = self._drt_too_late_request
 
         result['unplannable_persons'] = self._unplannable_persons
         result['unchoosable_persons'] = self._unchoosable_persons
