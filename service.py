@@ -229,7 +229,7 @@ class ServiceProvider(Component):
 
         params = copy.copy(person.otp_parameters)
         params.update({'walkSpeed': self.env.config.get('drt.walkCarSpeed'),
-                       'arriveBy': True,
+                       # 'arriveBy': True,
                        'maxWalkDistance': self.env.config.get('drt.max_fake_walk')
                        })
         pt_alternatives = self.router.otp_request(person.curr_activity.coord,

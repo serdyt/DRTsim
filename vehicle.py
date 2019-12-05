@@ -103,7 +103,7 @@ class Vehicle(Component):
             return False
 
     def print_route(self):
-        log.info('Vehicle {} route at {}'.format(self.id, self.env.now))
+        log.info('{}: Vehicle {} route'.format(self.env.now, self.id))
         for act in self._route:
             log.info(act)
 
@@ -190,17 +190,17 @@ class Vehicle(Component):
                                   .format(self.env.now, self.id))
                         continue
                     else:
-                        log.info('{}: Vehicle {} drove to serve {} at {}'
-                                 .format(self.env.now, self.id, self._route[0].person, self.env.now))
+                        log.info('{}: Vehicle {} drove to serve {}'
+                                 .format(self.env.now, self.id, self._route[0].person))
 
                     new_act = self.get_act(0)
                     if new_act.type == new_act.DROP_OFF or new_act.type == new_act.DELIVERY:
-                        log.info('{}: Vehicle {} delivering person {} at {}'
-                                 .format(self.env.now, self.id, new_act.person.id, self.env.now))
-                        # self._drop_off_travelers([new_act.person])
+                        log.info('{}: Vehicle {} delivering person {}'
+                                 .format(self.env.now, self.id, new_act.person.id))
+
                     elif new_act.type == new_act.PICK_UP:
-                        log.info('{}: Vehicle {} picking up person {} at {}'
-                                 .format(self.env.now, self.id, new_act.person.id, self.env.now))
+                        log.info('{}: Vehicle {} picking up person {}'
+                                 .format(self.env.now, self.id, new_act.person.id))
                         self._pickup_travelers([new_act.person])
                         # When a person request a trip, person is a shipment with PICK_UP and DROP_OFF acts
                         # When a person boards we need to change it to delivery act for jsprit to reroute it correctly
@@ -258,8 +258,8 @@ class Vehicle(Component):
         if self.env.now > person.get_tw_left() or self.env.now < person.get_tw_right():
             return True
         else:
-            log.error('{}: Person {} has been served  at {} outside the requested time window: {} - {}'
-                      .format(self.env.now, person.id, self.env.now, person.get_tw_left(), person.get_tw_right()))
+            log.error('{}: Person {} has been served  outside the requested time window: {} - {}'
+                      .format(self.env.now, person.id, person.get_tw_left(), person.get_tw_right()))
             return False
 
     def update_partially_executed_trips(self):

@@ -24,14 +24,14 @@ log = logging.getLogger(__name__)
 class Population(Component):
     """Population stores all the persons
     """
-    
+
     base_name = 'population'
-    
+
     def __init__(self, *args, **kwargs):
         super(Population, self).__init__(*args, **kwargs)
         self.person_list = []
         self._init_persons()
-        
+
     def _init_persons(self):
         self.read_json()
         log.info('{}: Population of {} persons created.'.format(self.env.now, len(self.person_list)))
@@ -96,16 +96,20 @@ class Population(Component):
                           }
             activities = [
                 Activity(type_=actType.HOME,
-                         coord=Coord(lat=self.env.rand.uniform(minLat, maxLat), lon=self.env.rand.uniform(minLon, maxLon)),
-                         end_time=td(hours=self.env.rand.uniform(0, 10), minutes=self.env.rand.uniform(0, 59)).total_seconds()
+                         coord=Coord(lat=self.env.rand.uniform(minLat, maxLat),
+                                     lon=self.env.rand.uniform(minLon, maxLon)),
+                         end_time=td(hours=self.env.rand.uniform(0, 10),
+                                     minutes=self.env.rand.uniform(0, 59)).total_seconds()
                          ),
                 Activity(type_=actType.WORK,
-                         coord=Coord(lat=self.env.rand.uniform(minLat, maxLat), lon=self.env.rand.uniform(minLon, maxLon)),
-                         start_time=td(hours=self.env.rand.uniform(11, 23), minutes=self.env.rand.uniform(0, 59)).total_seconds()
+                         coord=Coord(lat=self.env.rand.uniform(minLat, maxLat),
+                                     lon=self.env.rand.uniform(minLon, maxLon)),
+                         start_time=td(hours=self.env.rand.uniform(11, 23),
+                                       minutes=self.env.rand.uniform(0, 59)).total_seconds()
                          )
             ]
             self.person_list.append(Person(parent=self, attributes=attributes, activities=activities))
-        
+
         log.info("{}: Population size {0}".format(self.env.now, len(self.person_list)))
 
     def get_person(self, id):
@@ -118,7 +122,6 @@ class Population(Component):
 
 
 class Person(Component):
-
     serviceProvider = ...  # type: ServiceProvider
     alternatives = ...  # type: List[Trip]
     planned_trip = ...  # type: Trip
@@ -188,9 +191,9 @@ class Person(Component):
 
     def get_arrive_by(self):
         if self.next_activity.type == actType.WORK:
-            return 'True'
+            return True
         else:
-            return 'False'
+            return False
 
     def update_otp_params(self):
         """Sets new otp params for a new trip. Params are deducted from activity"""
@@ -261,10 +264,20 @@ class Person(Component):
         self.drt_executed = self.env.event()
 
     def __str__(self):
-        return 'Person {} going from {} zone {}, to {} zone {}'\
+        if self.otp_parameters.get('arriveBy'):
+            arr_by = 'arrive by'
+            t = self.next_activity.start_time
+        else:
+            arr_by = 'depart at'
+            t = self.curr_activity.end_time
+
+        return 'Person {} going from {} zone {}, to {} zone {}, {} {}' \
             .format(self.id,
                     self.curr_activity.coord, self.curr_activity.zone,
-                    self.next_activity.coord, self.next_activity.zone)
+                    self.next_activity.coord, self.next_activity.zone,
+                    arr_by,
+                    t
+                    )
 
     def log_executed_trip(self):
         """After a trip has been executed, save it and related direct trip"""
@@ -292,7 +305,7 @@ class Person(Component):
         drt_acts = [act for act in drt_route if act.person == self]
         start_act_idx = drt_route.index(drt_acts[0])
         end_act_idx = drt_route.index(drt_acts[-1])
-        persons_route = drt_route[start_act_idx+1:end_act_idx+1]
+        persons_route = drt_route[start_act_idx + 1:end_act_idx + 1]
 
         # jsprit has no distance and steps
         drt_leg = self.planned_trip.legs[self.planned_trip.get_leg_modes().index(OtpMode.DRT)]
@@ -323,12 +336,12 @@ class Person(Component):
         return self.otp_parameters
 
     def set_tw(self, direct_time, single_leg=False, first_leg=False, last_leg=False, drt_leg=None):
-        tw = direct_time * self.env.config.get('drt.time_window_multiplier')\
+        tw = direct_time * self.env.config.get('drt.time_window_multiplier') \
              + self.env.config.get('drt.time_window_constant')
         if single_leg:
             self.drt_tw_left = self.curr_activity.end_time - tw * self.env.config.get('drt.time_window_shift_left')
-            self.drt_tw_right = self.next_activity.start_time\
-                + tw * (1 - self.env.config.get('drt.time_window_shift_left'))
+            self.drt_tw_right = self.next_activity.start_time \
+                                + tw * (1 - self.env.config.get('drt.time_window_shift_left'))
         elif first_leg:
             self.drt_tw_left = drt_leg.end_time - tw
             self.drt_tw_right = drt_leg.end_time

@@ -182,10 +182,10 @@ class Trip(object):
         self.legs.append(leg)
         
     def __str__(self):
-        return 'Trip with {} takes {} distance {}'.format(self.main_mode, self.duration, self.distance)
+        return 'Trip {} takes {} distance {}'.format(self.main_mode, self.duration, self.distance)
 
     def __repr__(self):
-        return 'Trip with {} takes {} distance {}'.format(self.main_mode, self.duration, self.distance)
+        return str(self)
 
     # def find_main_mode(self):
     #     modes = [leg.mode for leg in self.legs]
