@@ -226,7 +226,7 @@ class Person(Component):
                        - self.env.config.get('drt.planning_in_advance') - self.env.now))
 
         if timeout < 0:
-            log.debug('{}: {} cannot plan {} seconds in advance due to the beginning of the day'
+            log.debug('{}: {} cannot plan {} seconds in advance, resetting timeout to zero'
                       .format(self.env.now, self, self.env.config.get('drt.planning_in_advance')))
             timeout = 0
         return timeout

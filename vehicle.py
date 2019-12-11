@@ -174,7 +174,7 @@ class Vehicle(Component):
                 # request should be processed first
                 # TODO: try to do it with priority resource in a service
                 if self.env.peek() == self.env.now:
-                    yield self.env.timeout(0.5)
+                    yield self.env.timeout(0.05)
                 act = self.pop_act()  # type: DrtAct
                 # TODO: add vehicle kilometers when first act is rerouted
                 self.vehicle_kilometers += act.distance

@@ -621,7 +621,12 @@ class ServiceProvider(Component):
                 # if DRT is first leg - wait for it to be executed and teleport a person to its destination after PT
                 person.init_drt_leg()
                 yield person.drt_executed
-                yield self.env.timeout(person.planned_trip.legs[-1].end_time - self.env.now)
+                timeout = person.planned_trip.legs[-1].end_time - self.env.now
+                if timeout < 0:
+                    log.error('{}: PT leg of DRT_TRANSIT should have started earlier than now, setting it to zero'
+                              .format(self.env.now))
+                    timeout = 0
+                yield self.env.timeout(timeout)
                 person.append_pt_legs_to_actual_trip(person.planned_trip.legs[1:])
                 person.delivered.succeed()
             else:
