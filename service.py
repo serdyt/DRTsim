@@ -623,8 +623,11 @@ class ServiceProvider(Component):
                 yield person.drt_executed
                 timeout = person.planned_trip.legs[-1].end_time - self.env.now
                 if timeout < 0:
-                    log.error('{}: PT leg of DRT_TRANSIT should have started earlier than now, setting it to zero'
-                              .format(self.env.now))
+                    log.error('{}: PT leg of DRT_TRANSIT should have already ended by now, setting it to zero\n'
+                              'Should have started {} and ended {}.\n'
+                              'Planned {}\nActual{}'
+                              .format(self.env.now, person.planned_trip.legs[2].start_time,
+                                      person.planned_trip.legs[-1].end_time, person.planned_trip, person.actual_trip))
                     timeout = 0
                 yield self.env.timeout(timeout)
                 person.append_pt_legs_to_actual_trip(person.planned_trip.legs[1:])
