@@ -63,7 +63,7 @@ class Leg(object):
     steps : <list> of utils.Step
     """
 
-    # TODO:assignment of mode as a string is confusing, remove it, or use constant
+    # TODO:assignment of mode   as a string is confusing, remove it, or use constant
     def __init__(self, mode=None, start_coord=None, from_stop=None, end_coord=None, to_stop=None,
                  start_time=None, end_time=None,
                  distance=None, duration=None, steps=None):
@@ -81,6 +81,10 @@ class Leg(object):
         self.end_time = end_time
 
     def deepcopy(self):
+        if self.steps is None:
+            steps = []
+        else:
+            steps = [step.deepcopy() for step in self.steps if step is not None]
         return Leg(mode=copy.copy(self.mode),
                    start_coord=copy.copy(self.start_coord),
                    from_stop=copy.copy(self.from_stop),
@@ -90,7 +94,7 @@ class Leg(object):
                    end_time=copy.copy(self.end_time),
                    distance=copy.copy(self.distance),
                    duration=copy.copy(self.duration),
-                   steps=[step.deepcopy() for step in self.steps])
+                   steps=steps)
 
 
 class Step(object):
@@ -152,6 +156,7 @@ class Trip(object):
         nt.distance = copy.copy(self.distance)
         nt.main_mode = copy.copy(self.main_mode)
         nt.legs = [leg.deepcopy() for leg in self.legs]
+        return nt
 
     def main_mode_from_legs(self):
         leg_modes = self.get_leg_modes()
@@ -182,7 +187,8 @@ class Trip(object):
         self.legs.append(leg)
         
     def __str__(self):
-        return 'Trip {} takes {} distance {}'.format(self.main_mode, self.duration, self.distance)
+        return '{} trip, takes {} distance {}'\
+            .format(self.main_mode, self.duration, self.distance)
 
     def __repr__(self):
         return str(self)

@@ -205,7 +205,7 @@ class ServiceProvider(Component):
             drt_leg = Leg(mode=OtpMode.DRT,
                           start_coord=person.curr_activity.coord,
                           end_coord=person.next_activity.coord)
-            person.drt_leg = drt_leg
+            person.drt_leg = drt_leg.deepcopy()
             person.set_tw(person.direct_trip.duration, single_leg=True)
 
             try:
@@ -219,7 +219,7 @@ class ServiceProvider(Component):
                 self._drt_unassigned += 1
                 return [], DrtStatus.unassigned
 
-            drt_trip.legs[0] = person.drt_leg
+            drt_trip.legs[0] = person.drt_leg.deepcopy()
             drt_trip.duration = drt_trip.legs[0].duration
             return [drt_trip], DrtStatus.routed
 
@@ -311,7 +311,7 @@ class ServiceProvider(Component):
                     too_late_request += 1
                     continue
 
-                person.drt_leg = drt_leg
+                person.drt_leg = drt_leg.deepcopy()
                 try:
                     self._drt_request_routine(person)
                 except DrtUnassigned as e:
@@ -321,7 +321,7 @@ class ServiceProvider(Component):
                     undeliverable_legs += 1
                     continue
 
-                drt_trip.legs[pt_walk_leg_index] = person.drt_leg
+                drt_trip.legs[pt_walk_leg_index] = person.drt_leg.deepcopy()
                 drt_trip.legs[pt_walk_leg_index].start_coord = person.drt_leg.start_coord
                 drt_trip.legs[pt_walk_leg_index].end_coord = person.drt_leg.start_coord
                 drt_trip.distance = 0
@@ -329,6 +329,7 @@ class ServiceProvider(Component):
 
                 drt_trips += [drt_trip]
                 # just take one DRT trip.
+                # and do not add more until person.DRT_leg is used.
                 break
 
         status = DrtStatus.routed
@@ -494,8 +495,8 @@ class ServiceProvider(Component):
 
         extra_time = act.duration - (act.end_time - act.start_time)
         if extra_time != 0:
-            if extra_time > 1:
-                log.error('Act\'s end time does not correspond to its duration. '
+            if abs(extra_time) > 1:
+                log.error('Act\'s end time does not correspond to its planned duration. '
                           'Vehicle\'s route need to be moved by {} seconds.'
                           .format(extra_time))
 
@@ -516,7 +517,8 @@ class ServiceProvider(Component):
                 person = None
             else:
                 person = self.population.get_person(njact.person_id)  # type: Person
-                drt_leg = person.planned_trip.legs[person.planned_trip.get_leg_modes().index(OtpMode.DRT)]
+                # drt_leg = person.planned_trip.legs[person.planned_trip.get_leg_modes().index(OtpMode.DRT)]
+                drt_leg = person.drt_leg
 
             # *************************************************************
             # **********         Moving to an activity           **********
@@ -569,19 +571,22 @@ class ServiceProvider(Component):
                 duration = person.leaving_time
             action = DrtAct(type_=njact.type, person=person, duration=duration, distance=0,
                             end_coord=drt_acts[-1].end_coord, start_coord=drt_acts[-1].end_coord,
-                            start_time=drt_acts[-1].end_time, end_time=drt_acts[-1].end_time + duration)
+                            start_time=njact.end_time - duration, end_time=njact.end_time)
             action.steps = [Step(start_coord=action.start_coord, end_coord=action.end_coord, distance=0, duration=duration)]
-            drt_acts.append(action)
 
             # *************************************************************
-            # **********        Waiting after an activity        **********
+            # **********        Waiting before an activity       **********
             # *************************************************************
-            if action.end_time != njact.end_time:
-                wait_act = DrtAct(type_=ActType.WAIT, person=None, duration=njact.end_time - drt_acts[-1].end_time,
+            if action.duration != (njact.end_time - njact.arrival_time):
+                wait_act = DrtAct(type_=ActType.WAIT, person=person,
+                                  duration=njact.end_time - njact.arrival_time - duration,
                                   end_coord=drt_acts[-1].end_coord, start_coord=drt_acts[-1].end_coord,
-                                  distance=0, start_time=drt_acts[-1].end_time, end_time=njact.end_time)
+                                  distance=0,
+                                  start_time=njact.arrival_time, end_time=njact.end_time-duration)
                 wait_act.steps = [Step(start_coord=wait_act.start_coord, end_coord=wait_act.end_coord, distance=0, duration=wait_act.duration)]
                 drt_acts.append(wait_act)
+
+            drt_acts.append(action)
 
         if drt_acts[-1].type == DrtAct.DRIVE:
             drt_acts[-1].type = DrtAct.RETURN
@@ -613,29 +618,30 @@ class ServiceProvider(Component):
     def execute_trip(self, person: Person):
         person.init_actual_trip()
         if person.planned_trip.main_mode == OtpMode.DRT:
-            person.init_drt_leg()
+            person.init_executed_drt_leg()
             yield person.drt_executed
             person.delivered.succeed()
         elif person.planned_trip.main_mode == OtpMode.DRT_TRANSIT:
             if person.planned_trip.legs[0].mode == OtpMode.DRT:
                 # if DRT is first leg - wait for it to be executed and teleport a person to its destination after PT
-                person.init_drt_leg()
+                person.init_executed_drt_leg()
                 yield person.drt_executed
                 timeout = person.planned_trip.legs[-1].end_time - self.env.now
                 if timeout < 0:
                     log.error('{}: PT leg of DRT_TRANSIT should have already ended by now, setting it to zero\n'
                               'Should have started {} and ended {}.\n'
                               'Planned {}\nActual{}'
-                              .format(self.env.now, person.planned_trip.legs[2].start_time,
-                                      person.planned_trip.legs[-1].end_time, person.planned_trip, person.actual_trip))
+                              .format(self.env.now, person.planned_trip.legs[1].start_time,
+                                      person.planned_trip.legs[-1].end_time,
+                                      person.planned_trip, person.actual_trip))
                     timeout = 0
                 yield self.env.timeout(timeout)
-                person.append_pt_legs_to_actual_trip(person.planned_trip.legs[1:])
+                person.append_pt_legs_to_actual_trip([leg.deepcopy() for leg in person.planned_trip.legs[1:]])
                 person.delivered.succeed()
             else:
                 # if DRT is a last leg, just assume that PT part is executed correctly
-                person.append_pt_legs_to_actual_trip(person.planned_trip.legs[:-1])
-                person.init_drt_leg()
+                person.append_pt_legs_to_actual_trip([leg.deepcopy() for leg in person.planned_trip.legs[:-1]])
+                person.init_executed_drt_leg()
                 yield person.drt_executed
                 person.delivered.succeed()
         else:

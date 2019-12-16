@@ -184,7 +184,7 @@ class Vehicle(Component):
                 # if len(self.passengers) != 0:
                 self.update_executed_passengers_routes(act.steps, act.end_coord)
 
-                if act.type == act.DRIVE:
+                if act.type == act.DRIVE or act.type == act.WAIT:
                     if self.get_route_len() == 0:
                         log.error('{}: Vehicle {} drove to no action. Probably to depot. Check if this happen'
                                   .format(self.env.now, self.id))
@@ -255,7 +255,7 @@ class Vehicle(Component):
         self.occupancy_stamps.append((self.env.now, len(self.passengers)))
 
     def _is_person_served_within_tw(self, person):
-        if self.env.now > person.get_tw_left() or self.env.now < person.get_tw_right():
+        if person.get_tw_left() <= self.env.now <= person.get_tw_right():
             return True
         else:
             log.error('{}: Person {} has been served  outside the requested time window: {} - {}'

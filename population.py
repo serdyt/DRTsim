@@ -213,7 +213,7 @@ class Person(Component):
         self.actual_trip.main_mode = self.planned_trip.main_mode
         self.actual_trip.legs = []
 
-    def init_drt_leg(self):
+    def init_executed_drt_leg(self):
         self.actual_trip.legs.append(
             Leg(steps=[], duration=0, distance=0, mode=OtpMode.DRT)
         )
@@ -243,7 +243,7 @@ class Person(Component):
         self.actual_trip.distance = sum([leg.distance for leg in self.actual_trip.legs])
 
     def set_actual_trip(self, trip):
-        self.actual_trip = trip
+        self.actual_trip = trip.deepcopy()
 
     def append_pt_legs_to_actual_trip(self, legs):
         for leg in legs:
@@ -334,7 +334,7 @@ class Person(Component):
         if single_leg:
             self.drt_tw_left = self.curr_activity.end_time - tw * self.env.config.get('drt.time_window_shift_left')
             self.drt_tw_right = self.next_activity.start_time \
-                                + tw * (1 - self.env.config.get('drt.time_window_shift_left'))
+                + tw * (1 - self.env.config.get('drt.time_window_shift_left'))
         elif first_leg:
             self.drt_tw_left = drt_leg.end_time - tw
             self.drt_tw_right = drt_leg.end_time

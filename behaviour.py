@@ -98,7 +98,7 @@ class DefaultBehaviour(StateMachine):
             self.env.process()
         else:
             log.info('{}: Person {} have chosen trip {}'.format(self.env.now, self.person.id, chosen_trip))
-            self.person.planned_trip = chosen_trip
+            self.person.planned_trip = chosen_trip.deepcopy()
             self.person.init_actual_trip()
             self.person.serviceProvider.start_trip(self.person)
             # TODO: after choosing, a traveler should wait for beginning of a trip

@@ -149,7 +149,7 @@ class DefaultRouting(object):
     def _osrm_tdm_request(self, coords):
         url_coords = ';'.join([str(coord.lon) + ',' + str(coord.lat) for coord in coords])
         url_server = self.env.config.get('service.osrm_tdm')
-        url_options = 'fallback_speed=9999999999999&annotations=duration,distance'
+        url_options = 'fallback_speed=9999999999&annotations=duration,distance'
         url_full = '{}{}?{}'.format(url_server, url_coords, url_options)
         resp = requests.get(url=url_full)
 
@@ -300,7 +300,7 @@ class DefaultRouting(object):
         if modified_route is None:
             log.error('Person {} has likely caused jsprit to crash. That may happen if time-windows as screwd.\n'
                       'Time window from {} to {}'.format(person.id, person.get_tw_left(), person.get_tw_right()))
-            raise DrtUnassigned('Person {} is not listed in any jsprit routes'.format(person.id))
+            # raise DrtUnassigned('Person {} is not listed in any jsprit routes'.format(person.id))
         solution.routes = None
         solution.modified_route = modified_route
         acts = [act for act in solution.modified_route.acts if act.person_id == person.id]
