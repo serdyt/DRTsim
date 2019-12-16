@@ -175,7 +175,7 @@ class ServiceProvider(Component):
                 log.warning('{}\n{}'.format(e.msg,  e.context))
                 continue
 
-        if len(traditional_alternatives) is 0:
+        if len(traditional_alternatives) == 0:
             raise OTPUnreachable(msg="Person's {} origin or destination are unreachable".format(person.id),
                                  context=str(person))
         else:
