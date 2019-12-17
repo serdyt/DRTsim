@@ -358,3 +358,13 @@ class Person(Component):
     def get_tw_right(self):
 
         return self.drt_tw_right
+
+    def dumps(self):
+        return {'actual_trips': self.executed_trips,
+                'planned_trips': self.planned_trips,
+                'direct_trips': self.direct_trips,
+                'id': self.id}
+
+    @staticmethod
+    def _try_json(o):
+        return o.__dict__

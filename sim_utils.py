@@ -120,6 +120,9 @@ class Step(object):
                     duration=copy.copy(self.duration),
                     )
 
+    def dumps(self):
+        return self.__dict__
+
     def __str__(self):
         return 'Step distance {:.1f}, duration {:.1f}'.format(self.distance, self.duration)
 
@@ -145,6 +148,9 @@ class Trip(object):
         self.main_mode = mode
         self.legs = [Leg(mode=mode, start_coord=coord_start, end_coord=coord_end, distance=0, duration=0,
                          steps=[Step(coord_start, coord_end, 0, 0)])]
+
+    def dumps(self):
+        return self.__dict__
 
     def get_leg_modes(self):
         """Returns a list of modes from the legs"""

@@ -110,7 +110,7 @@ config = {
     'sim.duration': '86400 s',
     'sim.duration_sec': 86400,
     'sim.seed': 42,
-    'sim.email_notification': False,
+    'sim.email_notification': True,
     'sim.create_excel': True,
     'sim.purpose': 'Testing overnight trips',
 
@@ -137,8 +137,8 @@ config = {
 
     'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
-    'population.input_file': 'data/population.json',
-    'population.input_percentage': 0.001,
+    'population.input_file': 'data/population_fake_od.json',
+    'population.input_percentage': 0.005,
 
     # 'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],
     'drt.zones': [z for z in range(12650001, 12650018)],
@@ -296,7 +296,7 @@ if __name__ == '__main__':
 
     log.info('elapsed at_time {}'.format(time.time() - start))
 
-    from utils import VisualTrip, VisualTripWrapper
+    from utils import VisualTrip, VisualTripWrapper, PopulationWrapper, osrm_route_request
     import json
 
     drt_trips = []
@@ -342,13 +342,31 @@ if __name__ == '__main__':
              .format((sum(direct_seconds) / 60) / (24 * config.get('drt.number_vehicles'))))
     log.info(
         'Vehicle kilometer per direct minute: {}'.format((sum(vehicle_meters) / 1000) / (sum(direct_seconds) / 60)))
-
     travel_times = [trip.duration for trip in executed_trips]
     deviation_times = [tt - dt for tt, dt in zip(travel_times, direct_seconds)]
     log.info('Deviation time per total travel time: {}'.format(sum(deviation_times) / sum(travel_times)))
 
+    try:
+        drt_legs = [leg for trip in person.executed_trips for leg in trip.legs if leg.mode == OtpMode.DRT]
+        direct_seconds_drt_only = sum([osrm_route_request(config, leg.start_coord, leg.end_coord).duration for leg in drt_legs])
+        # direct_legs = [leg for trip in direct_trips for leg in trip.legs if leg.mode == OtpMode.DRT]
+        # direct_seconds_drt_only = sum([leg.duration for leg in direct_legs])
+        log.info('Direct minutes drt only: {}'.format(direct_seconds_drt_only / 60))
+        log.info('Direct minutes drt only per service hour: {}'
+                 .format((direct_seconds_drt_only / 60) / (24 * config.get('drt.number_vehicles'))))
+        log.info(
+            'Vehicle kilometer per direct minute drt only: {}'.format((sum(vehicle_meters) / 1000) / (direct_seconds_drt_only / 60)))
+
+        travel_times_drt_only = sum([leg.duration for trip in executed_trips for leg in trip.legs if leg.mode == OtpMode.DRT])
+        deviation_times_drt_only = travel_times_drt_only - direct_seconds_drt_only
+        log.info('Deviation time per total travel time drt only: {}'.format(deviation_times_drt_only / travel_times_drt_only))
+    except:
+        log.error('Direct DRT minutes are probably screwd')
+
     pp = pprint.PrettyPrinter()
     log.info(pp.pformat(config))
+
+    files = [config.get('sim.log')]
 
     if config.get('sim.create_excel'):
         try:
@@ -357,11 +375,18 @@ if __name__ == '__main__':
                                         .get(config.get('drt.vehicle_type'))
                                         .get('capacity_dimensions')
                                         .get(CD.SEATS))
-            files = [config.get('sim.log'), '{}/occupancy.xlsx'.format(folder)]
+            files.append('{}/occupancy.xlsx'.format(folder))
         except Exception as e:
             log.error('Failed to create excel file')
             log.error(e.args)
-            files = [config.get('sim.log')]
+
+    files.append('{}/drt_routed.json'.format(folder))
+
+    trip_dump = json.loads(PopulationWrapper(persons).to_json())
+    with open('{}/trip_dump.json'.format(folder), 'w') as outfile:
+        json.dump(trip_dump, outfile)
+
+    files.append('{}/trip_dump.json'.format(folder))
 
     if config.get('sim.email_notification'):
         send_email(subject='Simulation success', text='{}\n{}'.format(message, 'congratulations'),
