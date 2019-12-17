@@ -350,7 +350,12 @@ class Vehicle(Component):
         act = self.get_act(0)
         current_time = act.start_time
         if len(act.steps) == 0:
-            raise Exception('Vehicle {} has an empty act\n{}'.format(self.id, self.flush()))
+            log.error('Vehicle {} has an empty act. Trying to fill act with one step'.format(self.id))
+            act.steps.append(Step(start_coord=act.start_coord, end_coord=act.end_coord,
+                                  distance=act.distance, duration=act.duration))
+
+            return act.steps[-1]
+            # raise Exception('Vehicle {} has an empty act\n{}'.format(self.id, self.flush()))
 
         if current_time == self.env.now:
             return None
@@ -378,7 +383,10 @@ class Vehicle(Component):
         if current_time == self.env.now:
             return []
         if len(act.steps) == 0:
-            raise Exception('{}: Vehicle {} has an empty act\n{}'.format(self.env.now, self.id, self.flush()))
+            log.error('{}: Vehicle {} has an empty act. Returning empty passed step'.format(self.env.now, self.id))
+            return Step(start_coord=act.start_coord, end_coord=act.end_coord,
+                        duration=0, distance=0)
+            # raise Exception('{}: Vehicle {} has an empty act\n{}'.format(self.env.now, self.id, self.flush()))
 
         for step in act.steps:
             current_time += step.duration
@@ -392,4 +400,10 @@ class Vehicle(Component):
             #     steps.append(c_step)
             #     if current_time >= by_time:
             #         return steps
-        raise Exception('Vehicle {} has an empty act\n{}'.format(self.id, self.flush()))
+
+        log.error('{}: Vehicle {} has an act that do not sums up to a current time.'
+                  'Filling missing time with a single step of zero length'.format(self.env.now, self.id))
+        steps.append(Step(start_coord=steps[-1].end_coord, end_coord=act.end_coord,
+                          duration=0, distance=0))
+        return steps
+        # raise Exception('Vehicle {} has an empty act\n{}'.format(self.id, self.flush()))
