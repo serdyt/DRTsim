@@ -60,7 +60,7 @@ class Vehicle(Component):
         self.vehicle_kilometers = 0
         self.ride_time = 0
         self.occupancy_stamps = [(0, -1)]
-        self.meters_by_occupancy = [0 for _ in range(self.capacity_dimensions.get(CD.SEATS))]
+        self.meters_by_occupancy = [0 for _ in range(self.capacity_dimensions.get(CD.SEATS) + 1)]
         self.delivered_travelers = 0
 
         self.rerouted = self.env.event()
@@ -272,6 +272,7 @@ class Vehicle(Component):
                 self.ride_time += sum([step.duration for step in passed_steps])
 
     def update_executed_passengers_routes(self, executed_steps, end_coord):
+        log.debug('Vehicle {} has {} passengers'.format(self.id, len(self.passengers)))
         self.meters_by_occupancy[len(self.passengers)] += \
             sum([step.distance for step in executed_steps])
         for person in self.passengers:
