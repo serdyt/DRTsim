@@ -378,7 +378,7 @@ if __name__ == '__main__':
             files.append('{}/occupancy.xlsx'.format(folder))
         except Exception as e:
             log.error('Failed to create excel file')
-            log.error(e.args)
+            log.error(e)
 
     files.append('{}/drt_routed.json'.format(folder))
 

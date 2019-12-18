@@ -177,7 +177,11 @@ class Vehicle(Component):
                     yield self.env.timeout(0.05)
                 act = self.pop_act()  # type: DrtAct
                 # TODO: add vehicle kilometers when first act is rerouted
-                self.vehicle_kilometers += act.distance
+                if act.distance is None:
+                    log.error('{}:Vehicle {} executed an act with None distance'.format(self.env.now, self.id))
+                else:
+                    self.vehicle_kilometers += act.distance
+
                 self.ride_time += act.duration
                 self.coord = act.end_coord
 

@@ -34,7 +34,7 @@ def xls_create_occupancy_charts(res, folder, capacity_dimension):
                           'marker':     {'type': 'circle', 'size': 3}})
 
         # ************** bar_seconds chart ****************
-        time_bar = [0 for _ in range(capacity_dimension)]
+        time_bar = [0 for _ in range(capacity_dimension + 1)]
         idle_bar = 0
         for stamp1, stamp2 in zip(occupancy_stamps, occupancy_stamps[1:]):
             duration = stamp2[0] - stamp1[0]
@@ -47,7 +47,7 @@ def xls_create_occupancy_charts(res, folder, capacity_dimension):
         worksheet.write_string('G2', 'idle')
         worksheet.write_string('H1', 'time')
         worksheet.write_number('H2', idle_bar/60)
-        for row in range(capacity_dimension):
+        for row in range(capacity_dimension + 1):
             worksheet.write_number('G{}'.format(row+3), row)
             worksheet.write_number('H{}'.format(row+3), time_bar[row]/60)
 
@@ -70,19 +70,19 @@ def xls_create_occupancy_charts(res, folder, capacity_dimension):
     # ************** average series ****************
     worksheet = workbook.add_worksheet('average')
     import itertools
-    for row, col in itertools.product(range(1, capacity_dimension + 3), ['E', 'H']):
+    for row, col in itertools.product(range(1, capacity_dimension + 4), ['E', 'H']):
         worksheet.write_formula('{}{}'.format(col, row),
                                 '=AVERAGE(vehicle0:vehicle{}!{}{})'.format(len(res.get('occupancy'))-1, col, row))
-    for row, col in itertools.product(range(1, capacity_dimension + 3), ['D', 'G']):
+    for row, col in itertools.product(range(1, capacity_dimension + 4), ['D', 'G']):
         worksheet.write_formula('{}{}'.format(col, row),
-                                '=vehicle0!{}{})'.format(col, row))
+                                '=vehicle0!{}{}'.format(col, row))
 
     chart_bar.add_series({'name':       'average',
-                          'categories': '=average!$D$2:$D$9',
-                          'values':     '=average!$E$2:$E$9'})
+                          'categories': '=average!$D$2:$D$10',
+                          'values':     '=average!$E$2:$E$10'})
     chart_time_bar.add_series({'name':       'average',
-                               'categories': '=average!$G$2:$G$10',
-                               'values':     '=average!$H$2:$H$10'})
+                               'categories': '=average!$G$2:$G$11',
+                               'values':     '=average!$H$2:$H$11'})
 
     # **************** axis format **********************
     chart.set_x_axis({'name': 'Time of day'})
