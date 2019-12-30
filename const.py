@@ -157,3 +157,4 @@ class DrtStatus(Enum):
     one_leg = 'one_leg'  # only one leg returned by DRT, most likely OD coordinates are close to PT stops
     too_short_local = 'too_short_local'
     too_late_request = 'too_late_request'
+    too_long_pt_trip = 'too_long_pt_trip'  # when the whole DRT_TRANSIT trip is more than direct trip*1.5

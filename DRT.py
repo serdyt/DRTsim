@@ -112,7 +112,7 @@ config = {
     'sim.seed': 42,
     'sim.email_notification': True,
     'sim.create_excel': True,
-    'sim.purpose': 'Testing overnight trips',
+    'sim.purpose': 'Testing time window for the whole trip',
 
     'person.behaviour': 'DefaultBehaviour',
     'person.mode_choice': 'DefaultModeChoice',
@@ -138,7 +138,7 @@ config = {
     'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
     'population.input_file': 'data/population_fake_od.json',
-    'population.input_percentage': 0.005,
+    'population.input_percentage': 0.01,
 
     # 'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],
     'drt.zones': [z for z in range(12650001, 12650018)],
@@ -152,7 +152,7 @@ config = {
     'drt.max_fake_walk': 1000000,
     'drt.visualize_routes': 'false',  # should be a string
     'drt.picture_folder': 'pictures/',
-    'drt.number_vehicles': 30,
+    'drt.number_vehicles': 2,
     'drt.vehicle_type': 'minibus',
 
     'drt.vehicle_types': {
@@ -285,6 +285,7 @@ if __name__ == '__main__':
     log.info('No suitable PT stops for extra-zonal DRT trips {}'.format(res.get('no_suitable_pt_stop')))
     log.info('Too short trip for intra-zonal trip {}'.format(res.get('too_short_direct_trip')))
     log.info('No walking leg to replace {}'.format(res.get('no_suitable_pt_connection')))
+    log.info('Too long DRT_PT trip comparing to whole direct trip {}'.format(res.get('too_long_pt_trip')))
 
     log.info('********************************************')
     log.info('Leg share :')

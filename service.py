@@ -50,6 +50,7 @@ class ServiceProvider(Component):
         self._drt_no_suitable_pt_connection = 0
         self._drt_too_short_trip = 0
         self._drt_too_late_request = 0
+        self._drt_too_long_pt_trip = 0
 
         self._unplannable_persons = 0
         self._unchoosable_persons = 0
@@ -248,10 +249,17 @@ class ServiceProvider(Component):
         overnight_trip = 0
         one_leg_journey = 0
         too_late_request = 0
+        too_long_pt_trip = 0
         for alt in pt_alternatives:
             if alt.legs[0].start_time < 0 or alt.legs[-1].end_time > self.env.config.get('sim.duration_sec'):
                 overnight_trip += 1
                 continue
+
+            if alt.duration > person.direct_trip.duration * self.env.config.get('drt.time_window_multiplier') \
+                              + self.env.config.get('drt.time_window_constant'):
+                too_long_pt_trip += 1
+                continue
+
             else:
                 drt_trip = alt
                 drt_trip.main_mode = OtpMode.DRT_TRANSIT
@@ -344,12 +352,15 @@ class ServiceProvider(Component):
             elif unassigned_legs != 0:
                 self._drt_unassigned += 1
                 status = DrtStatus.unassigned
-            elif overnight_trip != 0:
-                self._drt_overnight += 1
-                status = DrtStatus.overnight_trip
             elif pt_stop_outside != 0 or too_close_for_drt != 0:
                 self._drt_no_suitable_pt_stop += 1
                 status = DrtStatus.no_stop
+            elif too_long_pt_trip != 0:
+                self._drt_too_long_pt_trip += 1
+                status = DrtStatus.too_long_pt_trip
+            elif overnight_trip != 0:
+                self._drt_overnight += 1
+                status = DrtStatus.overnight_trip
             elif one_leg_journey != 0:
                 self._drt_no_suitable_pt_connection += 1
                 status = DrtStatus.one_leg
@@ -717,6 +728,7 @@ class ServiceProvider(Component):
         result['too_short_direct_trip'] = self._drt_too_short_trip
         result['no_suitable_pt_connection'] = self._drt_no_suitable_pt_connection
         result['too_late_request'] = self._drt_too_late_request
+        result['too_long_pt_trip'] = self._drt_too_long_pt_trip
 
         result['unplannable_persons'] = self._unplannable_persons
         result['unchoosable_persons'] = self._unchoosable_persons
