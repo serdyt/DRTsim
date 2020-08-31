@@ -50,7 +50,7 @@ class DefaultBehaviour(StateMachine):
 
     def on_activate(self):
         otp_attributes = {'walkSpeed': self.env.config.get('drt.walkCarSpeed'),
-                          'maxWalkDistance': self.env.config.get('drt.max_fake_walk'),
+                          'maxWalkDistance': self.env.config.get('drt.default_max_walk'),
                           'numItineraries': 1}
         self.person.update_otp_params()
         try:
@@ -119,7 +119,7 @@ class DefaultBehaviour(StateMachine):
     def on_reactivate(self):
         yield Event(self.env).succeed()
         otp_attributes = {'walkSpeed': self.env.config.get('drt.walkCarSpeed'),
-                          'maxWalkDistance': self.env.config.get('drt.max_fake_walk'),
+                          'maxWalkDistance': self.env.config.get('drt.default_max_walk'),
                           'numItineraries': 1}
         self.person.update_otp_params()
         try:

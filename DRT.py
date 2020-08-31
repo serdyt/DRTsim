@@ -112,7 +112,7 @@ config = {
     'sim.seed': 42,
     'sim.email_notification': True,
     'sim.create_excel': True,
-    'sim.purpose': 'Testing time window for the whole trip',
+    'sim.purpose': 'Testing with kiss and ride',
 
     'person.behaviour': 'DefaultBehaviour',
     'person.mode_choice': 'DefaultModeChoice',
@@ -148,8 +148,10 @@ config = {
     'drt.time_window_shift_left': 1. / 4,
     'drt.PT_stops_file': 'data/zone_stops.csv',
     'drt.min_distance': 2000,
-    'drt.walkCarSpeed': 16.6667,
-    'drt.max_fake_walk': 1000000,
+    'drt.maxPreTransitTime': 1800,  # 30 minutes
+    # 'drt.walkCarSpeed': 16.6667,
+    # 'drt.max_fake_walk': 1000000,
+    'drt.default_max_walk': 3000,
     'drt.visualize_routes': 'false',  # should be a string
     'drt.picture_folder': 'pictures/',
     'drt.number_vehicles': 2,
@@ -334,6 +336,15 @@ if __name__ == '__main__':
     log.info('Vehicle kilometers: {}'.format([int(vm / 1000) for vm in vehicle_meters]))
 
     log.info('********************************************')
+
+    # The problem now is that I take all the direct trips even if CAR was used
+    direct_trips = []
+    drt_trips = []
+    for person in persons:
+        for drt_trip, direct_trip in zip(person.executed_trips, person.direct_trips):
+            if drt_trip.main_mode in [OtpMode.DRT, OtpMode.DRT_TRANSIT]:
+                direct_trips.append(direct_trip)
+                drt_trips.append(drt_trip)
 
     direct_trips = [trip for person in persons for trip in person.direct_trips]
     direct_seconds = [trip.duration for trip in direct_trips]

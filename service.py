@@ -229,38 +229,53 @@ class ServiceProvider(Component):
         # **************************************************
 
         params = copy.copy(person.otp_parameters)
-        params.update({'walkSpeed': self.env.config.get('drt.walkCarSpeed'),
-                       # 'arriveBy': True,
-                       'maxWalkDistance': self.env.config.get('drt.max_fake_walk')
-                       })
-        pt_alternatives = self.router.otp_request(person.curr_activity.coord,
-                                                  person.next_activity.coord,
-                                                  person.next_activity.start_time,
-                                                  OtpMode.TRANSIT,
-                                                  params
-                                                  )
-        # TODO: currently checking a first trip that fits person's time window
-        # check all feasible trips
-        drt_trips = []
-        pt_stop_outside = 0
-        undeliverable_legs = 0
-        unassigned_legs = 0
-        too_close_for_drt = 0
-        overnight_trip = 0
-        one_leg_journey = 0
-        too_late_request = 0
-        too_long_pt_trip = 0
-        for alt in pt_alternatives:
-            if alt.legs[0].start_time < 0 or alt.legs[-1].end_time > self.env.config.get('sim.duration_sec'):
-                overnight_trip += 1
-                continue
+        # params.update({'walkSpeed': self.env.config.get('drt.walkCarSpeed'),
+        #                # 'arriveBy': True,
+        #                'maxWalkDistance': self.env.config.get('drt.max_fake_walk')
+        #                })
+        params.update({'maxPreTransitTime': self.env.config.get('drt.maxPreTransitTime')})
+        mode = None
+        if self.is_in_trip(person):
+            mode = OtpMode.KISS_RIDE
+        elif self.is_out_trip(person):
+            mode = OtpMode.RIDE_KISS
+        else:
+            raise Exception("Cannot determine if DRT+TRANSIT trip is going in or out service zone \n"
+                            "Check person's Origin-Destination \n"
+                            "{}".format(person))
 
-            if alt.duration > person.direct_trip.duration * self.env.config.get('drt.time_window_multiplier') \
-                              + self.env.config.get('drt.time_window_constant'):
-                too_long_pt_trip += 1
-                continue
+        drt_trip_found = False
+        otp_cycles = 0
+        while (not drt_trip_found) and otp_cycles < 3:
+            otp_cycles += 1
+            pt_alternatives = self.router.otp_request(person.curr_activity.coord,
+                                                      person.next_activity.coord,
+                                                      person.next_activity.start_time,
+                                                      mode,
+                                                      params
+                                                      )
 
-            else:
+            # TODO: currently checking a first trip that fits person's time window
+            # TODO: check all feasible trips and form alternatives for each
+            drt_trips = []
+            pt_stop_outside = 0
+            undeliverable_legs = 0
+            unassigned_legs = 0
+            too_close_for_drt = 0
+            overnight_trip = 0
+            one_leg_journey = 0
+            too_late_request = 0
+            too_long_pt_trip = 0
+            for alt in pt_alternatives:
+                if alt.legs[0].start_time < 0 or alt.legs[-1].end_time > self.env.config.get('sim.duration_sec'):
+                    overnight_trip += 1
+                    continue
+
+                if alt.duration > person.direct_trip.duration * self.env.config.get('drt.time_window_multiplier') \
+                                  + self.env.config.get('drt.time_window_constant'):
+                    too_long_pt_trip += 1
+                    continue
+
                 drt_trip = alt
                 drt_trip.main_mode = OtpMode.DRT_TRANSIT
 
@@ -288,6 +303,11 @@ class ServiceProvider(Component):
                     except PTStopServiceOutsideZone as e:
                         # log.info(e.msg)
                         pt_stop_outside += 1
+                        # if one of the found CAR_PICKUP+TRANSIT trips has a transfer outside DRT service area
+                        # we will try to reduce time for CAR so that other alternatives are picked up in next iteration
+                        params.update({'maxPreTransitTime':
+                                                           int(min(drt_trip.legs[-1].duration - 120,
+                                                               params.get('maxPreTransitTime')))})
                         continue
 
                 # **************************************************
@@ -301,10 +321,18 @@ class ServiceProvider(Component):
                     except PTStopServiceOutsideZone as e:
                         # log.info(e.msg)
                         pt_stop_outside += 1
+                        # if one of the found CAR_PICKUP+TRANSIT trips has a transfer outside DRT service area
+                        # we will try to reduce time for CAR so that other alternatives are picked up in next iteration
+                        params.update({'maxPreTransitTime':
+                                           int(min(drt_trip.legs[0].duration - 120,
+                                                   params.get('maxPreTransitTime')))})
                         continue
 
                 else:
                     log.error('Could not determine where person is going. {}'.format(person.id))
+                    # TODO: need to use different status here. Undeliverable is when jsprit cannot fit a person
+                    # in this case it is an input error
+                    # TODO: check if this ever happens
                     self._drt_undeliverable += 1
                     return [], DrtStatus.undeliverable
 
@@ -338,7 +366,10 @@ class ServiceProvider(Component):
                 drt_trips += [drt_trip]
                 # just take one DRT trip.
                 # and do not add more until person.DRT_leg is used.
+
+                drt_trip_found = True
                 break
+
 
         status = DrtStatus.routed
         if len(drt_trips) == 0:
@@ -383,7 +414,6 @@ class ServiceProvider(Component):
                           end_time=drt_trip.legs[-1].end_time,
                           distance=drt_trip.legs[-1].distance,
                           duration=drt_trip.legs[-1].duration)
-            # person.set_tw(drt_leg.duration, last_leg=True, drt_leg=drt_leg)
             return drt_leg
         else:
             # log.info('Person {} has incoming trip, but bus stop {} is not in the zone'
@@ -400,7 +430,6 @@ class ServiceProvider(Component):
                           end_time=drt_trip.legs[0].end_time,
                           distance=drt_trip.legs[0].distance,
                           duration=drt_trip.legs[0].duration)
-            # person.set_tw(drt_leg, first_leg=True, drt_leg=drt_leg)
             return drt_leg
         else:
             raise PTStopServiceOutsideZone('Person {} has outgoing trip, but bus stop is not in the zone'
