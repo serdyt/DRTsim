@@ -7,6 +7,7 @@ import pprint
 
 from const import OtpMode, LegMode, DrtStatus
 from xls_utils import xls_create_occupancy_charts
+from const import CapacityDimensions as CD
 
 log = logging.getLogger(__name__)
 

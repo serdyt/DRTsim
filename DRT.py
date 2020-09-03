@@ -103,7 +103,7 @@ config = {
     'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
     'population.input_file': 'data/population_fake_od.json',
-    'population.input_percentage': 0.01,
+    'population.input_percentage': 0.002,
 
     # 'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],  # Sjöbo + Tomelilla
     'drt.zones': [z for z in range(12650001, 12650018)],
