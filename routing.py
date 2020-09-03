@@ -29,13 +29,13 @@ import logging
 log = logging.getLogger(__name__)
 
 
+# TODO: refactor Default_routing so that it could be usable directly without service
 class DefaultRouting(object):
     
     def __init__(self, service):
-
-        # self.service = service
         self.env = service.env
         self.url = self.env.config.get("service.router_address")
+        # TODO: should remove this connection
         self.service = service
         self.coord_to_geoid = {}
 
@@ -139,6 +139,7 @@ class DefaultRouting(object):
         return trips
 
     def osrm_route_request(self, from_place, to_place):
+        '''Requests and parses a Trip from OSRM between from_place and to_place'''
         url_coords = '{}{},{};{},{}' \
             .format(self.env.config.get('service.osrm_route'),
                     from_place.lon, from_place.lat, to_place.lon, to_place.lat)
@@ -321,21 +322,8 @@ class DefaultRouting(object):
         return None
 
     def get_drt_route_details(self, coord_start, coord_end, at_time):
-        # payload = Payload(attributes={'fromPlace': str(coord_start),
-        #                               'toPlace': str(coord_end),
-        #                               'time': trunc_microseconds(str(td(seconds=at_time))),
-        #                               'date': self.env.config.get('date'),
-        #                               'mode': OtpMode.CAR},
-        #                   config=self.env.config)
-        #
-        # resp = requests.get(self.url, params=payload.get_payload())
-        # # If OTP returns more than one route, take the first one
-        # # TODO: may be we want to take the fastest option
-        # trips = self.parse_otp_response(resp)
-        # trip = trips[0]
-        # trip.set_main_mode(OtpMode.DRT)
-        # return trip
-
+        # Gets a direct trip from OSRM
+        # TODO: what is a good name for this function?
         return self.osrm_route_request(coord_start, coord_end)
 
     def _calculate_time_distance_matrix(self, vehicle_coords, return_coords,
@@ -350,9 +338,9 @@ class DefaultRouting(object):
         """
         jsprit_tdm_interface.set_writer(self.env.config.get('jsprit.tdm_file'), 'w')
 
-        start = time.time()
-        coords_to_process_with_router = []
-
+        # start = time.time()
+        # coords_to_process_with_router = []
+        #
         # vehicle_coords = set(vehicle_coords)
         # return_coords = set(return_coords)
         # shipment_start_coords = set(shipment_start_coords)
@@ -421,8 +409,9 @@ class DefaultRouting(object):
         # ))
         #
         # coords_to_process_with_otp = list(set(coords_to_process_with_otp))
+
         coords_to_process_with_router = set(vehicle_coords + return_coords +
-                                         shipment_start_coords + shipment_end_coords + delivery_end_coord)
+                                            shipment_start_coords + shipment_end_coords + delivery_end_coord)
         if len(coords_to_process_with_router) > 0:
             start = time.time()
 
@@ -500,13 +489,6 @@ class DefaultRouting(object):
                 else:
                     if coords_to_process_with_otp is not None:
                         coords_to_process_with_otp.append((start_coord, end_coord))
-
-    def _write_input_file_for_otp_script(self, coords):
-        with open(self.env.config.get('otp.input_file'), 'w') as file:
-            csvwriter = csv.writer(file, delimiter=',')
-            csvwriter.writerows([(self.coord_to_geoid[coord[0]], coord[0].lat, coord[0].lon,
-                                  self.coord_to_geoid[coord[1]], coord[1].lat, coord[1].lon) for coord in coords])
-            file.close()
 
 
 class Payload(object):
