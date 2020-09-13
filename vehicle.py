@@ -2,18 +2,17 @@
 import copy
 from typing import List
 import logging
+import csv
 
 from desmod.component import Component
-from simpy import Event
 from simpy.events import Event, Timeout
-from simpy.core import Environment
 
 from sim_utils import DrtAct, Coord, Step
 from population import Person
 
 from const import CapacityDimensions as CD
 from const import VehicleCost as VC
-from exceptions import *
+from log_utils import Event, TravellerEventType, VehicleEventType
 
 log = logging.getLogger(__name__)
 
@@ -47,6 +46,7 @@ class Vehicle(Component):
         route: list[DrtAct] to follow
         """
         Component.__init__(self, parent=parent, index=attrib.get('id'))
+        # service: ServiceProvider
         self.service = parent
 
         self.coord = return_coord
@@ -59,11 +59,19 @@ class Vehicle(Component):
         self._route = []
         self.vehicle_kilometers = 0
         self.ride_time = 0
-        self.occupancy_stamps = [(0, -1)]
+
+        # TODO: implement this properly with enums or different logging
+        self.occupancy_stamps = []  # format[(time, number of passenger)] -1 = idle
+        self.status_stamps = []
         self.meters_by_occupancy = [0 for _ in range(self.capacity_dimensions.get(CD.SEATS) + 1)]
         self.delivered_travelers = 0
+        self.travel_log = []
 
         self.rerouted = self.env.event()
+
+        # Vehicle publishes an event
+        # Travellers subscribe to it
+        self.event = Event()
 
         self.add_process(self.run)
 
@@ -113,8 +121,8 @@ class Vehicle(Component):
                 return self.get_act(-1)
         return None
 
-    def post_simulate(self):
-        self.occupancy_stamps.append((self.env.config.get('sim.duration_sec')-1, -1))
+    # def post_simulate(self):
+    #     self.occupancy_stamps.append((self.env.config.get('sim.duration_sec')-1, -1))
 
     def get_result(self, result):
         super(Vehicle, self).get_result(result)
@@ -134,6 +142,47 @@ class Vehicle(Component):
         result['ride_time'] = result.get('ride_time') + [self.ride_time]
         result['occupancy'] = result.get('occupancy') + [self.occupancy_stamps]
         result['meters_by_occupancy'] = result.get('meters_by_occupancy') + [self.meters_by_occupancy]
+        self._save_vehicle_travel_logs()
+
+    def _save_vehicle_travel_logs(self):
+        log_folder = self.env.config.get('sim.vehicle_log_folder')
+        try:
+            with open('{}/vehicle_{}'.format(log_folder, self.id), 'w') as f:
+                for record in self.travel_log:
+                    if len(record) > 2:
+                        f.write(VehicleEventType.to_str(record[0], record[1], *record[2]))
+                    else:
+                        f.write(VehicleEventType.to_str(record[0], record[1]))
+
+            with open('{}/vehicle_occupancy_{}'.format(log_folder, self.id), 'w') as f:
+                spam_writer = csv.writer(f, delimiter=',',
+                                        quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                spam_writer.writerow(("time", "#passengers"))
+                spam_writer.writerows(self.occupancy_stamps)
+
+            with open('{}/vehicle_status_{}'.format(log_folder, self.id), 'w') as f:
+                spam_writer = csv.writer(f, delimiter=',',
+                                         quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                spam_writer.writerow(("time", "status (PICK_UP={}, DELIVERY={}, DRIVE={},"
+                                              "WAIT={}, RETURN={}, IDLE={})"
+                                      .format(DrtAct.PICK_UP, DrtAct.DELIVERY, DrtAct.DRIVE,
+                                              DrtAct.WAIT, DrtAct.RETURN, DrtAct.IDLE)))
+                spam_writer.writerows(self.status_stamps)
+
+        except OSError as e:
+            log.critical(e.strerror)
+
+    def _update_travel_log(self, event_type, *args):
+        self.travel_log.append([self.env.time(), event_type, [*args]])
+
+    def _update_occupancy_log(self):
+        self.occupancy_stamps.append((self.env.time(), len(self.passengers)))
+
+    def _update_status_log(self):
+        if self.route_not_empty():
+            self.status_stamps.append((self.env.time(), self.get_act(0).type))
+        else:
+            self.status_stamps.append((self.env.time(), DrtAct.IDLE))
 
     def flush(self):
         return 'Vehicle {}\n Onboard persons: {}\nRoute: {}'.format(self.id, self.passengers, self._route)
@@ -147,14 +196,20 @@ class Vehicle(Component):
         """
         while True:
             if self.get_route_len() == 0:
-                self.occupancy_stamps.append((self.env.now, -1))
+                # self.occupancy_stamps.append((self.env.now, -1))
+                self._update_occupancy_log()
+                self._update_status_log()
+                self._update_travel_log(VehicleEventType.VEHICLE_AT_DEPOT_IDLE)
                 yield self.rerouted
                 self.rerouted = self.env.event()
-                self.occupancy_stamps.append((self.env.now, 0))
+                # self.occupancy_stamps.append((self.env.now, 0))
 
             if self.get_route_len() != 0:
                 if self.get_act(0).type in [DrtAct.DRIVE, DrtAct.RETURN]:
                     self.service.get_route_details(self)
+
+            if self.get_act(0).type == DrtAct.WAIT:
+                self._update_travel_log(VehicleEventType.VEHICLE_AT_DEPOT_WAIT)
 
             # wait for the end of current action or for a rerouted event
             timeout = self.get_act(0).end_time - self.env.now
@@ -167,6 +222,7 @@ class Vehicle(Component):
 
             if self.rerouted.triggered:
                 self.rerouted = self.env.event()
+                self._update_travel_log(VehicleEventType.VEHICLE_REROUTED_ON_ROUTE, len(self.passengers))
                 # all the rerouting happens in the service provider
 
             elif act_executed.triggered:
@@ -186,7 +242,8 @@ class Vehicle(Component):
                 self.coord = act.end_coord
 
                 # if len(self.passengers) != 0:
-                self.update_executed_passengers_routes(act.steps, act.end_coord)
+                self._update_executed_passengers_routes(act.steps, act.end_coord)
+                self._update_passengers_travel_log(TravellerEventType.DRT_STOP_FINISHED)
 
                 if act.type == act.DRIVE or act.type == act.WAIT:
                     if self.get_route_len() == 0:
@@ -214,16 +271,23 @@ class Vehicle(Component):
 
                 elif act.type == act.DROP_OFF or act.type == act.DELIVERY:
                     log.info('{}: Vehicle {} delivered person {}'.format(self.env.now, self.id, act.person.id))
+                    self._update_travel_log(VehicleEventType.VEHICLE_AT_STOP_DROPPING, [act.person.id])
                     self._drop_off_travelers([act.person])
                 elif act.type == act.PICK_UP:
+                    self._update_travel_log(VehicleEventType.VEHICLE_AT_STOP_PICKING, [act.person.id])
                     log.info('{}: Vehicle {} picked up person {}'.format(self.env.now, self.id, act.person.id))
                 elif act.type == act.WAIT:
+                    self._update_travel_log(VehicleEventType.VEHICLE_AT_DEPOT_WAIT)
                     log.info('{}: Vehicle {} ended waiting after picking up a person'
                              .format(self.env.now, self.id))
                 elif act.type == act.RETURN:
+                    self._update_travel_log(VehicleEventType.VEHICLE_AT_DEPOT_IDLE)
                     log.info('{}: Vehicle {} returned to depot'.format(self.env.now, self.id))
                 else:
                     log.error('{}: Unexpected act type happened {}'.format(self.env.now, act))
+
+                self._update_occupancy_log()
+                self._update_status_log()
 
     def _drop_off_travelers(self, persons):
         """Remove person from the list of current passengers and calculate statistics"""
@@ -241,7 +305,7 @@ class Vehicle(Component):
 
         n = len(persons)
         self.delivered_travelers += n
-        self.occupancy_stamps.append((self.env.now, len(self.passengers)))
+        self._update_occupancy_log()
 
     def _pickup_travelers(self, persons):
         """Append persons to the list of current passengers
@@ -256,7 +320,7 @@ class Vehicle(Component):
 
             self._is_person_served_within_tw(person)
 
-        self.occupancy_stamps.append((self.env.now, len(self.passengers)))
+        self._update_occupancy_log()
 
     def _is_person_served_within_tw(self, person):
         if person.get_tw_left() <= self.env.now <= person.get_tw_right():
@@ -266,16 +330,21 @@ class Vehicle(Component):
                       .format(self.env.now, person.id, person.get_tw_left(), person.get_tw_right()))
             return False
 
+    def _update_passengers_travel_log(self, travel_event_type):
+        for person in self.passengers:
+            person.update_travel_log(travel_event_type)
+
     def update_partially_executed_trips(self):
         """When a vehicle is rerouted in the middle of a route, save the executed steps of trips"""
         if len(self._route) > 0:
+            self._update_passengers_travel_log(TravellerEventType.DRT_ON_ROUTE_REROUTED)
             passed_steps = self.get_passed_steps()
             if len(passed_steps) > 0:
-                self.update_executed_passengers_routes(passed_steps, self.get_current_coord_time()[0])
+                self._update_executed_passengers_routes(passed_steps, self.get_current_coord_time()[0])
                 self.vehicle_kilometers += sum([step.distance for step in passed_steps])
                 self.ride_time += sum([step.duration for step in passed_steps])
 
-    def update_executed_passengers_routes(self, executed_steps, end_coord):
+    def _update_executed_passengers_routes(self, executed_steps, end_coord):
         log.debug('Vehicle {} has {} passengers'.format(self.id, len(self.passengers)))
         self.meters_by_occupancy[len(self.passengers)] += \
             sum([step.distance for step in executed_steps])

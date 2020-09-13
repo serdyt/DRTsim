@@ -23,6 +23,7 @@ from sim_utils import Coord, JspritAct, Step, JspritSolution, JspritRoute, Unass
 from vehicle import Vehicle, VehicleType
 from sim_utils import ActType, DrtAct, Trip, Leg
 from population import Person, Population
+from log_utils import TravellerEventType
 from exceptions import *
 
 log = logging.getLogger(__name__)
@@ -665,17 +666,22 @@ class ServiceProvider(Component):
             if person.planned_trip.legs[0].mode == OtpMode.DRT:
                 # if DRT is first leg - wait for it to be executed and teleport a person to its destination after PT
                 person.init_executed_drt_leg()
+                person.update_travel_log(TravellerEventType.LEG_STARTED, person.planned_trip.legs[0].deepcopy())
                 yield person.drt_executed
-                timeout = person.planned_trip.legs[-1].end_time - self.env.now
-                if timeout < 0:
-                    log.error('{}: PT leg of DRT_TRANSIT should have already ended by now, setting it to zero\n'
-                              'Should have started {} and ended {}.\n'
-                              'Planned {}\nActual{}'
-                              .format(self.env.now, person.planned_trip.legs[1].start_time,
-                                      person.planned_trip.legs[-1].end_time,
-                                      person.planned_trip, person.actual_trip))
-                    timeout = 0
-                yield self.env.timeout(timeout)
+                person.update_travel_log(TravellerEventType.LEG_FINISHED, person.actual_trip.legs[0].deepcopy())
+                for leg in person.planned_trip.legs[1:]:
+                    person.update_travel_log(TravellerEventType.LEG_STARTED, leg)
+                    timeout = person.planned_trip.legs[-1].end_time - self.env.now
+                    if timeout < 0:
+                        log.error('{}: PT leg of DRT_TRANSIT should have already ended by now, setting it to zero\n'
+                                  'Should have started {} and ended {}.\n'
+                                  'Planned {}\nActual{}'
+                                  .format(self.env.now, person.planned_trip.legs[1].start_time,
+                                          person.planned_trip.legs[-1].end_time,
+                                          person.planned_trip, person.actual_trip))
+                        timeout = 0
+                    yield self.env.timeout(timeout)
+                    person.update_travel_log(TravellerEventType.LEG_FINISHED, leg)
                 person.append_pt_legs_to_actual_trip([leg.deepcopy() for leg in person.planned_trip.legs[1:]])
                 person.delivered.succeed()
             else:

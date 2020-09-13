@@ -139,7 +139,10 @@ class DefaultRouting(object):
         return trips
 
     def osrm_route_request(self, from_place, to_place):
-        '''Requests and parses a Trip from OSRM between from_place and to_place'''
+        '''
+        Requests and parses a Trip from OSRM between from_place and to_place
+        '''
+
         url_coords = '{}{},{};{},{}' \
             .format(self.env.config.get('service.osrm_route'),
                     from_place.lon, from_place.lat, to_place.lon, to_place.lat)

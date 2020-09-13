@@ -103,11 +103,15 @@ config = {
     'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
     'population.input_file': 'data/population_fake_od.json',
-    'population.input_percentage': 0.002,
+    'population.input_percentage': 0.01,
 
     # 'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],  # Sjöbo + Tomelilla
     'drt.zones': [z for z in range(12650001, 12650018)],
+
+    # maximum of these two will be taken as pre-booking time
     'drt.planning_in_advance': td(hours=2).total_seconds(),
+    'drt.planning_in_advance_multiplier': 2,
+
     'drt.time_window_constant': td(minutes=15).total_seconds(),
     'drt.time_window_multiplier': 1.5,
     'drt.time_window_shift_left': 1. / 4,
@@ -148,6 +152,8 @@ config.update({
     'jsprit.vrp_solution': '{}/problem-with-solution.xml'.format(folder),
     'jsprit.debug_folder': '{}/jsprit_debug'.format(folder),
 
+    'sim.person_log_folder': '{}/person_logs'.format(folder),
+    'sim.vehicle_log_folder': '{}/vehicle_logs'.format(folder),
     'sim.log': '{}/log'.format(folder),
     'sim.log_zip': '{}/log.zip'.format(folder),
     'sim.folder': folder,
@@ -155,6 +161,8 @@ config.update({
     'drt.picture_folder': '{}/pictures/'.format(folder),
 })
 os.mkdir(config.get('jsprit.debug_folder'))
+os.mkdir(config.get('sim.person_log_folder'))
+os.mkdir(config.get('sim.vehicle_log_folder'))
 if config.get('drt.visualize_routes') == 'true':
     try:
         os.mkdir(config.get('drt.picture_folder'))

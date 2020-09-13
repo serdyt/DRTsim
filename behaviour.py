@@ -12,6 +12,7 @@ import logging
 from simpy import Event
 from statemachine import StateMachine, State
 from exceptions import *
+from log_utils import TravellerEventType
 import population
 
 from sim_utils import OtpMode
@@ -49,17 +50,19 @@ class DefaultBehaviour(StateMachine):
         self.env = self.person.env
 
     def on_activate(self):
-        otp_attributes = {'walkSpeed': self.env.config.get('drt.walkCarSpeed'),
-                          'maxWalkDistance': self.env.config.get('drt.default_max_walk'),
-                          'numItineraries': 1}
+        # otp_attributes = {'maxWalkDistance': self.env.config.get('drt.default_max_walk'),
+        #                   'numItineraries': 1}
         self.person.update_otp_params()
         try:
             direct_trip = self.person.serviceProvider.standalone_osrm_request(self.person)
+            timeout = self.person.get_planning_time(direct_trip)
             self.person.set_direct_trip(direct_trip)
-            transit_trip = self.person.serviceProvider.standalone_otp_request(self.person, OtpMode.TRANSIT,
-                                                                              otp_attributes)
-            timeout = self.person.get_planning_time(transit_trip[0])
+            # transit_trip = self.person.serviceProvider.standalone_otp_request(self.person, OtpMode.TRANSIT,
+            #                                                                   otp_attributes)
+            # timeout = self.person.get_planning_time(transit_trip[0])
 
+            if timeout > 0:
+                self.person.update_travel_log(TravellerEventType.ACT_STARTED, self.person.curr_activity)
             yield self.person.env.timeout(timeout)
             self.env.process(self.plan())
         except (OTPNoPath, OTPTrivialPath) as e:
@@ -74,10 +77,13 @@ class DefaultBehaviour(StateMachine):
             # TODO: this makes sure that a request-replan sequence for a person is not broken
             # if it is, we must save multiple requests and have some policy to merge them
             yield self.person.env.timeout(0.000001)
+        self.person.update_travel_log(TravellerEventType.ACT_FINISHED, self.person.curr_activity)
         if self.person.planned_trip is None:
             try:
+                self.person.update_travel_log(TravellerEventType.TRIP_REQUEST_SUBMITTED, self.person.curr_activity)
                 alternatives = self.person.serviceProvider.request(self.person)
                 self.person.alternatives = alternatives
+                self.person.update_travel_log(TravellerEventType.TRIP_ALTERNATIVES_RECEIVED, self.person.curr_activity)
                 self.env.process(self.choose())
             except (OTPTrivialPath, OTPUnreachable) as e:
                 log.warning('{}'.format(e.msg))
@@ -101,13 +107,17 @@ class DefaultBehaviour(StateMachine):
             self.person.planned_trip = chosen_trip.deepcopy()
             self.person.init_actual_trip()
             self.person.serviceProvider.start_trip(self.person)
+            self.person.update_travel_log(TravellerEventType.TRIP_CHOSEN, chosen_trip.deepcopy())
+
             # TODO: after choosing, a traveler should wait for beginning of a trip
             # But that would break the current routing as start tim may be updated by other requests
             self.env.process(self.execute_trip())
 
     def on_execute_trip(self):
         self.env.process(self.person.serviceProvider.execute_trip(self.person))
+        self.person.update_travel_log(TravellerEventType.TRIP_STARTED)
         yield self.person.delivered
+        self.person.update_travel_log(TravellerEventType.TRIP_FINISHED)
         log.info('{}: Person {} has finished trip {}'.format(self.env.now, self.person.id, self.person.actual_trip))
         self.person.reset_delivery()
         self.person.log_executed_trip()
@@ -124,10 +134,13 @@ class DefaultBehaviour(StateMachine):
         self.person.update_otp_params()
         try:
             direct_trip = self.person.serviceProvider.standalone_osrm_request(self.person)
+            timeout = self.person.get_planning_time(direct_trip)
             self.person.set_direct_trip(direct_trip)
-            transit_trip = self.person.serviceProvider.standalone_otp_request(self.person, OtpMode.TRANSIT,
-                                                                              otp_attributes)
-            timeout = self.person.get_planning_time(transit_trip[0])
+            # transit_trip = self.person.serviceProvider.standalone_otp_request(self.person, OtpMode.TRANSIT,
+            #                                                                   otp_attributes)
+            # timeout = self.person.get_planning_time(transit_trip[0])
+            if timeout > 0:
+                self.person.update_travel_log(TravellerEventType.ACT_STARTED, self.person.curr_activity)
             yield self.person.env.timeout(timeout)
             self.env.process(self.plan())
         except OTPNoPath as e:
@@ -145,6 +158,7 @@ class DefaultBehaviour(StateMachine):
                     .format(self.env.now, self.person, self.person.curr_activity.coord,
                             self.person.next_activity.coord))
         self.person.serviceProvider.log_unplannable(self.person)
+        self.person.update_travel_log(TravellerEventType.NO_RUTE)
 
     def on_unchoosable(self):
         yield Event(self.env).succeed()
@@ -152,6 +166,7 @@ class DefaultBehaviour(StateMachine):
                     .format(self.env.now, self.person, self.person.curr_activity.coord,
                             self.person.next_activity.coord))
         self.person.serviceProvider.log_unchoosable(self.person)
+        self.person.update_travel_log(TravellerEventType.NO_RUTE)
 
     def on_unactivatable(self):
         yield Event(self.env).succeed()
@@ -159,6 +174,7 @@ class DefaultBehaviour(StateMachine):
                     .format(self.env.now, self.person, self.person.curr_activity.coord,
                             self.person.next_activity.coord))
         self.person.serviceProvider.log_unactivatable(self.person)
+        self.person.update_travel_log(TravellerEventType.NO_RUTE)
 
     def on_unreactivatable(self):
         yield Event(self.env).succeed()
@@ -166,6 +182,7 @@ class DefaultBehaviour(StateMachine):
                     .format(self.env.now, self.person, self.person.curr_activity.coord,
                             self.person.next_activity.coord))
         self.person.serviceProvider.log_unactivatable(self.person)
+        self.person.update_travel_log(TravellerEventType.NO_RUTE)
 
     def on_trip_exception(self):
         raise NotImplementedError()

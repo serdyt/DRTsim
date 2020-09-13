@@ -63,7 +63,7 @@ class Leg(object):
     steps : <list> of utils.Step
     """
 
-    # TODO:assignment of mode   as a string is confusing, remove it, or use constant
+    # TODO:assignment of mode as a string is confusing, remove it, or use constant
     def __init__(self, mode=None, start_coord=None, from_stop=None, end_coord=None, to_stop=None,
                  start_time=None, end_time=None,
                  distance=None, duration=None, steps=None):
@@ -234,6 +234,7 @@ class ActType(object):
     DRIVE = 3
     WAIT = 4
     RETURN = 5
+    IDLE = 6
 
     def __init__(self, type_=None):
         self.type = type_
@@ -252,7 +253,8 @@ class ActType(object):
                 ActType.DELIVERY: 'delivery',
                 ActType.RETURN: 'drive',
                 ActType.WAIT: 'wait',
-                ActType.DRIVE: 'return'
+                ActType.DRIVE: 'return',
+                ActType.IDLE: 'idle',
                 }[act_type]
 
     def __str__(self):

@@ -17,6 +17,7 @@ from const import ActivityType as actType
 from const import maxLat, minLat, maxLon, minLon
 from const import CapacityDimensions as CD
 from const import OtpMode
+from log_utils import TravellerEventType
 
 log = logging.getLogger(__name__)
 
@@ -174,6 +175,9 @@ class Person(Component):
         self.planned_trips = []
         self.drt_status = []
 
+        # has [time, eventType, *args] structure
+        self.travel_log = []
+
         # we need to store that so that drt rerouting would know drt leg coordinates.
         # TODO: move this to a container in ServiceProvider
         self.drt_leg = None
@@ -199,6 +203,21 @@ class Person(Component):
         """Sets new otp params for a new trip. Params are deducted from activity"""
         self.otp_parameters.update({'arriveBy': self.get_arrive_by()})
 
+    def save_travel_log(self):
+        log_folder = self.env.config.get('sim.person_log_folder')
+        try:
+            with open('{}/person_{}'.format(log_folder, self.id), 'w') as f:
+                for record in self.travel_log:
+                    if len(record) > 2:
+                        f.write(TravellerEventType.to_str(record[0], record[1], *record[2]))
+                    else:
+                        f.write(TravellerEventType.to_str(record[0], record[1]))
+        except OSError as e:
+            log.critical(e.strerror)
+
+    def update_travel_log(self, event_type, *args):
+        self.travel_log.append([self.env.time(), event_type, [*args]])
+
     def get_result(self, result):
         """Save trip results to the result dictionary"""
         super(Person, self).get_result(result)
@@ -206,6 +225,7 @@ class Person(Component):
             result['Persons'] = []
 
         result['Persons'].append(self)
+        self.save_travel_log()
 
     def init_actual_trip(self):
         """Initiates an empty actual_trip to append executed legs and acts to it"""
@@ -221,10 +241,13 @@ class Person(Component):
     def get_planning_time(self, trip):
         """Calculates a time to wait until the moment a person starts planning a trip
         returns: int in seconds when planning should happen
+        :type trip: Trip - direct trip by a car from OSRM
         """
-        timeout = trip.legs[0].start_time - self.env.config.get('drt.planning_in_advance') - self.env.now
-        # timeout = int((self.next_activity.start_time - trip.legs[0].start_time
-        #                - self.env.config.get('drt.planning_in_advance') - self.env.now))
+
+        pre_trip_time = max(trip.duration * self.env.config.get('drt.planning_in_advance_multiplier'),
+                            self.env.config.get('drt.planning_in_advance'))
+
+        timeout = int((self.next_activity.start_time - pre_trip_time - self.env.now))
 
         if timeout < 0:
             log.debug('{}: {} cannot plan {} seconds in advance, resetting timeout to zero'
