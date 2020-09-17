@@ -74,7 +74,7 @@ time.tzset()
 config = {
     'sim.duration': '86400 s',
     'sim.duration_sec': 86400,
-    'sim.seed': 42,
+    'sim.seed': 43,
     'sim.email_notification': True,
     'sim.create_excel': True,
     'sim.purpose': 'Testing with kiss and ride',
@@ -103,7 +103,7 @@ config = {
     'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
     'population.input_file': 'data/population_fake_od.json',
-    'population.input_percentage': 0.01,
+    'population.input_percentage': 0.0005,
 
     # 'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],  # Sjöbo + Tomelilla
     'drt.zones': [z for z in range(12650001, 12650018)],

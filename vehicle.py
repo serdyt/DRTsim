@@ -196,20 +196,15 @@ class Vehicle(Component):
         """
         while True:
             if self.get_route_len() == 0:
-                # self.occupancy_stamps.append((self.env.now, -1))
-                self._update_occupancy_log()
-                self._update_status_log()
-                self._update_travel_log(VehicleEventType.VEHICLE_AT_DEPOT_IDLE)
+                self._update_travel_logs()
                 yield self.rerouted
                 self.rerouted = self.env.event()
-                # self.occupancy_stamps.append((self.env.now, 0))
 
             if self.get_route_len() != 0:
                 if self.get_act(0).type in [DrtAct.DRIVE, DrtAct.RETURN]:
                     self.service.get_route_details(self)
 
-            if self.get_act(0).type == DrtAct.WAIT:
-                self._update_travel_log(VehicleEventType.VEHICLE_AT_DEPOT_WAIT)
+            self._update_travel_logs()
 
             # wait for the end of current action or for a rerouted event
             timeout = self.get_act(0).end_time - self.env.now
@@ -222,7 +217,7 @@ class Vehicle(Component):
 
             if self.rerouted.triggered:
                 self.rerouted = self.env.event()
-                self._update_travel_log(VehicleEventType.VEHICLE_REROUTED_ON_ROUTE, len(self.passengers))
+                # self._update_travel_log(VehicleEventType.VEHICLE_REROUTED_ON_ROUTE, len(self.passengers))
                 # all the rerouting happens in the service provider
 
             elif act_executed.triggered:
@@ -271,23 +266,20 @@ class Vehicle(Component):
 
                 elif act.type == act.DROP_OFF or act.type == act.DELIVERY:
                     log.info('{}: Vehicle {} delivered person {}'.format(self.env.now, self.id, act.person.id))
-                    self._update_travel_log(VehicleEventType.VEHICLE_AT_STOP_DROPPING, [act.person.id])
+                    # self._update_travel_log(VehicleEventType.VEHICLE_AT_STOP_DROPPING, [act.person.id])
                     self._drop_off_travelers([act.person])
                 elif act.type == act.PICK_UP:
-                    self._update_travel_log(VehicleEventType.VEHICLE_AT_STOP_PICKING, [act.person.id])
+                    # self._update_travel_log(VehicleEventType.VEHICLE_AT_STOP_PICKING, [act.person.id])
                     log.info('{}: Vehicle {} picked up person {}'.format(self.env.now, self.id, act.person.id))
                 elif act.type == act.WAIT:
-                    self._update_travel_log(VehicleEventType.VEHICLE_AT_DEPOT_WAIT)
+                    # self._update_travel_log(VehicleEventType.VEHICLE_AT_DEPOT_WAIT)
                     log.info('{}: Vehicle {} ended waiting after picking up a person'
                              .format(self.env.now, self.id))
                 elif act.type == act.RETURN:
-                    self._update_travel_log(VehicleEventType.VEHICLE_AT_DEPOT_IDLE)
+                    # self._update_travel_log(VehicleEventType.VEHICLE_AT_DEPOT_IDLE)
                     log.info('{}: Vehicle {} returned to depot'.format(self.env.now, self.id))
                 else:
                     log.error('{}: Unexpected act type happened {}'.format(self.env.now, act))
-
-                self._update_occupancy_log()
-                self._update_status_log()
 
     def _drop_off_travelers(self, persons):
         """Remove person from the list of current passengers and calculate statistics"""
@@ -305,7 +297,25 @@ class Vehicle(Component):
 
         n = len(persons)
         self.delivered_travelers += n
+
+    def _update_travel_logs(self):
         self._update_occupancy_log()
+        self._update_status_log()
+
+        if self.get_route_len() == 0:
+            self._update_travel_log(VehicleEventType.VEHICLE_AT_DEPOT_IDLE)
+        elif self.get_act(0).type == DrtAct.DRIVE:
+            self._update_travel_log(VehicleEventType.VEHICLE_DRIVING)
+        elif self.get_act(0).type == DrtAct.PICK_UP:
+            self._update_travel_log(VehicleEventType.VEHICLE_AT_STOP_PICKING, [self.get_act(0).person.id])
+        elif self.get_act(0).type == DrtAct.DELIVERY:
+            self._update_travel_log(VehicleEventType.VEHICLE_AT_STOP_DROPPING, [self.get_act(0).person.id])
+        elif self.get_act(0).type == DrtAct.RETURN:
+            self._update_travel_log(VehicleEventType.VEHICLE_DRIVING)
+        elif self.get_act(0).type == DrtAct.WAIT:
+            self._update_travel_log(VehicleEventType.VEHICLE_AT_STOP_WAIT)
+        else:
+            raise Exception('unsupported activity type {}, cannot make a log'.format(self.get_act(0).type))
 
     def _pickup_travelers(self, persons):
         """Append persons to the list of current passengers
@@ -319,8 +329,6 @@ class Vehicle(Component):
                     raise Exception('Person has boarded to a vehicle while it has not enough space')
 
             self._is_person_served_within_tw(person)
-
-        self._update_occupancy_log()
 
     def _is_person_served_within_tw(self, person):
         if person.get_tw_left() <= self.env.now <= person.get_tw_right():

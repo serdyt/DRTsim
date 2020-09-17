@@ -47,9 +47,12 @@ class VehicleEventType(Enum):
     VEHICLE_STARTED_ROUTE = auto()
     VEHICLE_STOP_ROUTE = auto()
 
+    VEHICLE_DRIVING = auto()
+
     VEHICLE_REROUTED = auto()
     VEHICLE_REROUTED_ON_ROUTE = auto()
 
+    VEHICLE_AT_STOP_WAIT = auto()
     VEHICLE_AT_STOP_PICKING = auto()
     VEHICLE_AT_STOP_DROPPING = auto()
 
@@ -66,6 +69,10 @@ class VehicleEventType(Enum):
             record = '{}: starting a route with {} passengers\n'.format(cur_time, passengers)
             return record
 
+        if event_type == VehicleEventType.VEHICLE_DRIVING:
+            record = '{}: driving\n'.format(cur_time)
+            return record
+
         if event_type == VehicleEventType.VEHICLE_REROUTED:
             record = '{}: waiting at depot\n'.format(cur_time)
             return record
@@ -74,6 +81,9 @@ class VehicleEventType(Enum):
             record = '{}: starting a route with {} passengers\n'.format(cur_time, passengers)
             return record
 
+        if event_type == VehicleEventType.VEHICLE_AT_STOP_WAIT:
+            record = '{}: waiting at stop\n'.format(cur_time)
+            return record
         if event_type == VehicleEventType.VEHICLE_AT_STOP_PICKING:
             passengers = args[0]
             record = '{}: at stop picking up {}\n'.format(cur_time, passengers)
