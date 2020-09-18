@@ -237,9 +237,9 @@ class ServiceProvider(Component):
         params.update({'maxPreTransitTime': self.env.config.get('drt.maxPreTransitTime')})
         mode = None
         if self.is_in_trip(person):
-            mode = OtpMode.KISS_RIDE
-        elif self.is_out_trip(person):
             mode = OtpMode.RIDE_KISS
+        elif self.is_out_trip(person):
+            mode = OtpMode.KISS_RIDE
         else:
             raise Exception("Cannot determine if DRT+TRANSIT trip is going in or out service zone \n"
                             "Check person's Origin-Destination \n"
@@ -307,7 +307,7 @@ class ServiceProvider(Component):
                         # if one of the found CAR_PICKUP+TRANSIT trips has a transfer outside DRT service area
                         # we will try to reduce time for CAR so that other alternatives are picked up in next iteration
                         params.update({'maxPreTransitTime':
-                                                           int(min(drt_trip.legs[-1].duration - 120,
+                                                           int(min(drt_trip.legs[-1].duration - 10,
                                                                params.get('maxPreTransitTime')))})
                         continue
 
@@ -325,7 +325,7 @@ class ServiceProvider(Component):
                         # if one of the found CAR_PICKUP+TRANSIT trips has a transfer outside DRT service area
                         # we will try to reduce time for CAR so that other alternatives are picked up in next iteration
                         params.update({'maxPreTransitTime':
-                                           int(min(drt_trip.legs[0].duration - 120,
+                                           int(min(drt_trip.legs[0].duration - 10,
                                                    params.get('maxPreTransitTime')))})
                         continue
 

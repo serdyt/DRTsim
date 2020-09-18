@@ -81,7 +81,9 @@ class DefaultBehaviour(StateMachine):
         if self.person.planned_trip is None:
             try:
                 self.person.update_travel_log(TravellerEventType.TRIP_REQUEST_SUBMITTED, self.person.curr_activity)
+
                 alternatives = self.person.serviceProvider.request(self.person)
+
                 self.person.alternatives = alternatives
                 self.person.update_travel_log(TravellerEventType.TRIP_ALTERNATIVES_RECEIVED, self.person.curr_activity)
                 self.env.process(self.choose())

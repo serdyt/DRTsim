@@ -13,6 +13,7 @@ from population import Person
 from const import CapacityDimensions as CD
 from const import VehicleCost as VC
 from log_utils import Event, TravellerEventType, VehicleEventType
+import service
 
 log = logging.getLogger(__name__)
 
@@ -40,6 +41,7 @@ class Vehicle(Component):
     return_coord = None  # type: Coord
     _route = None  # type: List[DrtAct]
     passengers = None  # type: List[Person]
+    service = ...  # type: service.ServiceProvider
 
     def __init__(self, parent, attrib, return_coord, vehicle_type):
         """

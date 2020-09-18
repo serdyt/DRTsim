@@ -73,8 +73,10 @@ class Top(Component):
 os.environ['TZ'] = 'Sweden'
 time.tzset()
 config = {
-    'sim.duration': '86400 s',
-    'sim.duration_sec': 86400,
+    # 'sim.duration': '86400 s',
+    # 'sim.duration_sec': 86400,
+    'sim.duration': '90000 s',
+    'sim.duration_sec': 90000,
     'sim.seed': 43,
     'sim.email_notification': True,
     'sim.create_excel': True,
@@ -117,7 +119,7 @@ config = {
     'drt.time_window_multiplier': 1.5,
     'drt.time_window_shift_left': 1. / 4,
     'drt.PT_stops_file': 'data/zone_stops.csv',
-    'drt.min_distance': 2000,
+    'drt.min_distance': 1000,
     'drt.maxPreTransitTime': 1800,  # 30 minutes
     'drt.default_max_walk': 3000,
     'drt.visualize_routes': 'false',  # should be a string
