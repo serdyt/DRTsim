@@ -9,6 +9,7 @@ import logging
 import logging.handlers
 from datetime import timedelta as td
 import shutil
+import zipfile
 
 import os
 import sys
@@ -26,7 +27,7 @@ from db_utils import db_conn
 from const import CapacityDimensions as CD
 
 
-from post_processing_utils import send_email, gather_logs
+from post_processing_utils import send_email, gather_logs, zipdir
 
 log = logging.getLogger(__name__)
 
@@ -103,7 +104,7 @@ config = {
     'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
     'population.input_file': 'data/population_fake_od.json',
-    'population.input_percentage': 0.0005,
+    'population.input_percentage': 0.005,
 
     # 'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],  # Sjöbo + Tomelilla
     'drt.zones': [z for z in range(12650001, 12650018)],
@@ -121,7 +122,7 @@ config = {
     'drt.default_max_walk': 3000,
     'drt.visualize_routes': 'false',  # should be a string
     'drt.picture_folder': 'pictures/',
-    'drt.number_vehicles': 2,
+    'drt.number_vehicles': 10,
     'drt.vehicle_type': 'minibus',
 
     'drt.vehicle_types': {
@@ -218,9 +219,16 @@ if __name__ == '__main__':
 
     files = gather_logs(config, folder, res)
 
+    zip_file = config.get('sim.log_zip')
+    with zipfile.ZipFile(zip_file, 'w', compression=zipfile.ZIP_BZIP2, compresslevel=5) as log_zip:
+        for f in files or []:
+            log_zip.write(f)
+        zipdir(config.get('sim.person_log_folder'), log_zip)
+        zipdir(config.get('sim.vehicle_log_folder'), log_zip)
+
     if config.get('sim.email_notification'):
         send_email(subject='Simulation success', text='{}\n{}'.format(message, 'congratulations'),
-                   files=files, zip_file=config.get('sim.log_zip'))
+                   zip_file=zip_file)
 
 # if __name__ == '__main__':
 #     import cProfile

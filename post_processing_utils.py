@@ -4,6 +4,7 @@ import json
 import requests
 import logging
 import pprint
+import os
 
 from const import OtpMode, LegMode, DrtStatus
 from xls_utils import xls_create_occupancy_charts
@@ -121,14 +122,13 @@ def _parse_osrm_response(resp):
     return trip
 
 
-def send_email(subject, text, files, zip_file):
+def send_email(subject, text, zip_file):
     '''
     Sends an email to Sergei when simulation is done.
     If it is not working, check Google settings "login from untrusted device"
 
     :param subject: Subject in the email
     :param text: Body of the email
-    :param files: Files to send with the email (compressed into zip_file)
     :param zip_file: Path to a zip file that will be attached to the email
     '''
     from os.path import basename
@@ -137,7 +137,6 @@ def send_email(subject, text, files, zip_file):
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
     from email.utils import formatdate
-    import zipfile
 
     msg = MIMEMultipart()
     msg['From'] = 'drt.simulator@gmail.com'
@@ -147,9 +146,6 @@ def send_email(subject, text, files, zip_file):
 
     msg.attach(MIMEText(text))
 
-    with zipfile.ZipFile(zip_file, 'w', compression=zipfile.ZIP_BZIP2, compresslevel=5) as log_zip:
-        for f in files or []:
-            log_zip.write(f)
     zf = open(zip_file, 'rb')
     part = MIMEApplication(zf.read(), Name=basename(zf.name))
     # After the file is closed
@@ -163,6 +159,13 @@ def send_email(subject, text, files, zip_file):
     server.login('drt.simulator@gmail.com', 'drtMalmoSweden')
     server.sendmail("drt.simulator@gmail.com", to_addrs="sergei.dytckov@mau.se", msg=msg.as_string())
     server.close()
+
+
+def zipdir(path, ziph):
+    # ziph is zipfile handle
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            ziph.write(os.path.join(root, file))
 
 
 def gather_logs(config, folder, res):
