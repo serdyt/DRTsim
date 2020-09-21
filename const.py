@@ -156,6 +156,6 @@ class DrtStatus(Enum):
     overnight_trip = 'overnight_trip'
     no_stop = 'no_stop'  # no stop for extra-zonal DRT trip found (either too close, or outside of DRT boundaries)
     one_leg = 'one_leg'  # only one leg returned by DRT, most likely OD coordinates are close to PT stops
-    too_short_local = 'too_short_local'
+    too_short_drt_leg = 'too_short_local'
     too_late_request = 'too_late_request'
-    too_long_pt_trip = 'too_long_pt_trip'  # when the whole DRT_TRANSIT trip is more than direct trip*1.5
+    too_long_pt_trip = 'too_long_pt_trip'  # when the whole DRT_TRANSIT trip is more than max time window (direct*1.5)

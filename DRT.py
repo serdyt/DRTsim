@@ -73,20 +73,18 @@ class Top(Component):
 os.environ['TZ'] = 'Sweden'
 time.tzset()
 config = {
-    # 'sim.duration': '86400 s',
-    # 'sim.duration_sec': 86400,
-    'sim.duration': '90000 s',
-    'sim.duration_sec': 90000,
+    'sim.duration': '86400 s',
+    'sim.duration_sec': 86400,
     'sim.seed': 43,
     'sim.email_notification': True,
     'sim.create_excel': True,
-    'sim.purpose': 'Testing with kiss and ride',
+    'sim.purpose': 'Are results a bit too random?',
 
     'person.behaviour': 'DefaultBehaviour',
     'person.mode_choice': 'DefaultModeChoice',
     'service.routing': 'DefaultRouting',
     'service.router_address': 'http://localhost:8080/otp/routers/skane/plan',
-    'service.router_scripting_address': 'http://localhost:8080/otp/scripting/run',
+    # 'service.router_scripting_address': 'http://localhost:8080/otp/scripting/run',
     'service.osrm_route': 'http://0.0.0.0:5000/route/v1/driving/',
     'service.osrm_tdm': 'http://0.0.0.0:5000/table/v1/driving/',
     'service.modes': 'main_modes',  # ['main_modes','all_modes']
@@ -94,19 +92,19 @@ config = {
     'date.struct_time': time.localtime(1542153600),
     'date.unix_epoch': 1542153600,
 
-    'db.file': 'data/time_distance_matrix.db',
+    # 'db.file': 'data/time_distance_matrix.db',
 
     'person.default_attr.walking_speed': 1.2,
     'person.default_attr.dimensions': {CD.SEATS: 1},
     'person.default_attr.driving_license': True,
     'person.default_attr.boarding_time': 30,
     'person.default_attr.leaving_time': 10,
-    'person.default_attr.maxWalkDistance': 10,
+    # 'person.default_attr.maxWalkDistance': 2000,
 
-    'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
+    # 'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
     'population.input_file': 'data/population_fake_od.json',
-    'population.input_percentage': 0.005,
+    'population.input_percentage': 0.05,
 
     # 'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],  # Sjöbo + Tomelilla
     'drt.zones': [z for z in range(12650001, 12650018)],
@@ -115,8 +113,12 @@ config = {
     'drt.planning_in_advance': td(hours=2).total_seconds(),
     'drt.planning_in_advance_multiplier': 2,
 
+    # Parameters that determine maximum travel time for DRT leg
     'drt.time_window_constant': td(minutes=15).total_seconds(),
     'drt.time_window_multiplier': 1.5,
+    # Increased multiplier for the whole trip
+    'drt.whole_trip_acceptability_multiplier': 3,
+
     'drt.time_window_shift_left': 1. / 4,
     'drt.PT_stops_file': 'data/zone_stops.csv',
     'drt.min_distance': 1000,
@@ -124,7 +126,7 @@ config = {
     'drt.default_max_walk': 3000,
     'drt.visualize_routes': 'false',  # should be a string
     'drt.picture_folder': 'pictures/',
-    'drt.number_vehicles': 10,
+    'drt.number_vehicles': 5,
     'drt.vehicle_type': 'minibus',
 
     'drt.vehicle_types': {
@@ -212,7 +214,7 @@ if __name__ == '__main__':
 
         if config.get('sim.email_notification'):
             send_email(subject='Simulation failed', text='{}\n{}'.format(message, str(e.args)),
-                       files=[config.get('sim.log')], zip_file=config.get('sim.log_zip'))
+                       zip_file=config.get('sim.log_zip'))
         log.error(e)
         log.error(e.args)
         raise

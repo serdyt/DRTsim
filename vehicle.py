@@ -355,7 +355,7 @@ class Vehicle(Component):
                 self.ride_time += sum([step.duration for step in passed_steps])
 
     def _update_executed_passengers_routes(self, executed_steps, end_coord):
-        log.debug('Vehicle {} has {} passengers'.format(self.id, len(self.passengers)))
+        # log.debug('Vehicle {} has {} passengers'.format(self.id, len(self.passengers)))
         self.meters_by_occupancy[len(self.passengers)] += \
             sum([step.distance for step in executed_steps])
         for person in self.passengers:

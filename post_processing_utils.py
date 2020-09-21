@@ -199,7 +199,7 @@ def gather_logs(config, folder, res):
     log.info('To late request to be served by DRT {}'.format(res.get('too_late_request')))
     log.info('No suitable PT stops for extra-zonal DRT trips {}'.format(res.get('no_suitable_pt_stop')))
     log.info('Too short trip for intra-zonal trip {}'.format(res.get('too_short_direct_trip')))
-    log.info('No walking leg to replace {}'.format(res.get('no_suitable_pt_connection')))
+    log.info('No walking leg to replace {}'.format(res.get('drt_one_leg')))
     log.info('Too long DRT_PT trip comparing to whole direct trip {}'.format(res.get('too_long_pt_trip')))
 
     log.info('********************************************')
