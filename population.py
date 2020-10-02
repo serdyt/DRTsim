@@ -50,7 +50,7 @@ class Population(Component):
                 pers_id += 1
                 self.person_list.append(self._person_from_json(json_pers, pers_id))
 
-            for json_pers in raw_json.get('population_others_within'):
+            for json_pers in raw_json.get('population_drtable_outside'):
                 pers_id += 1
                 if self.env.rand.choices([False, True],
                                          [self.env.config.get('population.input_percentage'),
@@ -59,14 +59,23 @@ class Population(Component):
                 else:
                     self.person_list.append(self._person_from_json(json_pers, pers_id))
 
-            for json_pers in raw_json.get('population_others_outside'):
-                pers_id += 1
-                if self.env.rand.choices([False, True],
-                                         [self.env.config.get('population.input_percentage'),
-                                          1 - self.env.config.get('population.input_percentage')])[0]:
-                    continue
-                else:
-                    self.person_list.append(self._person_from_json(json_pers, pers_id))
+            # for json_pers in raw_json.get('population_others_within'):
+            #     pers_id += 1
+            #     if self.env.rand.choices([False, True],
+            #                              [self.env.config.get('population.input_percentage'),
+            #                               1 - self.env.config.get('population.input_percentage')])[0]:
+            #         continue
+            #     else:
+            #         self.person_list.append(self._person_from_json(json_pers, pers_id))
+
+            # for json_pers in raw_json.get('population_others_outside'):
+            #     pers_id += 1
+            #     if self.env.rand.choices([False, True],
+            #                              [self.env.config.get('population.input_percentage'),
+            #                               1 - self.env.config.get('population.input_percentage')])[0]:
+            #         continue
+            #     else:
+            #         self.person_list.append(self._person_from_json(json_pers, pers_id))
 
     def read_json(self):
         """Reads json input file and generates persons to simulate"""
