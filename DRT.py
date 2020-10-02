@@ -103,8 +103,9 @@ config = {
 
     # 'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
-    'population.input_file': 'data/population_fake_od.json',
-    'population.input_percentage': 0.05,
+    # 'population.input_file': 'data/population_fake_od.json',
+    'population.input_file': 'data/population_VEHITS_divided_to_pt_and_others.json',
+    'population.input_percentage': 0.0,
 
     # 'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],  # Sjöbo + Tomelilla
     'drt.zones': [z for z in range(12650001, 12650018)],
@@ -117,7 +118,7 @@ config = {
     'drt.time_window_constant': td(minutes=15).total_seconds(),
     'drt.time_window_multiplier': 1.5,
     # Increased multiplier for the whole trip
-    'drt.whole_trip_acceptability_multiplier': 3,
+    'drt.whole_trip_acceptability_multiplier': 2,
 
     'drt.time_window_shift_left': 1. / 4,
     'drt.PT_stops_file': 'data/zone_stops.csv',
@@ -126,7 +127,7 @@ config = {
     'drt.default_max_walk': 3000,
     'drt.visualize_routes': 'false',  # should be a string
     'drt.picture_folder': 'pictures/',
-    'drt.number_vehicles': 5,
+    'drt.number_vehicles': 20,
     'drt.vehicle_type': 'minibus',
 
     'drt.vehicle_types': {

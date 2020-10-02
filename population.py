@@ -34,8 +34,39 @@ class Population(Component):
         self._init_persons()
 
     def _init_persons(self):
-        self.read_json()
+        # self.read_json()
+        self.read_split_json()
         log.info('{}: Population of {} persons created.'.format(self.env.now, len(self.person_list)))
+
+    def read_split_json(self):
+        with open(self.env.config.get('population.input_file'), 'r') as input_file:
+            raw_json = json.load(input_file)
+            pers_id = 0
+
+            for json_pers in raw_json.get('population_within_pt'):
+                pers_id += 1
+                self.person_list.append(self._person_from_json(json_pers, pers_id))
+            for json_pers in raw_json.get('population_outside_pt'):
+                pers_id += 1
+                self.person_list.append(self._person_from_json(json_pers, pers_id))
+
+            for json_pers in raw_json.get('population_others_within'):
+                pers_id += 1
+                if self.env.rand.choices([False, True],
+                                         [self.env.config.get('population.input_percentage'),
+                                          1 - self.env.config.get('population.input_percentage')])[0]:
+                    continue
+                else:
+                    self.person_list.append(self._person_from_json(json_pers, pers_id))
+
+            for json_pers in raw_json.get('population_others_outside'):
+                pers_id += 1
+                if self.env.rand.choices([False, True],
+                                         [self.env.config.get('population.input_percentage'),
+                                          1 - self.env.config.get('population.input_percentage')])[0]:
+                    continue
+                else:
+                    self.person_list.append(self._person_from_json(json_pers, pers_id))
 
     def read_json(self):
         """Reads json input file and generates persons to simulate"""
@@ -45,49 +76,55 @@ class Population(Component):
             pers_id = 0
             for json_pers in persons:
                 pers_id += 1
-                # if self.env.rand.choices([False, True],
-                #                          [self.env.config.get('population.input_percentage'),
-                #                          1 - self.env.config.get('population.input_percentage')])[0]:
-                #     continue
 
-                attributes = {'age': 22, 'id': pers_id, 'otp_parameters': {'arriveBy': True}}
+                pers = self._person_from_json(json_pers, pers_id)
 
-                # TODO: sequence of activities has the same end and start times
-                # time window is applied on the planning stage in the behaviour and service
-
-                activities = []
-                json_activities = json_pers.get('activities')
-                if len(json_activities) == 0:
-                    raise Exception('No activities provided for a person.')
-                for json_activity in json_activities:
-                    type_str = json_activity.get('type')
-                    type_ = actType.get_activity(type_str)
-
-                    end_time = seconds_from_str(json_activity.get('end_time'))
-                    start_time = seconds_from_str(json_activity.get('start_time'))
-
-                    coord_json = json_activity.get('coord')
-                    coord = Coord(lat=float(coord_json.get('lat')), lon=float(coord_json.get('lon')))
-
-                    zone = int(json_activity.get('zone'))
-
-                    activities.append(
-                        Activity(type_=type_,
-                                 start_time=start_time,
-                                 end_time=end_time,
-                                 coord=coord,
-                                 zone=zone
-                                 )
-                    )
-                if activities[0].zone in self.env.config.get('drt.zones') \
-                        or activities[1].zone in self.env.config.get('drt.zones'):
+                if pers.activities[0].zone in self.env.config.get('drt.zones') \
+                        or pers.activities[1].zone in self.env.config.get('drt.zones'):
 
                     if self.env.rand.choices([False, True],
                                              [self.env.config.get('population.input_percentage'),
                                               1 - self.env.config.get('population.input_percentage')])[0]:
                         continue
 
-                    self.person_list.append(Person(self, attributes, activities))
+                    self.person_list.append(pers)
+
+    def _person_from_json(self, json_pers, pers_id):
+        # if self.env.rand.choices([False, True],
+        #                          [self.env.config.get('population.input_percentage'),
+        #                          1 - self.env.config.get('population.input_percentage')])[0]:
+        #     continue
+
+        attributes = {'age': 22, 'id': pers_id, 'otp_parameters': {'arriveBy': True}}
+
+        # TODO: sequence of activities has the same end and start times
+        # time window is applied on the planning stage in the behaviour and service
+
+        activities = []
+        json_activities = json_pers.get('activities')
+        if len(json_activities) == 0:
+            raise Exception('No activities provided for a person.')
+        for json_activity in json_activities:
+            type_str = json_activity.get('type')
+            type_ = actType.get_activity(type_str)
+
+            end_time = seconds_from_str(json_activity.get('end_time'))
+            start_time = seconds_from_str(json_activity.get('start_time'))
+
+            coord_json = json_activity.get('coord')
+            coord = Coord(lat=float(coord_json.get('lat')), lon=float(coord_json.get('lon')))
+
+            zone = int(json_activity.get('zone'))
+
+            activities.append(
+                Activity(type_=type_,
+                         start_time=start_time,
+                         end_time=end_time,
+                         coord=coord,
+                         zone=zone
+                         )
+            )
+        return Person(self, attributes, activities)
 
     def _random_persons(self):
         """Not used. Generates persons at random geographical points with default parameters"""
