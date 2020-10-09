@@ -49,9 +49,20 @@ class DefaultBehaviour(StateMachine):
         self.person = person
         self.env = self.person.env
 
+    def _check_activity_times(self, reactivate=False):
+        if self.person.next_activity.start_time < self.env.now:
+            log.error('Person {} should have already started a new activity at {}. It will be removed.'
+                      .format(self.person.id, self.person.next_activity.start_time))
+            yield Event(self.env).succeed()
+            if reactivate:
+                self.env.process(self.unreactivatable())
+            else:
+                self.env.process(self.unactivatable())
+
     def on_activate(self):
         # otp_attributes = {'maxWalkDistance': self.env.config.get('drt.default_max_walk'),
         #                   'numItineraries': 1}
+        self._check_activity_times()
         self.person.update_otp_params()
         try:
             direct_trip = self.person.serviceProvider.standalone_osrm_request(self.person)
@@ -78,6 +89,7 @@ class DefaultBehaviour(StateMachine):
             # if it is, we must save multiple requests and have some policy to merge them
             yield self.person.env.timeout(0.000001)
         self.person.update_travel_log(TravellerEventType.ACT_FINISHED, self.person.curr_activity)
+
         if self.person.planned_trip is None:
             try:
                 self.person.update_travel_log(TravellerEventType.TRIP_REQUEST_SUBMITTED, self.person.curr_activity)
@@ -134,6 +146,7 @@ class DefaultBehaviour(StateMachine):
                           'maxWalkDistance': self.env.config.get('drt.default_max_walk'),
                           'numItineraries': 1}
         self.person.update_otp_params()
+        self._check_activity_times(reactivate=True)
         try:
             direct_trip = self.person.serviceProvider.standalone_osrm_request(self.person)
             timeout = self.person.get_planning_time(direct_trip)

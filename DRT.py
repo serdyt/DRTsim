@@ -106,7 +106,7 @@ config = {
 
     # 'population.input_file': 'data/population_fake_od.json',
     'population.input_file': 'data/population_VEHITS_divided_to_pt_and_others.json',
-    'population.input_percentage': 0.3,
+    'population.input_percentage': 1.0,
     # ['all_within', 'pt_only', 'drtable_all', 'drtable_outside', 'all']
     'population.scenario': 'pt_only',
 
@@ -137,7 +137,7 @@ config = {
     'drt.default_max_walk': 3000,
     'drt.visualize_routes': 'false',  # should be a string
     'drt.picture_folder': 'pictures/',
-    'drt.number_vehicles': 20,
+    'drt.number_vehicles': 30,
     'drt.vehicle_type': 'minibus',
 
     'drt.vehicle_types': {

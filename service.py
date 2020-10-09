@@ -30,7 +30,6 @@ log = logging.getLogger(__name__)
 
 
 class ServiceProvider(Component):
-
     pending_drt_requests = None  # type: Dict[int, JspritSolution]
     vehicles = None  # type: List[Vehicle]
     base_name = 'service'
@@ -123,7 +122,7 @@ class ServiceProvider(Component):
             drt_alternatives, status = self._drt_request(person)
             person.drt_status.append(status)
         except OTPNoPath as e:
-            log.warning('{}\n{}'.format(e.msg,  e.context))
+            log.warning('{}\n{}'.format(e.msg, e.context))
             log.warning('Person {} will not consider DRT'.format(person))
             drt_alternatives = []
 
@@ -174,7 +173,7 @@ class ServiceProvider(Component):
                                                                     mode,
                                                                     copy.copy(person.otp_parameters))
             except OTPNoPath as e:
-                log.warning('{}\n{}'.format(e.msg,  e.context))
+                log.warning('{}\n{}'.format(e.msg, e.context))
                 continue
 
         if len(traditional_alternatives) == 0:
@@ -339,9 +338,8 @@ class ServiceProvider(Component):
                         status_log[DrtStatus.no_stop] += 1
                         # if one of the found CAR_PICKUP+TRANSIT trips has a transfer outside DRT service area
                         # we will try to reduce time for CAR so that other alternatives are picked up in next iteration
-                        params.update({'maxPreTransitTime':
-                                       int(min(drt_trip.legs[0].duration - 10,
-                                       params.get('maxPreTransitTime')))})
+                        params.update({'maxPreTransitTime': int(min(drt_trip.legs[0].duration - 10,
+                                                            params.get('maxPreTransitTime')))})
                         continue
 
                 else:
@@ -637,7 +635,8 @@ class ServiceProvider(Component):
             action = DrtAct(type_=njact.type, person=person, duration=duration, distance=0,
                             end_coord=drt_acts[-1].end_coord, start_coord=drt_acts[-1].end_coord,
                             start_time=njact.end_time - duration, end_time=njact.end_time)
-            action.steps = [Step(start_coord=action.start_coord, end_coord=action.end_coord, distance=0, duration=duration)]
+            action.steps = [
+                Step(start_coord=action.start_coord, end_coord=action.end_coord, distance=0, duration=duration)]
 
             # *************************************************************
             # **********        Waiting before an activity       **********
@@ -647,8 +646,9 @@ class ServiceProvider(Component):
                                   duration=njact.end_time - njact.arrival_time - duration,
                                   end_coord=drt_acts[-1].end_coord, start_coord=drt_acts[-1].end_coord,
                                   distance=0,
-                                  start_time=njact.arrival_time, end_time=njact.end_time-duration)
-                wait_act.steps = [Step(start_coord=wait_act.start_coord, end_coord=wait_act.end_coord, distance=0, duration=wait_act.duration)]
+                                  start_time=njact.arrival_time, end_time=njact.end_time - duration)
+                wait_act.steps = [Step(start_coord=wait_act.start_coord, end_coord=wait_act.end_coord, distance=0,
+                                       duration=wait_act.duration)]
                 drt_acts.append(wait_act)
 
             drt_acts.append(action)
