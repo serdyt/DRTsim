@@ -285,9 +285,10 @@ class ServiceProvider(Component):
                     status_log[DrtStatus.overnight_trip] += 1
                     continue
 
+                # TODO: check how this restriction is applied for time windows
                 if alt.duration > person.direct_trip.duration \
-                        * self.env.config.get('drt.whole_trip_acceptability_multiplier') \
-                        + self.env.config.get('drt.time_window_constant'):
+                        * person.time_window_multiplier \
+                        + person.time_window_constant:
                     status_log[DrtStatus.too_long_pt_trip] += 1
                     continue
 

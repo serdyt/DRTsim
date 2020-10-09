@@ -3,11 +3,54 @@ import logging
 import math
 
 from const import OtpMode, LegMode
+from sim_utils import Trip
 
 log = logging.getLogger(__name__)
 
 
+class TimeWindowsModeChoice(object):
+    """Uses travel time to choose
+    PT vs DRT - choose the fastest
+    PT vs CAR - choose based on PT time window
+    """
+    def __init__(self, person):
+        self.env = person.env
+        self.person = person
+
+    def satisfies_hard_restrictions(self, trip):
+        if not self.person.driving_license and trip.main_mode in [OtpMode.CAR, OtpMode.PARK_RIDE]:
+            log.debug('{} does not have a licence to go by car'.format(self.person.scope))
+            return False
+        else:
+            return True
+
+    def choose(self, alternatives):
+        filtered_alternatives = []
+        for trip in alternatives:
+            if not self.satisfies_hard_restrictions(trip):
+                continue
+            filtered_alternatives.append(trip)
+
+        if len(filtered_alternatives) != 0:
+            return self._choice_model(filtered_alternatives)
+        else:
+            return None
+
+    def _choice_model(self, alternatives):
+        """
+        :type alternatives: [Trip]
+        """
+        times = []
+        for alt in alternatives:
+            if alt.main_mode in [OtpMode.CAR]:
+                times.append(alt.duration * self.person.time_window_multiplier + self.person.time_window_constant)
+            else:
+                times.append(alt.duration)
+        return min(zip(times, alternatives), key=lambda x: x[0])[1]
+
+
 class DefaultModeChoice(object):
+    """Supposed to be using MNL, but takes DRT if possible with 99.9%"""
 
     def __init__(self, person):
         self.env = person.env

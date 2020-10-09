@@ -105,6 +105,12 @@ class OtpMode(object):
             raise Exception('unsupported mode {}'.format(string))
 
 
+class TravelType(Enum):
+    WITHIN = 'within'
+    IN = 'in'
+    OUT = 'out'
+
+
 class CapacityDimensions(object):
     """jsprit requires capacity dimensions to be integers
     """

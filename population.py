@@ -16,7 +16,7 @@ from sim_utils import Activity, Coord, seconds_from_str, Trip, Leg, Step
 from const import ActivityType as actType
 from const import maxLat, minLat, maxLon, minLon
 from const import CapacityDimensions as CD
-from const import OtpMode
+from const import OtpMode, TravelType
 from log_utils import TravellerEventType
 
 log = logging.getLogger(__name__)
@@ -39,19 +39,63 @@ class Population(Component):
         log.info('{}: Population of {} persons created.'.format(self.env.now, len(self.person_list)))
 
     def read_split_json(self):
+        """Reads the population file of format
+
+         population = {   'population_within_pt': [],
+                          'population_within_other': [],
+
+                          'population_in_pt': [],
+                          'population_out_pt': [],
+
+                          'population_in_drtable': [],
+                          'population_out_drtable': [],
+
+                          'population_in_other': [],
+                          'population_out_other': []
+             }
+        """
         with open(self.env.config.get('population.input_file'), 'r') as input_file:
             raw_json = json.load(input_file)
             pers_id = 0
 
-            for json_pers in raw_json.get('population_within_pt'):
-                pers_id += 1
-                self.person_list.append(self._person_from_json(json_pers, pers_id))
-            for json_pers in raw_json.get('population_outside_pt'):
-                pers_id += 1
-                self.person_list.append(self._person_from_json(json_pers, pers_id))
+            # ['all_within', 'pt_only', 'drtable_all', 'drtable_outside']
 
-            for json_pers in raw_json.get('population_drtable_outside'):
-                pers_id += 1
+            if self.env.config.get('population.scenario') == 'all_within':
+                persons = raw_json.get('population_within_pt') + \
+                          raw_json.get('population_within_other')
+            elif self.env.config.get('population.scenario') == 'pt_only':
+                persons = raw_json.get('population_within_pt') + \
+                          raw_json.get('population_in_pt') + \
+                          raw_json.get('population_out_pt')
+            elif self.env.config.get('population.scenario') == 'drtable_all':
+                persons = raw_json.get('population_within_pt') + \
+                          raw_json.get('population_within_other') + \
+                          raw_json.get('population_in_pt') + \
+                          raw_json.get('population_out_pt') + \
+                          raw_json.get('population_in_drtable') + \
+                          raw_json.get('population_out_drtable')
+            elif self.env.config.get('population.scenario') == 'drtable_outside':
+                persons = raw_json.get('population_in_pt') + \
+                          raw_json.get('population_out_pt') + \
+                          raw_json.get('population_in_drtable') + \
+                          raw_json.get('population_out_drtable')
+            elif self.env.config.get('population.scenario') == 'all':
+                log.warning("Careful, importing the whole population file, it make take a lot of time!")
+                persons = raw_json.get('population_within_pt') + \
+                          raw_json.get('population_within_other') + \
+                          raw_json.get('population_in_pt') + \
+                          raw_json.get('population_out_pt') + \
+                          raw_json.get('population_in_drtable') + \
+                          raw_json.get('population_out_drtable') + \
+                          raw_json.get('population_in_other') + \
+                          raw_json.get('population_out_other')
+            else:
+                log.critical("Input population is configured wrong!."
+                             "Use population.scenario "
+                             "['all_within', 'pt_only', 'drtable_all', 'drtable_outside', 'all']")
+                raise Exception()
+
+            for json_pers in persons:
                 if self.env.rand.choices([False, True],
                                          [self.env.config.get('population.input_percentage'),
                                           1 - self.env.config.get('population.input_percentage')])[0]:
@@ -59,23 +103,7 @@ class Population(Component):
                 else:
                     self.person_list.append(self._person_from_json(json_pers, pers_id))
 
-            # for json_pers in raw_json.get('population_others_within'):
-            #     pers_id += 1
-            #     if self.env.rand.choices([False, True],
-            #                              [self.env.config.get('population.input_percentage'),
-            #                               1 - self.env.config.get('population.input_percentage')])[0]:
-            #         continue
-            #     else:
-            #         self.person_list.append(self._person_from_json(json_pers, pers_id))
-
-            # for json_pers in raw_json.get('population_others_outside'):
-            #     pers_id += 1
-            #     if self.env.rand.choices([False, True],
-            #                              [self.env.config.get('population.input_percentage'),
-            #                               1 - self.env.config.get('population.input_percentage')])[0]:
-            #         continue
-            #     else:
-            #         self.person_list.append(self._person_from_json(json_pers, pers_id))
+                pers_id += 1
 
     def read_json(self):
         """Reads json input file and generates persons to simulate"""
@@ -201,6 +229,9 @@ class Person(Component):
 
         self.otp_parameters = {}
         self.attributes = {}
+        self.time_window_multiplier = 0
+        self.time_window_constant = 0
+        self.travel_type = None
         self._set_attributes(attributes)
 
         if len(activities) < 2:
@@ -233,6 +264,7 @@ class Person(Component):
 
         self.delivered = self.env.event()
         self.drt_executed = self.env.event()
+        self._set_travel_type_and_time_window_attributes()
         self.add_process(self.behaviour.activate)
 
     def _set_attributes(self, attributes):
@@ -248,6 +280,34 @@ class Person(Component):
     def update_otp_params(self):
         """Sets new otp params for a new trip. Params are deducted from activity"""
         self.otp_parameters.update({'arriveBy': self.get_arrive_by()})
+
+    def _set_travel_type_and_time_window_attributes(self):
+        if self.curr_activity.zone in self.env.config.get('drt.zones') and \
+                self.next_activity.zone in self.env.config.get('drt.zones'):
+            m = self.env.config.get('pt.time_window_multiplier_within')
+            c = self.env.config.get('pt.time_window_constant_within')
+            t = TravelType.WITHIN
+        elif self.curr_activity.zone in self.env.config.get('drt.zones') and \
+                self.next_activity.zone not in self.env.config.get('drt.zones'):
+            m = self.env.config.get('pt.time_window_multiplier_out')
+            c = self.env.config.get('pt.time_window_constant_out')
+            t = TravelType.OUT
+        elif self.curr_activity.zone not in self.env.config.get('drt.zones') and \
+                self.next_activity.zone in self.env.config.get('drt.zones'):
+            m = self.env.config.get('pt.time_window_multiplier_in')
+            c = self.env.config.get('pt.time_window_constant_in')
+            t = TravelType.IN
+        else:
+            log.error('Cannot determine what time window attributes to assign to a person.'
+                      'Assigning default "within".'
+                      'Person {}, activities'.format(self.id, self.activities))
+            m = self.env.config.get('pt.time_window_multiplier_within')
+            c = self.env.config.get('pt.time_window_constant_within')
+            t = TravelType.WITHIN
+
+        self.travel_type = t
+        self.time_window_multiplier = m
+        self.time_window_constant = c
 
     def save_travel_log(self):
         log_folder = self.env.config.get('sim.person_log_folder')
@@ -398,8 +458,8 @@ class Person(Component):
         return self.otp_parameters
 
     def set_tw(self, direct_time, single_leg=False, first_leg=False, last_leg=False, drt_leg=None):
-        tw = direct_time * self.env.config.get('drt.time_window_multiplier') \
-             + self.env.config.get('drt.time_window_constant')
+        tw = direct_time * self.time_window_multiplier \
+             + self.time_window_constant
         if single_leg:
             self.drt_tw_left = self.curr_activity.end_time - tw * self.env.config.get('drt.time_window_shift_left')
             self.drt_tw_right = self.next_activity.start_time \

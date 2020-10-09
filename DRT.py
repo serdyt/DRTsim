@@ -81,7 +81,8 @@ config = {
     'sim.purpose': 'Are results a bit too random?',
 
     'person.behaviour': 'DefaultBehaviour',
-    'person.mode_choice': 'DefaultModeChoice',
+    # 'person.mode_choice': 'DefaultModeChoice',
+    'person.mode_choice': 'TimeWindowsModeChoice',
     'service.routing': 'DefaultRouting',
     'service.router_address': 'http://localhost:8080/otp/routers/skane/plan',
     # 'service.router_scripting_address': 'http://localhost:8080/otp/scripting/run',
@@ -105,7 +106,9 @@ config = {
 
     # 'population.input_file': 'data/population_fake_od.json',
     'population.input_file': 'data/population_VEHITS_divided_to_pt_and_others.json',
-    'population.input_percentage': 0.0,
+    'population.input_percentage': 0.3,
+    # ['all_within', 'pt_only', 'drtable_all', 'drtable_outside', 'all']
+    'population.scenario': 'pt_only',
 
     # 'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],  # Sjöbo + Tomelilla
     'drt.zones': [z for z in range(12650001, 12650018)],
@@ -114,11 +117,18 @@ config = {
     'drt.planning_in_advance': td(hours=2).total_seconds(),
     'drt.planning_in_advance_multiplier': 2,
 
-    # Parameters that determine maximum travel time for DRT leg
-    'drt.time_window_constant': td(minutes=15).total_seconds(),
-    'drt.time_window_multiplier': 1.5,
-    # Increased multiplier for the whole trip
-    'drt.whole_trip_acceptability_multiplier': 2,
+    # # Parameters that determine maximum travel time for DRT leg
+    # 'drt.time_window_constant': td(minutes=15).total_seconds(),
+    # 'drt.time_window_multiplier': 1.5,
+    # # Increased multiplier for the whole trip
+    # 'drt.whole_trip_acceptability_multiplier': 2,
+
+    'pt.time_window_multiplier_in': 1.65,
+    'pt.time_window_constant_in': 0,
+    'pt.time_window_multiplier_out': 1.95,
+    'pt.time_window_constant_out': 0,
+    'pt.time_window_multiplier_within': 1.7,
+    'pt.time_window_constant_within': 0,
 
     'drt.time_window_shift_left': 1. / 4,
     'drt.PT_stops_file': 'data/zone_stops.csv',
@@ -141,10 +151,15 @@ config = {
 
 }
 
-folder = '-p-{}-pre-{}-twc-{}-twm-{}-nv-{}'.format(config.get('population.input_percentage'),
+folder = '-p-{}-pre-{}-twc-{}-twm-{}-nv-{}'.format([config.get('population.scenario'),
+                                                   config.get('population.input_percentage')],
                                                    config.get('drt.planning_in_advance'),
-                                                   config.get('drt.time_window_constant'),
-                                                   config.get('drt.time_window_multiplier'),
+                                                   [config.get('pt.time_window_constant_within'),
+                                                    config.get('pt.time_window_constant_in'),
+                                                    config.get('pt.time_window_constant_out')],
+                                                   [config.get('pt.time_window_multiplier_within'),
+                                                    config.get('pt.time_window_multiplier_in'),
+                                                    config.get('pt.time_window_multiplier_out')],
                                                    config.get('drt.number_vehicles'))
 try:
     shutil.rmtree(folder)
