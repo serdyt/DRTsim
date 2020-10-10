@@ -49,20 +49,22 @@ class DefaultBehaviour(StateMachine):
         self.person = person
         self.env = self.person.env
 
-    def _check_activity_times(self, reactivate=False):
+    def _activity_time_screwed(self):
         if self.person.next_activity.start_time < self.env.now:
             log.error('Person {} should have already started a new activity at {}. It will be removed.'
                       .format(self.person.id, self.person.next_activity.start_time))
-            yield Event(self.env).succeed()
-            if reactivate:
-                self.env.process(self.unreactivatable())
-            else:
-                self.env.process(self.unactivatable())
+            return True
+        else:
+            return False
 
     def on_activate(self):
         # otp_attributes = {'maxWalkDistance': self.env.config.get('drt.default_max_walk'),
         #                   'numItineraries': 1}
-        self._check_activity_times()
+        if self._activity_time_screwed():
+            yield Event(self.env).succeed()
+            self.env.process(self.unactivatable())
+            return
+
         self.person.update_otp_params()
         try:
             direct_trip = self.person.serviceProvider.standalone_osrm_request(self.person)
@@ -146,7 +148,10 @@ class DefaultBehaviour(StateMachine):
                           'maxWalkDistance': self.env.config.get('drt.default_max_walk'),
                           'numItineraries': 1}
         self.person.update_otp_params()
-        self._check_activity_times(reactivate=True)
+        if self._activity_time_screwed():
+            yield Event(self.env).succeed()
+            self.env.process(self.unreactivatable())
+            return
         try:
             direct_trip = self.person.serviceProvider.standalone_osrm_request(self.person)
             timeout = self.person.get_planning_time(direct_trip)
