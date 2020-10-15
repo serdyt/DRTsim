@@ -78,7 +78,7 @@ config = {
     'sim.seed': 43,
     'sim.email_notification': True,
     'sim.create_excel': True,
-    'sim.purpose': 'Are results a bit too random?',
+    'sim.purpose': 'All pt test',
 
     'person.behaviour': 'DefaultBehaviour',
     # 'person.mode_choice': 'DefaultModeChoice',
@@ -105,7 +105,7 @@ config = {
     # 'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
     # 'population.input_file': 'data/population_fake_od.json',
-    'population.input_file': 'data/population_VEHITS_divided_to_pt_and_others.json',
+    'population.input_file': 'data/population_VEHITS_kommun_divided_to_pt_and_others.json',
     'population.input_percentage': 1.0,
     # ['all_within', 'pt_only', 'drtable_all', 'drtable_outside', 'all']
     'population.scenario': 'pt_only',
@@ -123,21 +123,21 @@ config = {
     # # Increased multiplier for the whole trip
     # 'drt.whole_trip_acceptability_multiplier': 2,
 
-    'pt.time_window_multiplier_in': 1.65,
+    'pt.time_window_multiplier_in': 1.55,
     'pt.time_window_constant_in': 0,
     'pt.time_window_multiplier_out': 1.95,
     'pt.time_window_constant_out': 0,
     'pt.time_window_multiplier_within': 1.7,
     'pt.time_window_constant_within': 0,
 
-    'drt.time_window_shift_left': 1. / 4,
+    'drt.time_window_shift_left': 1.,
     'drt.PT_stops_file': 'data/zone_stops.csv',
     'drt.min_distance': 1000,
     'drt.maxPreTransitTime': 1800,  # 30 minutes
     'drt.default_max_walk': 3000,
     'drt.visualize_routes': 'false',  # should be a string
     'drt.picture_folder': 'pictures/',
-    'drt.number_vehicles': 30,
+    'drt.number_vehicles': 10,
     'drt.vehicle_type': 'minibus',
 
     'drt.vehicle_types': {

@@ -457,9 +457,13 @@ class Person(Component):
     def get_routing_parameters(self):
         return self.otp_parameters
 
-    def set_tw(self, direct_time, single_leg=False, first_leg=False, last_leg=False, drt_leg=None):
+    def set_tw(self, direct_time, single_leg=False, first_leg=False, last_leg=False, drt_leg=None, available_time=None):
         tw = direct_time * self.time_window_multiplier \
              + self.time_window_constant
+        if available_time is not None:
+            tw = min(available_time, tw)
+            # tw = available_time
+
         if single_leg:
             self.drt_tw_left = self.curr_activity.end_time - tw * self.env.config.get('drt.time_window_shift_left')
             self.drt_tw_right = self.next_activity.start_time \

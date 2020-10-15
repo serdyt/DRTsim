@@ -312,8 +312,12 @@ class ServiceProvider(Component):
                     # TODO: take the last possible stop as an alternative
                     # That would be the scenario to a central station (most likely)
                     try:
+
                         drt_leg = self._get_leg_for_in_trip(drt_trip, person)
-                        person.set_tw(drt_leg.duration, last_leg=True, drt_leg=drt_leg)
+                        available_drt_time = person.direct_trip.duration * person.time_window_multiplier + \
+                                             person.time_window_constant - (alt.duration - drt_leg.duration)
+                        person.set_tw(drt_leg.duration, last_leg=True, drt_leg=drt_leg,
+                                      available_time=available_drt_time)
                         pt_walk_leg_index = -1
                     except PTStopServiceOutsideZone:
                         # log.info(e.msg)
@@ -331,7 +335,10 @@ class ServiceProvider(Component):
                 elif self.is_out_trip(person):
                     try:
                         drt_leg = self._get_leg_for_out_trip(drt_trip, person)
-                        person.set_tw(drt_leg.duration, first_leg=True, drt_leg=drt_leg)
+                        available_drt_time = person.direct_trip.duration * person.time_window_multiplier + \
+                                             person.time_window_constant - (alt.duration - drt_leg.duration)
+                        person.set_tw(drt_leg.duration, last_leg=True, drt_leg=drt_leg,
+                                      available_time=available_drt_time)
                         pt_walk_leg_index = 0
                     except PTStopServiceOutsideZone:
                         # log.info(e.msg)
