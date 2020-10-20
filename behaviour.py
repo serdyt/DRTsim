@@ -117,7 +117,7 @@ class DefaultBehaviour(StateMachine):
                         'Person will be excluded from simulation.'
                         .format(self.env.now, self.person.id))
             log.debug('{}\n{}'.format(self.person, self.person.alternatives))
-            self.env.process()
+            self.env.process(self.unchoosable())
         else:
             log.info('{}: Person {} have chosen trip {}'.format(self.env.now, self.person.id, chosen_trip))
             self.person.planned_trip = chosen_trip.deepcopy()
