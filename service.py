@@ -116,7 +116,7 @@ class ServiceProvider(Component):
 
         traditional_alternatives2 = []
         for trip in traditional_alternatives:
-            if trip.legs[0].start_time < self.env.now or trip.legs[-1].end_time < self.env['sim.duration_sec']:
+            if trip.legs[0].start_time < self.env.now or trip.legs[-1].end_time < self.env.config['sim.duration_sec']:
                 continue
             else:
                 traditional_alternatives2.append(trip)
