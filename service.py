@@ -113,6 +113,14 @@ class ServiceProvider(Component):
         start = time.time()
         traditional_alternatives = self._traditional_request(person)
         log.debug('Web requests took {}'.format(time.time() - start))
+
+        traditional_alternatives2 = []
+        for trip in traditional_alternatives:
+            if trip.legs[0].start_time < self.env.now or trip.legs[-1].end_time < self.env['sim.duration_sec']:
+                continue
+            else:
+                traditional_alternatives2.append(trip)
+
         start = time.time()
 
         if len(traditional_alternatives) == 0:
@@ -120,14 +128,14 @@ class ServiceProvider(Component):
 
         try:
             drt_alternatives, status = self._drt_request(person)
-            person.drt_status.append(status)
+            person.set_drt_status(status)
         except OTPNoPath as e:
             log.warning('{}\n{}'.format(e.msg, e.context))
             log.warning('Person {} will not consider DRT'.format(person))
             drt_alternatives = []
 
         log.debug('DRT request took {}'.format(time.time() - start))
-        alternatives = traditional_alternatives + drt_alternatives
+        alternatives = traditional_alternatives2 + drt_alternatives
 
         if len(alternatives) == 0:
             log.warning('no alternatives received by {}'.format(person.scope))

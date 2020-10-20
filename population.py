@@ -426,6 +426,9 @@ class Person(Component):
     def set_direct_trip(self, trip):
         self.direct_trip = trip
 
+    def set_drt_status(self, status):
+        self.drt_status.append(status)
+
     def update_planned_drt_trip(self, drt_route):
         """Jsprit solution does not provide distances. # TODO: check if it is possible to include this in jsprit
         After service provider reconstructs DRT route with OTP, it calls for this to recalculate actual planned route,
