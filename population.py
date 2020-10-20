@@ -102,7 +102,6 @@ class Population(Component):
                     continue
                 else:
                     self.person_list.append(self._person_from_json(json_pers, pers_id))
-
                 pers_id += 1
 
     def read_json(self):
@@ -271,7 +270,8 @@ class Person(Component):
         for attr in attributes.items():
             setattr(self, attr[0], attr[1])
 
-    def get_arrive_by(self):
+    def is_arrive_by(self):
+        """Returns true when next (or current) trip is of 'arrive by' type"""
         if self.next_activity.type == actType.WORK:
             return True
         else:
@@ -279,7 +279,7 @@ class Person(Component):
 
     def update_otp_params(self):
         """Sets new otp params for a new trip. Params are deducted from activity"""
-        self.otp_parameters.update({'arriveBy': self.get_arrive_by()})
+        self.otp_parameters.update({'arriveBy': self.is_arrive_by()})
 
     def _set_travel_type_and_time_window_attributes(self):
         if self.curr_activity.zone in self.env.config.get('drt.zones') and \
@@ -310,6 +310,7 @@ class Person(Component):
         self.time_window_constant = c
 
     def save_travel_log(self):
+        """Saves travel log to a file."""
         log_folder = self.env.config.get('sim.person_log_folder')
         try:
             with open('{}/person_{}'.format(log_folder, self.id), 'w') as f:
@@ -350,8 +351,14 @@ class Person(Component):
         :type trip: Trip - direct trip by a car from OSRM
         """
 
-        pre_trip_time = max(trip.duration * self.env.config.get('drt.planning_in_advance_multiplier'),
-                            self.env.config.get('drt.planning_in_advance'))
+        # pre_trip_time = max(trip.duration * self.env.config.get('drt.planning_in_advance_multiplier'),
+        #                     self.env.config.get('drt.planning_in_advance'))
+
+        if self.is_arrive_by():
+            pre_trip_time = trip.duration * self.time_window_multiplier + self.time_window_constant +\
+                            self.env.config.get('drt.planning_in_advance')
+        else:
+            pre_trip_time = self.env.config.get('drt.planning_in_advance')
 
         timeout = int((self.next_activity.start_time - pre_trip_time - self.env.now))
 
@@ -389,7 +396,7 @@ class Person(Component):
         self.actual_trip.legs[-1].start_coord = start_coord
 
     def reset_delivery(self):
-        """Create ne delivery events"""
+        """Creates the delivery events. These events are used to signal when trip is executed."""
         self.delivered = self.env.event()
         self.drt_executed = self.env.event()
 
@@ -461,13 +468,17 @@ class Person(Component):
         tw = direct_time * self.time_window_multiplier \
              + self.time_window_constant
         if available_time is not None:
-            tw = min(available_time, tw)
-            # tw = available_time
+            # tw = min(available_time, tw)
+            tw = available_time
 
         if single_leg:
-            self.drt_tw_left = self.curr_activity.end_time - tw * self.env.config.get('drt.time_window_shift_left')
-            self.drt_tw_right = self.next_activity.start_time \
-                + tw * (1 - self.env.config.get('drt.time_window_shift_left'))
+            self.drt_tw_left = self.curr_activity.end_time
+            self.drt_tw_right = self.next_activity.start_time + tw
+
+            # I do not even know what is the purpose of this shift any more:
+            # self.drt_tw_left = self.curr_activity.end_time - tw * self.env.config.get('drt.time_window_shift_left')
+            # self.drt_tw_right = self.next_activity.start_time \
+            #     + tw * (1 - self.env.config.get('drt.time_window_shift_left'))
         elif first_leg:
             self.drt_tw_left = drt_leg.end_time - tw
             self.drt_tw_right = drt_leg.end_time
@@ -484,8 +495,7 @@ class Person(Component):
             self.drt_tw_right = self.env.config.get('sim.duration_sec')
 
     def get_tw_left(self):
-        """Returns: time in seconds when the left time window border starts
-        """
+        """Returns: time in seconds when the left time window border starts"""
         return self.drt_tw_left
 
     def get_tw_right(self):

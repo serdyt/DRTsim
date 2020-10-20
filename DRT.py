@@ -75,7 +75,7 @@ time.tzset()
 config = {
     'sim.duration': '86400 s',
     'sim.duration_sec': 86400,
-    'sim.seed': 43,
+    'sim.seed': 42,
     'sim.email_notification': True,
     'sim.create_excel': True,
     'sim.purpose': 'All pt test',
@@ -98,24 +98,24 @@ config = {
     'person.default_attr.walking_speed': 1.2,
     'person.default_attr.dimensions': {CD.SEATS: 1},
     'person.default_attr.driving_license': True,
-    'person.default_attr.boarding_time': 30,
-    'person.default_attr.leaving_time': 10,
+    'person.default_attr.boarding_time': 60,
+    'person.default_attr.leaving_time': 60,
     # 'person.default_attr.maxWalkDistance': 2000,
 
     # 'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
 
     # 'population.input_file': 'data/population_fake_od.json',
     'population.input_file': 'data/population_VEHITS_kommun_divided_to_pt_and_others.json',
-    'population.input_percentage': 1.0,
+    'population.input_percentage': 0.1,
     # ['all_within', 'pt_only', 'drtable_all', 'drtable_outside', 'all']
-    'population.scenario': 'pt_only',
+    'population.scenario': 'drtable_outside',
 
     # 'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],  # Sjöbo + Tomelilla
     'drt.zones': [z for z in range(12650001, 12650018)],
 
     # maximum of these two will be taken as pre-booking time
     'drt.planning_in_advance': td(hours=2).total_seconds(),
-    'drt.planning_in_advance_multiplier': 2,
+    # 'drt.planning_in_advance_multiplier': 2,
 
     # # Parameters that determine maximum travel time for DRT leg
     # 'drt.time_window_constant': td(minutes=15).total_seconds(),
@@ -130,7 +130,6 @@ config = {
     'pt.time_window_multiplier_within': 1.7,
     'pt.time_window_constant_within': 0,
 
-    'drt.time_window_shift_left': 1.,
     'drt.PT_stops_file': 'data/zone_stops.csv',
     'drt.min_distance': 1000,
     'drt.maxPreTransitTime': 1800,  # 30 minutes
