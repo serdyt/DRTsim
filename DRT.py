@@ -90,7 +90,6 @@ config = {
     'service.osrm_tdm': 'http://0.0.0.0:5000/table/v1/driving/',
     'service.modes': 'main_modes',  # ['main_modes','all_modes']
     'date': '11-14-2018',
-    'date.struct_time': time.localtime(1542153600),
     'date.unix_epoch': 1542150000,  # 1542153600 - is one hour earlier!
 
     # 'db.file': 'data/time_distance_matrix.db',
