@@ -72,7 +72,6 @@ class ServiceProvider(Component):
         for i in range(self.env.config.get('drt.number_vehicles')):
             # if you want to change ID assignment method, you should change get_vehicle_by_id() method too
             attrib = {'id': i}
-            # coord = Coord(lat=self.env.rand.uniform(minLat, maxLat), lon=self.env.rand.uniform(minLon, maxLon))
             coord = Coord(lat=55.630995, lon=13.701037)
             v_type = self.vehicle_types.get(0)
             self.vehicles.append(Vehicle(parent=self, attrib=attrib, return_coord=coord, vehicle_type=v_type))
@@ -95,11 +94,6 @@ class ServiceProvider(Component):
         """
         for i in range(1):
             self.vehicle_types[i] = VehicleType(attrib={'id': i})
-            # self.vehicle_types[i] = VehicleType(attrib={
-            #         'id': i,
-            #         # TODO: vehicle capacity should be defined in config files
-            #         'capacity_dimensions': {CD.SEATS: 8, CD.WHEELCHAIRS: 1}
-            #         })
 
     def _init_zone_pt_stops(self):
         self._zone_pt_stops = pandas.read_csv(self.env.config.get('drt.PT_stops_file'), sep=',')['stop_id'].values
@@ -113,19 +107,15 @@ class ServiceProvider(Component):
         start = time.time()
         traditional_alternatives = self._traditional_request(person)
         log.debug('Web requests took {}'.format(time.time() - start))
-
-        traditional_alternatives2 = []
-        for trip in traditional_alternatives:
-            if trip.legs[0].start_time < self.env.now or trip.legs[-1].end_time > self.env.config['sim.duration_sec']:
-                continue
-            else:
-                traditional_alternatives2.append(trip)
-
-        start = time.time()
-
         if len(traditional_alternatives) == 0:
             raise OTPUnreachable('No traditional alternatives received')
 
+        traditional_alternatives2 = []
+        for trip in traditional_alternatives:
+            if self._trip_can_be_accepted(trip, person):
+                traditional_alternatives2.append(trip)
+
+        start = time.time()
         try:
             drt_alternatives, status = self._drt_request(person)
             person.set_drt_status(status)
@@ -140,6 +130,28 @@ class ServiceProvider(Component):
         if len(alternatives) == 0:
             log.warning('no alternatives received by {}'.format(person.scope))
         return alternatives
+
+    def _trip_can_be_accepted(self, trip, person):
+        """TODO: use local time windows instead of person's.
+        Checks if a trip fits into a current day and if it fits into time window.
+        """
+        if self._trip_in_time_windows(trip, person) and self._trip_in_current_day(trip):
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def _trip_in_time_windows(trip, person):
+        if trip.legs[0].start_time < person.get_trip_tw_left() or trip.legs[-1].end_time > person.get_trip_tw_right():
+            return False
+        else:
+            return True
+
+    def _trip_in_current_day(self, trip):
+        if trip.legs[0].start_time < self.env.now or trip.legs[-1].end_time > self.env.config['sim.duration_sec']:
+            return False
+        else:
+            return True
 
     def is_local_trip(self, person):
         return person.curr_activity.zone in self.env.config.get('drt.zones') \
@@ -219,7 +231,7 @@ class ServiceProvider(Component):
                       start_coord=person.curr_activity.coord,
                       end_coord=person.next_activity.coord)
         person.drt_leg = drt_leg.deepcopy()
-        person.set_tw(person.direct_trip.duration, single_leg=True)
+        person.set_drt_tw(person.direct_trip.duration, single_leg=True)
 
         try:
             self._drt_request_routine(person)
@@ -293,9 +305,7 @@ class ServiceProvider(Component):
                     continue
 
                 # TODO: check how this restriction is applied for time windows
-                if alt.duration > person.direct_trip.duration \
-                        * person.time_window_multiplier \
-                        + person.time_window_constant:
+                if alt.duration > person.get_max_trip_duration(person.direct_trip.duration):
                     status_log[DrtStatus.too_long_pt_trip] += 1
                     continue
 
@@ -322,10 +332,10 @@ class ServiceProvider(Component):
                     try:
 
                         drt_leg = self._get_leg_for_in_trip(drt_trip, person)
-                        available_drt_time = person.direct_trip.duration * person.time_window_multiplier + \
-                                             person.time_window_constant - (alt.duration - drt_leg.duration)
-                        person.set_tw(drt_leg.duration, last_leg=True, drt_leg=drt_leg,
-                                      available_time=available_drt_time)
+                        available_drt_time = person.get_max_trip_duration(person.direct_trip.duration) - \
+                                             (alt.duration - drt_leg.duration)
+                        person.set_drt_tw(drt_leg.duration, last_leg=True, drt_leg=drt_leg,
+                                          available_time=available_drt_time)
                         pt_walk_leg_index = -1
                     except PTStopServiceOutsideZone:
                         # log.info(e.msg)
@@ -343,10 +353,10 @@ class ServiceProvider(Component):
                 elif self.is_out_trip(person):
                     try:
                         drt_leg = self._get_leg_for_out_trip(drt_trip, person)
-                        available_drt_time = person.direct_trip.duration * person.time_window_multiplier + \
-                                             person.time_window_constant - (alt.duration - drt_leg.duration)
-                        person.set_tw(drt_leg.duration, last_leg=True, drt_leg=drt_leg,
-                                      available_time=available_drt_time)
+                        available_drt_time = person.get_max_trip_duration(person.direct_trip.duration) - \
+                                             (alt.duration - drt_leg.duration)
+                        person.set_drt_tw(drt_leg.duration, last_leg=True, drt_leg=drt_leg,
+                                          available_time=available_drt_time)
                         pt_walk_leg_index = 0
                     except PTStopServiceOutsideZone:
                         # log.info(e.msg)
@@ -372,7 +382,7 @@ class ServiceProvider(Component):
                     status_log[DrtStatus.too_short_drt_leg] += 1
                     continue
 
-                if person.get_tw_right() < self.env.now or person.drt_tw_left > self.env.config.get('sim.duration_sec'):
+                if person.get_drt_tw_right() < self.env.now or person.drt_tw_left > self.env.config.get('sim.duration_sec'):
                     status_log[DrtStatus.too_late_request] += 1
                     continue
 

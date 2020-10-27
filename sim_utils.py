@@ -218,8 +218,8 @@ class UnassignedTrip(object):
         self.person = person
         self.start_activity = person.curr_activity
         self.end_activity = person.next_activity
-        self.tw_left = person.get_tw_left()
-        self.tw_right = person.get_tw_right()
+        self.tw_left = person.get_drt_tw_left()
+        self.tw_right = person.get_drt_tw_right()
 
     def __str__(self):
         return 'Person {} tried to go from {} to {} in interval [{} - {}]'\

@@ -68,12 +68,8 @@ class DefaultBehaviour(StateMachine):
         self.person.update_otp_params()
         try:
             direct_trip = self.person.serviceProvider.standalone_osrm_request(self.person)
-            timeout = self.person.get_planning_time(direct_trip)
             self.person.set_direct_trip(direct_trip)
-            # transit_trip = self.person.serviceProvider.standalone_otp_request(self.person, OtpMode.TRANSIT,
-            #                                                                   otp_attributes)
-            # timeout = self.person.get_planning_time(transit_trip[0])
-
+            timeout = self.person.get_planning_time(direct_trip)
             if timeout > 0:
                 self.person.update_travel_log(TravellerEventType.ACT_STARTED, self.person.curr_activity)
             yield self.person.env.timeout(timeout)
@@ -91,6 +87,8 @@ class DefaultBehaviour(StateMachine):
             # if it is, we must save multiple requests and have some policy to merge them
             yield self.person.env.timeout(0.000001)
         self.person.update_travel_log(TravellerEventType.ACT_FINISHED, self.person.curr_activity)
+
+        self.person.set_trip_tw()
 
         if self.person.planned_trip is None:
             try:

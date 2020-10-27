@@ -43,7 +43,7 @@ class TimeWindowsModeChoice(object):
         times = []
         for alt in alternatives:
             if alt.main_mode in [OtpMode.CAR]:
-                times.append(alt.duration * self.person.time_window_multiplier + self.person.time_window_constant)
+                times.append(self.person.get_max_trip_duration(alt.duration))
             else:
                 times.append(alt.duration)
         return min(zip(times, alternatives), key=lambda x: x[0])[1]

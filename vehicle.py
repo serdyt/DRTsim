@@ -333,11 +333,11 @@ class Vehicle(Component):
             self._is_person_served_within_tw(person)
 
     def _is_person_served_within_tw(self, person):
-        if person.get_tw_left() <= self.env.now <= person.get_tw_right():
+        if person.get_drt_tw_left() <= self.env.now <= person.get_drt_tw_right():
             return True
         else:
             log.error('{}: Person {} has been served  outside the requested time window: {} - {}'
-                      .format(self.env.now, person.id, person.get_tw_left(), person.get_tw_right()))
+                      .format(self.env.now, person.id, person.get_drt_tw_left(), person.get_drt_tw_right()))
             return False
 
     def _update_passengers_travel_log(self, travel_event_type):

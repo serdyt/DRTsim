@@ -128,8 +128,8 @@ class VRPReadWriter(object):
             ET.SubElement(service_element, 'duration').text = str(person.leaving_time)
             self._write_capacity_dimensions(service_element, person.dimensions.items())
             self._write_time_windows(service_element,
-                                     person.get_tw_left(),
-                                     person.get_tw_right())
+                                     person.get_drt_tw_left(),
+                                     person.get_drt_tw_right())
 
         # Writing shipments
         shipments_element = ET.SubElement(root, 'shipments')
@@ -138,12 +138,12 @@ class VRPReadWriter(object):
             self._write_shipment_step(shipment_element, 'pickup', person.drt_leg.start_coord,
                                       coord_to_geoid.get(person.drt_leg.start_coord),
                                       person.boarding_time,
-                                      person.get_tw_left(), person.get_tw_right()
+                                      person.get_drt_tw_left(), person.get_drt_tw_right()
                                       )
             self._write_shipment_step(shipment_element, 'delivery', person.drt_leg.end_coord,
                                       coord_to_geoid.get(person.drt_leg.end_coord),
                                       person.leaving_time,
-                                      person.get_tw_left(), person.get_tw_right()
+                                      person.get_drt_tw_left(), person.get_drt_tw_right()
                                       )
             self._write_capacity_dimensions(shipment_element, person.dimensions.items())
 

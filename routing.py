@@ -295,7 +295,7 @@ class DefaultRouting(object):
             file_id = 'vrp_{}_{}.xml'.format(str(time.time()), person.id)
             copyfile(self.env.config.get('jsprit.vrp_file'), self.env.config.get('jsprit.debug_folder')+'/'+file_id)
             log.debug('Person {} cannot be delivered by DRT. Arrive by {}, tw left {}, tw right {}'
-                      .format(person.id, person.next_activity.start_time, person.get_tw_left(), person.get_tw_right()))
+                      .format(person.id, person.next_activity.start_time, person.get_drt_tw_left(), person.get_drt_tw_right()))
             raise DrtUnassigned('Person {} cannot be delivered by DRT'.format(person.id))
 
         # TODO: I assume that only one route is changed, i.e. insertion algorithm is used.
@@ -303,7 +303,7 @@ class DefaultRouting(object):
         modified_route = self._get_person_route(person, solution)
         if modified_route is None:
             log.error('Person {} has likely caused jsprit to crash. That may happen if time-windows as screwd.\n'
-                      'Time window from {} to {}'.format(person.id, person.get_tw_left(), person.get_tw_right()))
+                      'Time window from {} to {}'.format(person.id, person.get_drt_tw_left(), person.get_drt_tw_right()))
             # raise DrtUnassigned('Person {} is not listed in any jsprit routes'.format(person.id))
         solution.routes = None
         solution.modified_route = modified_route
