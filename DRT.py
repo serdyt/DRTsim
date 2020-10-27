@@ -105,7 +105,7 @@ config = {
 
     # 'population.input_file': 'data/population_fake_od.json',
     'population.input_file': 'data/population_VEHITS_divided_to_pt_and_others_kommun_cut_work_distr.json',
-    'population.input_percentage': 0.02,
+    'population.input_percentage': 1.0,
     # ['all_within', 'pt_only', 'drtable_all', 'drtable_outside', 'all']
     'population.scenario': 'drtable_all',
 

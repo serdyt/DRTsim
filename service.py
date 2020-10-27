@@ -153,18 +153,6 @@ class ServiceProvider(Component):
         else:
             return True
 
-    def is_local_trip(self, person):
-        return person.curr_activity.zone in self.env.config.get('drt.zones') \
-               and person.next_activity.zone in self.env.config.get('drt.zones')
-
-    def is_in_trip(self, person):
-        return person.curr_activity.zone not in self.env.config.get('drt.zones') \
-               and person.next_activity.zone in self.env.config.get('drt.zones')
-
-    def is_out_trip(self, person):
-        return person.curr_activity.zone in self.env.config.get('drt.zones') \
-               and person.next_activity.zone not in self.env.config.get('drt.zones')
-
     def pt_stop_coord_times_for_drt(self, trip: Trip, drt_is_first_leg=True):
         if drt_is_first_leg:
             return [(leg.start_coord, leg.start_time) for leg in trip.legs
@@ -217,7 +205,7 @@ class ServiceProvider(Component):
             self._drt_too_short_trip += 1
             return [], DrtStatus.too_short_drt_leg
 
-        if self.is_local_trip(person):
+        if person.is_local_trip():
             drt_trips, status = self._drt_local(person)
         else:
             drt_trips, status = self._drt_transit(person)
@@ -255,9 +243,9 @@ class ServiceProvider(Component):
         params.update({'maxPreTransitTime': self.env.config.get('drt.maxPreTransitTime')})
         drt_trips = []
 
-        if self.is_in_trip(person):
+        if person.is_in_trip():
             mode = OtpMode.RIDE_KISS
-        elif self.is_out_trip(person):
+        elif person.is_out_trip():
             mode = OtpMode.KISS_RIDE
         else:
             raise Exception("Cannot determine if DRT+TRANSIT trip is going in or out service zone \n"
@@ -323,7 +311,7 @@ class ServiceProvider(Component):
 
                 # When we have an incoming our outgoing trip, we should calculate a PT trip with a high walking speed
                 # to replace a WALK leg with a DRT leg
-                if self.is_in_trip(person):
+                if person.is_in_trip():
                     # TODO: we can "consume" PT legs by DRT as long as they are inside service zone
                     # we can also make DRT alternatives for all of the trip alternatives
 
@@ -350,12 +338,12 @@ class ServiceProvider(Component):
                 # **************************************************
                 # **********          Trip out         *************
                 # **************************************************
-                elif self.is_out_trip(person):
+                elif person.is_out_trip():
                     try:
                         drt_leg = self._get_leg_for_out_trip(drt_trip, person)
                         available_drt_time = person.get_max_trip_duration(person.direct_trip.duration) - \
                                              (alt.duration - drt_leg.duration)
-                        person.set_drt_tw(drt_leg.duration, last_leg=True, drt_leg=drt_leg,
+                        person.set_drt_tw(drt_leg.duration, first_leg=True, drt_leg=drt_leg,
                                           available_time=available_drt_time)
                         pt_walk_leg_index = 0
                     except PTStopServiceOutsideZone:

@@ -474,8 +474,48 @@ class Person(Component):
     def get_routing_parameters(self):
         return self.otp_parameters
 
+    def is_local_trip(self):
+        return self.curr_activity.zone in self.env.config.get('drt.zones') \
+               and self.next_activity.zone in self.env.config.get('drt.zones')
+
+    def is_in_trip(self):
+        return self.curr_activity.zone not in self.env.config.get('drt.zones') \
+               and self.next_activity.zone in self.env.config.get('drt.zones')
+
+    def is_out_trip(self):
+        return self.curr_activity.zone in self.env.config.get('drt.zones') \
+               and self.next_activity.zone not in self.env.config.get('drt.zones')
+
+    def get_max_drt_duration(self):
+        if self.is_local_trip():
+            return self.get_max_trip_duration(self.direct_trip.duration)
+        else:
+            return self.get_drt_tw_right() - self.get_drt_tw_left()
+
+    def get_rest_drt_duration(self):
+        if self.actual_trip is None:
+            return self.get_max_drt_duration()
+        elif self.actual_trip.duration is None:
+            return self.get_max_drt_duration()
+        elif self.actual_trip.legs is None:
+            return self.get_max_drt_duration()
+
+        if self.is_local_trip():
+            t = self.get_max_drt_duration() - self.actual_trip.duration
+        elif self.is_in_trip():
+            t = self.get_max_drt_duration() - self.actual_trip.legs[0].duration
+        else:
+            t = self.get_max_drt_duration() - self.actual_trip.legs[-1].duration
+
+        if t < 0:
+            log.error("Person {} was max trip length of {}, but left {}, tw [{}, {}]".
+                      format(self.id, self.get_max_drt_duration(), t, self.get_drt_tw_left(), self.get_drt_tw_right()))
+            t = 0
+        return t
+
     def get_max_trip_duration(self, direct_time):
-        return direct_time * self.drt_time_window_multiplier + self.drt_time_window_constant
+        return direct_time * self.drt_time_window_multiplier + self.drt_time_window_constant + \
+               self.boarding_time + self.leaving_time
 
     def set_trip_tw(self):
         if self.is_arrive_by():
@@ -494,16 +534,16 @@ class Person(Component):
             if self.trip_tw_right > self.env.config.get('sim.duration_sec'):
                 self.trip_tw_right = self.env.config.get('sim.duration_sec')
 
-    def set_drt_tw(self, direct_time, single_leg=False, first_leg=False, last_leg=False, drt_leg=None,
+    def set_drt_tw(self, drt_direct_time, single_leg=False, first_leg=False, last_leg=False, drt_leg=None,
                    available_time=None):
-        tw = self.get_max_trip_duration(direct_time)
+        tw = self.get_max_trip_duration(drt_direct_time)
         if available_time is not None:
             # tw = min(available_time, tw)
             tw = available_time
 
         if single_leg:
-            self.drt_tw_left = self.curr_activity.end_time
-            self.drt_tw_right = self.next_activity.start_time + tw
+            self.drt_tw_left = self.get_trip_tw_left()
+            self.drt_tw_right = self.get_trip_tw_right()
         elif first_leg:
             self.drt_tw_left = drt_leg.end_time - tw
             self.drt_tw_right = drt_leg.end_time
@@ -512,7 +552,7 @@ class Person(Component):
             self.drt_tw_right = drt_leg.start_time + tw
         else:
             raise Exception('Incorrect input for time window calculation for Person {}.\n{} {} {}'
-                            .format(self.id, direct_time, single_leg, first_leg, last_leg, drt_leg))
+                            .format(self.id, drt_direct_time, single_leg, first_leg, last_leg, drt_leg))
 
         if self.drt_tw_left < self.env.now:
             self.drt_tw_left = self.env.now

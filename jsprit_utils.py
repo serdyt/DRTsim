@@ -130,6 +130,7 @@ class VRPReadWriter(object):
             self._write_time_windows(service_element,
                                      person.get_drt_tw_left(),
                                      person.get_drt_tw_right())
+            self._write_max_in_vehicle_time(service_element, person, service=True)
 
         # Writing shipments
         shipments_element = ET.SubElement(root, 'shipments')
@@ -146,6 +147,7 @@ class VRPReadWriter(object):
                                       person.get_drt_tw_left(), person.get_drt_tw_right()
                                       )
             self._write_capacity_dimensions(shipment_element, person.dimensions.items())
+            self._write_max_in_vehicle_time(shipment_element, person)
 
         # Write initial routes
         initial_routes_element = ET.SubElement(root, 'initialRoutes')
@@ -191,6 +193,14 @@ class VRPReadWriter(object):
         capacity_element = ET.SubElement(parent, 'capacity-dimensions')
         for dimension in dimensions:
             ET.SubElement(capacity_element, 'dimension', attrib={'index': str(dimension[0])}).text = str(dimension[1])
+
+    @staticmethod
+    def _write_max_in_vehicle_time(parent, person, service=False):
+        if service:
+            text = str(person.get_rest_drt_duration())
+        else:
+            text = str(person.get_max_drt_duration())
+        ET.SubElement(parent, 'maxInVehicleTime').text = text
 
     @staticmethod
     def _write_coord(parent, location_type, coord, geoid):
