@@ -109,6 +109,9 @@ config = {
     # 'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],  # Sjöbo + Tomelilla
     'drt.zones': [z for z in range(12650001, 12650018)],
 
+    # that is how it works, should be added to person.otp_params
+    'service.bannedRoutes': "SE-st__9011012034000000",
+
     # maximum of these two will be taken as pre-booking time
     'drt.planning_in_advance': td(hours=2).total_seconds(),
     # 'drt.planning_in_advance_multiplier': 2,
@@ -122,7 +125,7 @@ config = {
     'pt.drt_time_window_constant_within': 0,
 
     'pt.trip_time_window_multiplier': 1,
-    'pt.trip_time_window_constant': td(hours=1).total_seconds(),
+    'pt.trip_time_window_constant': td(hours=0.5).total_seconds(),
 
     'drt.PT_stops_file': 'data/zone_stops.csv',
     'drt.min_distance': 1000,

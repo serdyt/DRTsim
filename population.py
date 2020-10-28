@@ -131,7 +131,7 @@ class Population(Component):
         #                          1 - self.env.config.get('population.input_percentage')])[0]:
         #     continue
 
-        attributes = {'age': 22, 'id': pers_id, 'otp_parameters': {'arriveBy': True}}
+        attributes = {'age': 22, 'id': pers_id, 'otp_parameters': {'arriveBy': True, 'bannedRoutes': self.env.config.get('service.bannedRoutes')}}
 
         # TODO: sequence of activities has the same end and start times
         # time window is applied on the planning stage in the behaviour and service
