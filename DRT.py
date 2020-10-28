@@ -101,9 +101,6 @@ config = {
     'person.default_attr.leaving_time': 60,
     # 'person.default_attr.maxWalkDistance': 2000,
 
-    # 'traditional_transport.planning_in_advance': td(minutes=10).total_seconds(),
-
-    # 'population.input_file': 'data/population_fake_od.json',
     'population.input_file': 'data/population_VEHITS_divided_to_pt_and_others_kommun_cut_work_distr.json',
     'population.input_percentage': 1.0,
     # ['all_within', 'pt_only', 'drtable_all', 'drtable_outside', 'all']

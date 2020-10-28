@@ -283,7 +283,7 @@ class Person(Component):
 
     def update_otp_params(self):
         """Sets new otp params for a new trip. Params are deducted from activity"""
-        self.otp_parameters.update({'arriveBy': self.is_arrive_by()})
+        self.get_routing_parameters().update({'arriveBy': self.is_arrive_by()})
 
     def _set_travel_type_and_time_window_attributes(self):
         if self.curr_activity.zone in self.env.config.get('drt.zones') and \
@@ -407,7 +407,7 @@ class Person(Component):
         self.drt_executed = self.env.event()
 
     def __str__(self):
-        if self.otp_parameters.get('arriveBy'):
+        if self.get_routing_parameters().get('arriveBy'):
             arr_by = 'arrive by'
             t = self.next_activity.start_time
         else:

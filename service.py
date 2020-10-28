@@ -179,7 +179,7 @@ class ServiceProvider(Component):
                                                                     person.next_activity.coord,
                                                                     person.next_activity.start_time,
                                                                     mode,
-                                                                    copy.copy(person.otp_parameters))
+                                                                    copy.copy(person.get_routing_parameters()))
             except OTPNoPath as e:
                 log.warning('{}\n{}'.format(e.msg, e.context))
                 continue
@@ -239,7 +239,7 @@ class ServiceProvider(Component):
     def _drt_transit(self, person: Person):
 
         # maxPreTransitTime parameters restricts the time on a car for kiss and ride (and ride and kiss)
-        params = copy.copy(person.otp_parameters)
+        params = copy.copy(person.get_routing_parameters())
         params.update({'maxPreTransitTime': self.env.config.get('drt.maxPreTransitTime')})
         drt_trips = []
 
@@ -498,7 +498,7 @@ class ServiceProvider(Component):
         return self.router.osrm_route_request(person.curr_activity.coord, person.next_activity.coord)
 
     def standalone_otp_request(self, person, mode, otp_attributes):
-        attributes = copy.copy(person.otp_parameters)
+        attributes = copy.copy(person.get_routing_parameters())
         attributes.update(otp_attributes)
         return self.router.otp_request(person.curr_activity.coord,
                                        person.next_activity.coord,
