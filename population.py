@@ -531,10 +531,10 @@ class Person(Component):
                                  self.get_max_trip_duration(self.direct_trip.duration) * self.trip_time_window_multiplier + \
                                  self.trip_time_window_constant
 
-            if self.trip_tw_left < self.env.now:
-                self.trip_tw_left = self.env.now
-            if self.trip_tw_right > self.env.config.get('sim.duration_sec'):
-                self.trip_tw_right = self.env.config.get('sim.duration_sec')
+        if self.trip_tw_left < self.env.now:
+            self.trip_tw_left = self.env.now
+        if self.trip_tw_right > self.env.config.get('sim.duration_sec'):
+            self.trip_tw_right = self.env.config.get('sim.duration_sec')
 
     def set_drt_tw(self, drt_direct_time, single_leg=False, first_leg=False, last_leg=False, drt_leg=None,
                    available_time=None):

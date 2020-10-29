@@ -10,6 +10,7 @@ from typing import List, Dict, Any
 import time
 import pandas
 import copy
+from datetime import timedelta as td
 
 import routing
 
@@ -19,7 +20,7 @@ from simpy import Event
 from const import OtpMode, DrtStatus
 from const import maxLat, minLat, maxLon, minLon
 from const import CapacityDimensions as CD
-from sim_utils import Coord, JspritAct, Step, JspritSolution, JspritRoute, UnassignedTrip
+from sim_utils import Coord, JspritAct, Step, JspritSolution, JspritRoute, UnassignedTrip, trunc_microseconds
 from vehicle import Vehicle, VehicleType
 from sim_utils import ActType, DrtAct, Trip, Leg
 from population import Person, Population
@@ -135,10 +136,15 @@ class ServiceProvider(Component):
         """TODO: use local time windows instead of person's.
         Checks if a trip fits into a current day and if it fits into time window.
         """
-        if self._trip_in_time_windows(trip, person) and self._trip_in_current_day(trip):
+        if self._trip_in_time_windows(trip, person) and self._trip_in_current_day(trip) and\
+                self._trip_in_max_duration(trip, person):
             return True
         else:
             return False
+
+    @staticmethod
+    def _trip_in_max_duration(trip, person):
+        return trip.duration < person.get_max_trip_duration(person.direct_trip.duration)
 
     @staticmethod
     def _trip_in_time_windows(trip, person):
@@ -238,9 +244,6 @@ class ServiceProvider(Component):
 
     def _drt_transit(self, person: Person):
 
-        # maxPreTransitTime parameters restricts the time on a car for kiss and ride (and ride and kiss)
-        params = copy.copy(person.get_routing_parameters())
-        params.update({'maxPreTransitTime': self.env.config.get('drt.maxPreTransitTime')})
         drt_trips = []
 
         if person.is_in_trip():
@@ -259,21 +262,11 @@ class ServiceProvider(Component):
         drt_trip_found = False
         pre_transit_time_reduction_cycles = 0
         status_log = {}
+        # maxPreTransitTime parameters restricts the time on a car for kiss and ride (and ride and kiss)
+        params = copy.copy(person.get_routing_parameters())
+        params.update({'maxPreTransitTime': self.env.config.get('drt.maxPreTransitTime')})
         while (not drt_trip_found) and pre_transit_time_reduction_cycles < 3:
             pre_transit_time_reduction_cycles += 1
-            try:
-                pt_alternatives = self.router.otp_request(person.curr_activity.coord,
-                                                          person.next_activity.coord,
-                                                          person.next_activity.start_time,
-                                                          mode,
-                                                          params
-                                                          )
-            except OTPNoPath:
-                if status_log != {}:
-                    break
-                else:
-                    self._drt_undeliverable += 1
-                    return [], DrtStatus.undeliverable
 
             # TODO: currently taking a first trip that fits person's time window
             # TODO: check all feasible trips and form alternatives for each
@@ -287,12 +280,53 @@ class ServiceProvider(Component):
                 DrtStatus.too_late_request: 0,
                 DrtStatus.too_long_pt_trip: 0}
 
+            params.update({'time': trunc_microseconds(str(td(seconds=person.next_activity.start_time)))})
+
+            pt_alternatives = []
+            alt_tw_left = self.env.now
+            alt_tw_right = self.env.config.get('sim.duration_sec')
+            while True:
+                try:
+                    pt_alt_temp = self.router.otp_request(person.curr_activity.coord,
+                                                           person.next_activity.coord,
+                                                           person.next_activity.start_time,
+                                                           mode,
+                                                           params
+                                                           )
+                except OTPNoPath:
+                    if status_log != {}:
+                        break
+                    else:
+                        self._drt_undeliverable += 1
+                        return [], DrtStatus.undeliverable
+
+                for alt in pt_alt_temp:
+                    alt_tw_left = max(alt_tw_left, alt.legs[0].start_time)
+                    alt_tw_right = min(alt_tw_right, alt.legs[-1].end_time)
+                    if self._trip_can_be_accepted(alt, person):
+                        pt_alternatives.append(alt)
+
+                if person.is_arrive_by():
+                    alt_tw_right -= 200
+                    params.update({'time': trunc_microseconds(str(td(seconds=alt_tw_right)))})
+                    if person.get_trip_tw_left() + person.get_max_trip_duration(person.direct_trip.duration) >  \
+                            alt_tw_right:
+                        break
+                else:
+                    alt_tw_left += 200
+                    params.update({'time': trunc_microseconds(str(td(seconds=alt_tw_left)))})
+                    if alt_tw_left + person.get_max_trip_duration(person.direct_trip.duration) > \
+                            person.get_trip_tw_right():
+                        break
+
+            if len(pt_alternatives) > 3:
+                pt_alternatives = [pt_alternatives[0], pt_alternatives[int(len(pt_alternatives)/2)], pt_alternatives[-1]]
+
             for alt in pt_alternatives:
                 if alt.legs[0].start_time < 0 or alt.legs[-1].end_time > self.env.config.get('sim.duration_sec'):
                     status_log[DrtStatus.overnight_trip] += 1
                     continue
 
-                # TODO: check how this restriction is applied for time windows
                 if alt.duration > person.get_max_trip_duration(person.direct_trip.duration):
                     status_log[DrtStatus.too_long_pt_trip] += 1
                     continue
@@ -302,6 +336,10 @@ class ServiceProvider(Component):
 
                 # if a PT trip has only one leg or if the last leg is PT - we do not need DRT
                 if len(drt_trip.legs) < 2:
+                    status_log[DrtStatus.one_leg] += 1
+                    continue
+
+                if len([True for l in alt.legs if l.mode in OtpMode.get_pt_modes()]) == 0:
                     status_log[DrtStatus.one_leg] += 1
                     continue
 
@@ -395,14 +433,12 @@ class ServiceProvider(Component):
                 # and do not add more until person.DRT_leg is used.
 
                 drt_trip_found = True
-                break
+                # break
 
             if status_log[DrtStatus.no_stop] == 0:
                 # if a trip was not found, but the reasons are not related to kiss_and_ride,
                 # we won't be able to find a trip reducing pre-transit time
                 break
-
-            # return drt_trips, DrtStatus.routed
 
         status = DrtStatus.routed
         if len(drt_trips) == 0:

@@ -193,8 +193,8 @@ class Trip(object):
         self.legs.append(leg)
         
     def __str__(self):
-        return '{} trip, takes {} distance {}'\
-            .format(self.main_mode, self.duration, self.distance)
+        return '{} trip, takes {} distance {}, start at {}, ends at {}'\
+            .format(self.main_mode, self.duration, self.distance, self.legs[0].start_time, self.legs[-1].end_time)
 
     def __repr__(self):
         return str(self)
