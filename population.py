@@ -95,16 +95,14 @@ class Population(Component):
                              "['all_within', 'pt_only', 'drtable_all', 'drtable_outside', 'all']")
                 raise Exception()
 
-            z = [12650005]
             for json_pers in persons:
-                if json_pers['activities'][0]['zone'] in z or json_pers['activities'][1]['zone'] in z:
-                    if self.env.rand.choices([False, True],
-                                             [self.env.config.get('population.input_percentage'),
-                                              1 - self.env.config.get('population.input_percentage')])[0]:
-                        continue
-                    else:
-                        self.person_list.append(self._person_from_json(json_pers, pers_id))
-                    pers_id += 1
+                if self.env.rand.choices([False, True],
+                                         [self.env.config.get('population.input_percentage'),
+                                          1 - self.env.config.get('population.input_percentage')])[0]:
+                    continue
+                else:
+                    self.person_list.append(self._person_from_json(json_pers, pers_id))
+                pers_id += 1
 
     def read_json(self):
         """Reads json input file and generates persons to simulate"""
