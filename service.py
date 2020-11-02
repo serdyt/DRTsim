@@ -271,16 +271,21 @@ class ServiceProvider(Component):
             for alt in pt_alt_temp:
                 if person.is_in_trip():
                     new_max_pre_transit = min(int(alt.legs[-1].duration), new_max_pre_transit)
-                    if not self.is_stop_in_zone(alt.legs[-2].to_stop):
+                    if alt.legs[-1].duration > cur_max_pre_transit:
+                        break
+                    if not self.is_stop_in_zone(self._get_bus_leg_for_in_trip(alt).to_stop):
                         continue
                 else:
                     new_max_pre_transit = min(int(alt.legs[0].duration), new_max_pre_transit)
-                    if not self.is_stop_in_zone(alt.legs[1].from_stop):
+                    if alt.legs[0].duration > cur_max_pre_transit:
+                        break
+                    if not self.is_stop_in_zone(self._get_bus_leg_for_out_trip(alt).from_stop):
                         continue
                 append = True
+                break
             if append:
                 max_pre_transit_times.append(cur_max_pre_transit)
-            cur_max_pre_transit = new_max_pre_transit - 10
+            cur_max_pre_transit = new_max_pre_transit - 60
             if cur_max_pre_transit < 0:
                 break
             params.update({'maxPreTransitTime': cur_max_pre_transit})
@@ -329,10 +334,10 @@ class ServiceProvider(Component):
                         wait_time = max(self._drt_transit_get_waiting_time(alt), wait_time)
                     if self._trip_can_be_accepted(alt, person):
                         if person.is_in_trip():
-                            if not self.is_stop_in_zone(alt.legs[-2].to_stop):
+                            if not self.is_stop_in_zone(self._get_bus_leg_for_in_trip(alt).to_stop):
                                 continue
                         else:
-                            if not self.is_stop_in_zone(alt.legs[1].from_stop):
+                            if not self.is_stop_in_zone(self._get_bus_leg_for_out_trip(alt).from_stop):
                                 continue
                         pt_alternatives.append(alt)
 
@@ -380,14 +385,18 @@ class ServiceProvider(Component):
             DrtStatus.too_late_request: 0,
             DrtStatus.too_long_pt_trip: 0}
 
+        start = time.time()
         max_pre_transit_times = self._drt_transit_find_max_pre_transit(person)
-        print('len max pre transit times {}'.format(len(max_pre_transit_times)))
+        log.debug('len max pre transit times {}'.format(len(max_pre_transit_times)))
+        log.debug('took: {}'.format(time.time() - start))
 
+        start = time.time()
         pt_alternatives = self._drt_transit_find_pt_alternatives(person, max_pre_transit_times)
-        print('len pt_alternatives {}'.format(len(pt_alternatives)))
+        log.debug('len pt_alternatives {}'.format(len(pt_alternatives)))
+        log.debug('took: {}'.format(time.time() - start))
 
         # selected = []
-        # if len(pt_alternatives) > 4:
+        # if len(pt_alternatives) > 10:
         #     tmp = [t for t in pt_alternatives]
         #     # fastest
         #     selected.append(sorted(tmp, key=lambda trip: trip.duration).pop())
@@ -406,7 +415,7 @@ class ServiceProvider(Component):
         #         # in the middle
         #         selected.append(sorted(tmp, key=lambda trip: trip.legs[0].start_time)[int(len(tmp)/2)])
         #
-        #     pt_alternatives = selected
+            # pt_alternatives = selected
 
         for alt in pt_alternatives:
             if alt.legs[0].start_time < 0 or alt.legs[-1].end_time > self.env.config.get('sim.duration_sec'):
@@ -545,9 +554,18 @@ class ServiceProvider(Component):
 
         return drt_trips, status
 
+    @staticmethod
+    def _get_bus_leg_for_in_trip(drt_trip):
+        if drt_trip.legs[-2].mode == OtpMode.WALK and len(drt_trip.legs) > 3:
+            leg_bus = drt_trip.legs[-3]
+        else:
+            leg_bus = drt_trip.legs[-2]
+        return leg_bus
+
     def _get_leg_for_in_trip(self, drt_trip, person):
         """Extract a walk leg, that should be replaced by DRT, from a PT trip"""
-        if self.is_stop_in_zone(drt_trip.legs[-2].to_stop):
+        leg_bus = self._get_bus_leg_for_in_trip(drt_trip)
+        if self.is_stop_in_zone(leg_bus.to_stop):
             drt_leg = Leg(mode=OtpMode.DRT,
                           start_coord=drt_trip.legs[-1].start_coord,
                           end_coord=drt_trip.legs[-1].end_coord,
@@ -562,8 +580,17 @@ class ServiceProvider(Component):
             raise PTStopServiceOutsideZone('Person {} has incoming trip, but bus stop {} is not in the zone'
                                            .format(person.id, drt_trip.legs[-2].to_stop))
 
+    @staticmethod
+    def _get_bus_leg_for_out_trip(drt_trip):
+        if drt_trip.legs[1].mode == OtpMode.WALK and len(drt_trip.legs) > 3:
+            leg_bus = drt_trip.legs[2]
+        else:
+            leg_bus = drt_trip.legs[1]
+        return leg_bus
+
     def _get_leg_for_out_trip(self, drt_trip, person):
-        if self.is_stop_in_zone(drt_trip.legs[1].from_stop):
+        leg_bus = self._get_bus_leg_for_out_trip(drt_trip)
+        if self.is_stop_in_zone(leg_bus.from_stop):
             drt_leg = Leg(mode=OtpMode.DRT,
                           start_coord=drt_trip.legs[0].start_coord,
                           end_coord=drt_trip.legs[0].end_coord,

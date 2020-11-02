@@ -96,6 +96,12 @@ class Leg(object):
                    duration=copy.copy(self.duration),
                    steps=steps)
 
+    def __str__(self):
+        return 'leg from {} to {}, mode {}, start {} end {}'\
+            .format(self.start_coord, self.end_coord, self.mode, self.start_time, self.end_time)
+
+    def __repr__(self):
+        return self.__str__()
 
 class Step(object):
     """Arguments:|
