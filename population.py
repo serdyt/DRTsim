@@ -36,7 +36,74 @@ class Population(Component):
     def _init_persons(self):
         # self.read_json()
         self.read_split_json()
+        # self.gen_test_pop_outside()
         log.info('{}: Population of {} persons created.'.format(self.env.now, len(self.person_list)))
+
+    def gen_test_pop_outside(self):
+
+        home = Coord(latlon=(55.673389, 13.744803))
+        th = td(hours=10, minutes=20).total_seconds()
+        work = Coord(latlon=(55.436701, 13.811424))
+        tw = td(hours=15, minutes=0).total_seconds()
+        self.gen_manual_pers(home, th, work, tw, 0, 12650003, 12800000)
+
+        home = Coord(latlon=(55.673389, 13.744803))
+        th = td(hours=10, minutes=15).total_seconds()
+        work = Coord(latlon=(55.436701, 13.811424))
+        tw = td(hours=15, minutes=0).total_seconds()
+        self.gen_manual_pers(home, th, work, tw, 1, 12650003, 12800000)
+
+        home = Coord(latlon=(55.673389, 13.744803))
+        th = td(hours=10, minutes=20).total_seconds()
+        work = Coord(latlon=(55.436701, 13.811424))
+        tw = td(hours=15, minutes=0).total_seconds()
+        self.gen_manual_pers(home, th, work, tw, 2, 12650003, 12800000)
+
+        home = Coord(latlon=(55.673389, 13.744803))
+        th = td(hours=10, minutes=17).total_seconds()
+        work = Coord(latlon=(55.436701, 13.811424))
+        tw = td(hours=15, minutes=0).total_seconds()
+        self.gen_manual_pers(home, th, work, tw, 3, 12650003, 12800000)
+
+        home = Coord(latlon=(55.673389, 13.744803))
+        th = td(hours=10, minutes=8).total_seconds()
+        work = Coord(latlon=(55.436701, 13.811424))
+        tw = td(hours=15, minutes=0).total_seconds()
+        self.gen_manual_pers(home, th, work, tw, 4, 12650003, 12800000)
+
+        home = Coord(latlon=(55.673389, 13.744803))
+        th = td(hours=9, minutes=50).total_seconds()
+        work = Coord(latlon=(55.436701, 13.811424))
+        tw = td(hours=15, minutes=0).total_seconds()
+        self.gen_manual_pers(home, th, work, tw, 5, 12650003, 12800000)
+
+        home = Coord(latlon=(55.673389, 13.744803))
+        th = td(hours=9, minutes=50).total_seconds()
+        work = Coord(latlon=(55.500098, 13.797303))
+        tw = td(hours=15, minutes=0).total_seconds()
+        self.gen_manual_pers(home, th, work, tw, 6, 12650003, 12800000)
+
+    def gen_manual_pers(self, home, th, work, tw, i, zh, zw):
+        attributes = {'age': 22, 'id': i, 'otp_parameters': {'arriveBy': True}}
+        activities = [
+            Activity(type_=actType.HOME,
+                     coord=home,
+                     end_time=th,
+                     zone=zh
+                     ),
+            Activity(type_=actType.WORK,
+                     coord=work,
+                     start_time=th,
+                     end_time=tw,
+                     zone=zw
+                     ),
+            Activity(type_=actType.HOME,
+                     coord=home,
+                     start_time=tw,
+                     zone=zh
+                     )
+        ]
+        self.person_list.append(Person(parent=self, attributes=attributes, activities=activities))
 
     def read_split_json(self):
         """Reads the population file of format
@@ -390,8 +457,11 @@ class Person(Component):
     def append_pt_legs_to_actual_trip(self, legs):
         for leg in legs:
             self.actual_trip.legs.append(leg)
+
         # No matter when DRT trip has finished, PT leg would start and end at the same time as planned
-        self.actual_trip.duration = sum([leg.duration for leg in self.actual_trip.legs])
+        # self.actual_trip.duration = sum([leg.duration for leg in self.actual_trip.legs])
+        # OTP and DRT both do not include 'WAIT' legs
+        self.actual_trip.duration = self.actual_trip.legs[-1].end_time - self.actual_trip.legs[0].start_time
         self.actual_trip.distance = sum([leg.distance for leg in self.actual_trip.legs])
 
     def finish_actual_drt_trip(self, end_time):

@@ -242,10 +242,117 @@ class ServiceProvider(Component):
         drt_trip.duration = drt_trip.legs[0].duration
         return [drt_trip], DrtStatus.routed
 
-    def _drt_transit(self, person: Person):
+    def _drt_transit_find_max_pre_transit(self, person):
+        """Finds preTransitTimes (maximum duration of CAR in kiss and ride)
+        so that transfer stops are within service zone
 
-        drt_trips = []
+        Gradually decreases maxPreTransitTimes until no trips can be found at all.
+        Saves all the valid maxPreTransitTimes.
+        """
+        mode = self._drt_transit_get_mode(person)
+        params = copy.copy(person.get_routing_parameters())
+        max_pre_transit_times = []
+        cur_max_pre_transit = self.env.config.get('drt.maxPreTransitTime')
+        params.update({'maxPreTransitTime': cur_max_pre_transit})
+        while True:
+            try:
+                pt_alt_temp = self.router.otp_request(person.curr_activity.coord,
+                                                      person.next_activity.coord,
+                                                      person.next_activity.start_time,
+                                                      mode,
+                                                      params
+                                                      )
+            except OTPNoPath:
+                # it will break the loop when no trips can be found with small maxPreTransitTime
+                break
 
+            new_max_pre_transit = cur_max_pre_transit
+            append = False
+            for alt in pt_alt_temp:
+                if person.is_in_trip():
+                    new_max_pre_transit = min(int(alt.legs[-1].duration), new_max_pre_transit)
+                    if not self.is_stop_in_zone(alt.legs[-2].to_stop):
+                        continue
+                else:
+                    new_max_pre_transit = min(int(alt.legs[0].duration), new_max_pre_transit)
+                    if not self.is_stop_in_zone(alt.legs[1].from_stop):
+                        continue
+                append = True
+            if append:
+                max_pre_transit_times.append(cur_max_pre_transit)
+            cur_max_pre_transit = new_max_pre_transit - 10
+            if cur_max_pre_transit < 0:
+                break
+            params.update({'maxPreTransitTime': cur_max_pre_transit})
+
+        return max_pre_transit_times
+
+    @staticmethod
+    def _drt_transit_get_waiting_time(alt):
+        if alt.legs[0].mode == OtpMode.WALK:
+            return alt.legs[1].start_time - alt.legs[0].end_time
+        else:
+            return 0
+
+    def _drt_transit_find_pt_alternatives(self, person, max_pre_transit_times):
+        """Finds kiss and ride alternatives that satisfy maximum duration and time windows restriction,
+        and transfer zone is withing DRT service zone
+
+        Gradually reduces or increases 'arrive by' or 'depart at' parameters to scan through all the time window.
+        """
+        params = copy.copy(person.get_routing_parameters())
+        pt_alternatives = []
+        mode = self._drt_transit_get_mode(person)
+        for max_pre_transit in max_pre_transit_times:
+            params.update({'maxPreTransitTime': max_pre_transit})
+            alt_tw_left = self.env.now
+            alt_tw_right = self.env.config.get('sim.duration_sec')
+            params.update({'time': trunc_microseconds(str(td(seconds=person.next_activity.start_time)))})
+            while True:
+                try:
+                    pt_alt_temp = self.router.otp_request(person.curr_activity.coord,
+                                                          person.next_activity.coord,
+                                                          person.next_activity.start_time,
+                                                          mode,
+                                                          params
+                                                          )
+                except OTPNoPath:
+                    break
+
+                # OTP makes walk+wait+bus+drt routes. To find later departures,
+                # we need to force it to skip the whole waiting 'leg'
+                wait_time = 1
+                for alt in pt_alt_temp:
+                    alt_tw_left = max(alt_tw_left, alt.legs[0].start_time)
+                    alt_tw_right = min(alt_tw_right, alt.legs[-1].end_time)
+                    if person.is_in_trip():
+                        wait_time = max(self._drt_transit_get_waiting_time(alt), wait_time)
+                    if self._trip_can_be_accepted(alt, person):
+                        if person.is_in_trip():
+                            if not self.is_stop_in_zone(alt.legs[-2].to_stop):
+                                continue
+                        else:
+                            if not self.is_stop_in_zone(alt.legs[1].from_stop):
+                                continue
+                        pt_alternatives.append(alt)
+
+                if person.is_arrive_by():
+                    alt_tw_right -= 1
+                    params.update({'time': trunc_microseconds(str(td(seconds=alt_tw_right)))})
+                    if person.get_trip_tw_left() + person.get_max_trip_duration(person.direct_trip.duration) > \
+                            alt_tw_right:
+                        break
+                else:
+                    alt_tw_left += wait_time + 1
+                    params.update({'time': trunc_microseconds(str(td(seconds=alt_tw_left)))})
+                    if alt_tw_left + person.get_max_trip_duration(person.direct_trip.duration) > \
+                            person.get_trip_tw_right():
+                        break
+
+        return pt_alternatives
+
+    @staticmethod
+    def _drt_transit_get_mode(person):
         if person.is_in_trip():
             mode = OtpMode.RIDE_KISS
         elif person.is_out_trip():
@@ -254,191 +361,153 @@ class ServiceProvider(Component):
             raise Exception("Cannot determine if DRT+TRANSIT trip is going in or out service zone \n"
                             "Check person's Origin-Destination \n"
                             "{}".format(person))
+        return mode
 
-        # when generating kiss and ride trips, transfer stops may be outside the service zone
-        # if this happens, maxPreTransitTime will be reduced.
-        # pre_transit_time_reduction_cycles limits the amount of cycles (otp requests) one potential kiss and ride
-        # request can make
-        drt_trip_found = False
-        pre_transit_time_reduction_cycles = 0
+    def _drt_transit(self, person: Person):
+
+        drt_trips = []
         status_log = {}
-        # maxPreTransitTime parameters restricts the time on a car for kiss and ride (and ride and kiss)
-        params = copy.copy(person.get_routing_parameters())
-        params.update({'maxPreTransitTime': self.env.config.get('drt.maxPreTransitTime')})
-        while (not drt_trip_found) and pre_transit_time_reduction_cycles < 3:
-            pre_transit_time_reduction_cycles += 1
 
-            # TODO: currently taking a first trip that fits person's time window
-            # TODO: check all feasible trips and form alternatives for each
-            status_log = {
-                DrtStatus.no_stop: 0,
-                DrtStatus.undeliverable: 0,
-                DrtStatus.unassigned: 0,
-                DrtStatus.too_short_drt_leg: 0,
-                DrtStatus.overnight_trip: 0,
-                DrtStatus.one_leg: 0,
-                DrtStatus.too_late_request: 0,
-                DrtStatus.too_long_pt_trip: 0}
+        # TODO: currently taking a first trip that fits person's request
+        # TODO: check all feasible trips and form alternatives for each
+        status_log = {
+            DrtStatus.no_stop: 0,
+            DrtStatus.undeliverable: 0,
+            DrtStatus.unassigned: 0,
+            DrtStatus.too_short_drt_leg: 0,
+            DrtStatus.overnight_trip: 0,
+            DrtStatus.one_leg: 0,
+            DrtStatus.too_late_request: 0,
+            DrtStatus.too_long_pt_trip: 0}
 
-            params.update({'time': trunc_microseconds(str(td(seconds=person.next_activity.start_time)))})
+        max_pre_transit_times = self._drt_transit_find_max_pre_transit(person)
+        print('len max pre transit times {}'.format(len(max_pre_transit_times)))
 
-            pt_alternatives = []
-            alt_tw_left = self.env.now
-            alt_tw_right = self.env.config.get('sim.duration_sec')
-            while True:
+        pt_alternatives = self._drt_transit_find_pt_alternatives(person, max_pre_transit_times)
+        print('len pt_alternatives {}'.format(len(pt_alternatives)))
+
+        # selected = []
+        # if len(pt_alternatives) > 4:
+        #     tmp = [t for t in pt_alternatives]
+        #     # fastest
+        #     selected.append(sorted(tmp, key=lambda trip: trip.duration).pop())
+        #     if person.is_arrive_by():
+        #         # latest arrival
+        #         selected.append(sorted(tmp, key=lambda trip: trip.legs[-1].end_time, reverse=True).pop())
+        #         # earliest arrival
+        #         selected.append(sorted(tmp, key=lambda trip: trip.legs[-1].end_time).pop())
+        #         # in the middle
+        #         selected.append(sorted(tmp, key=lambda trip: trip.legs[-1].end_time)[int(len(tmp)/2)])
+        #     else:
+        #         # earliest start time
+        #         selected.append(sorted(tmp, key=lambda trip: trip.legs[0].start_time).pop())
+        #         # latest start time
+        #         selected.append(sorted(tmp, key=lambda trip: trip.legs[0].start_time, reverse=True).pop())
+        #         # in the middle
+        #         selected.append(sorted(tmp, key=lambda trip: trip.legs[0].start_time)[int(len(tmp)/2)])
+        #
+        #     pt_alternatives = selected
+
+        for alt in pt_alternatives:
+            if alt.legs[0].start_time < 0 or alt.legs[-1].end_time > self.env.config.get('sim.duration_sec'):
+                status_log[DrtStatus.overnight_trip] += 1
+                continue
+
+            if alt.duration > person.get_max_trip_duration(person.direct_trip.duration):
+                status_log[DrtStatus.too_long_pt_trip] += 1
+                continue
+
+            drt_trip = alt
+            drt_trip.main_mode = OtpMode.DRT_TRANSIT
+
+            # if a PT trip has only one leg or if the last leg is PT - we do not need DRT
+            if len(drt_trip.legs) < 2:
+                status_log[DrtStatus.one_leg] += 1
+                continue
+
+            if len([True for l in alt.legs if l.mode in OtpMode.get_pt_modes()]) == 0:
+                status_log[DrtStatus.one_leg] += 1
+                continue
+
+            # **************************************************
+            # **********         Trip in           *************
+            # **************************************************
+
+            # When we have an incoming our outgoing trip, we should calculate a PT trip with a high walking speed
+            # to replace a WALK leg with a DRT leg
+            if person.is_in_trip():
+                # TODO: we can "consume" PT legs by DRT as long as they are inside service zone
+                # we can also make DRT alternatives for all of the trip alternatives
+
+                # TODO: take the last possible stop as an alternative
+                # That would be the scenario to a central station (most likely)
                 try:
-                    pt_alt_temp = self.router.otp_request(person.curr_activity.coord,
-                                                           person.next_activity.coord,
-                                                           person.next_activity.start_time,
-                                                           mode,
-                                                           params
-                                                           )
-                except OTPNoPath:
-                    if status_log != {}:
-                        break
-                    else:
-                        self._drt_undeliverable += 1
-                        return [], DrtStatus.undeliverable
 
-                for alt in pt_alt_temp:
-                    alt_tw_left = max(alt_tw_left, alt.legs[0].start_time)
-                    alt_tw_right = min(alt_tw_right, alt.legs[-1].end_time)
-                    if self._trip_can_be_accepted(alt, person):
-                        pt_alternatives.append(alt)
-
-                if person.is_arrive_by():
-                    alt_tw_right -= 200
-                    params.update({'time': trunc_microseconds(str(td(seconds=alt_tw_right)))})
-                    if person.get_trip_tw_left() + person.get_max_trip_duration(person.direct_trip.duration) >  \
-                            alt_tw_right:
-                        break
-                else:
-                    alt_tw_left += 200
-                    params.update({'time': trunc_microseconds(str(td(seconds=alt_tw_left)))})
-                    if alt_tw_left + person.get_max_trip_duration(person.direct_trip.duration) > \
-                            person.get_trip_tw_right():
-                        break
-
-            if len(pt_alternatives) > 3:
-                pt_alternatives = [pt_alternatives[0], pt_alternatives[int(len(pt_alternatives)/2)], pt_alternatives[-1]]
-
-            for alt in pt_alternatives:
-                if alt.legs[0].start_time < 0 or alt.legs[-1].end_time > self.env.config.get('sim.duration_sec'):
-                    status_log[DrtStatus.overnight_trip] += 1
+                    drt_leg = self._get_leg_for_in_trip(drt_trip, person)
+                    available_drt_time = person.get_max_trip_duration(person.direct_trip.duration) - \
+                                         (alt.duration - drt_leg.duration)
+                    person.set_drt_tw(drt_leg.duration, last_leg=True, drt_leg=drt_leg,
+                                      available_time=available_drt_time)
+                    pt_walk_leg_index = -1
+                except PTStopServiceOutsideZone:
+                    status_log[DrtStatus.no_stop] += 1
                     continue
 
-                if alt.duration > person.get_max_trip_duration(person.direct_trip.duration):
-                    status_log[DrtStatus.too_long_pt_trip] += 1
-                    continue
-
-                drt_trip = alt
-                drt_trip.main_mode = OtpMode.DRT_TRANSIT
-
-                # if a PT trip has only one leg or if the last leg is PT - we do not need DRT
-                if len(drt_trip.legs) < 2:
-                    status_log[DrtStatus.one_leg] += 1
-                    continue
-
-                if len([True for l in alt.legs if l.mode in OtpMode.get_pt_modes()]) == 0:
-                    status_log[DrtStatus.one_leg] += 1
-                    continue
-
-                # **************************************************
-                # **********         Trip in           *************
-                # **************************************************
-
-                # When we have an incoming our outgoing trip, we should calculate a PT trip with a high walking speed
-                # to replace a WALK leg with a DRT leg
-                if person.is_in_trip():
-                    # TODO: we can "consume" PT legs by DRT as long as they are inside service zone
-                    # we can also make DRT alternatives for all of the trip alternatives
-
-                    # TODO: take the last possible stop as an alternative
-                    # That would be the scenario to a central station (most likely)
-                    try:
-
-                        drt_leg = self._get_leg_for_in_trip(drt_trip, person)
-                        available_drt_time = person.get_max_trip_duration(person.direct_trip.duration) - \
-                                             (alt.duration - drt_leg.duration)
-                        person.set_drt_tw(drt_leg.duration, last_leg=True, drt_leg=drt_leg,
-                                          available_time=available_drt_time)
-                        pt_walk_leg_index = -1
-                    except PTStopServiceOutsideZone:
-                        # log.info(e.msg)
-                        status_log[DrtStatus.no_stop] += 1
-                        # if one of the found CAR_PICKUP+TRANSIT trips has a transfer outside DRT service area
-                        # we will try to reduce time for CAR so that other alternatives are picked up in next iteration
-                        params.update({'maxPreTransitTime':
-                                           int(min(drt_trip.legs[-1].duration - 10,
-                                                   params.get('maxPreTransitTime')))})
-                        continue
-
-                # **************************************************
-                # **********          Trip out         *************
-                # **************************************************
-                elif person.is_out_trip():
-                    try:
-                        drt_leg = self._get_leg_for_out_trip(drt_trip, person)
-                        available_drt_time = person.get_max_trip_duration(person.direct_trip.duration) - \
-                                             (alt.duration - drt_leg.duration)
-                        person.set_drt_tw(drt_leg.duration, first_leg=True, drt_leg=drt_leg,
-                                          available_time=available_drt_time)
-                        pt_walk_leg_index = 0
-                    except PTStopServiceOutsideZone:
-                        # log.info(e.msg)
-                        status_log[DrtStatus.no_stop] += 1
-                        # if one of the found CAR_PICKUP+TRANSIT trips has a transfer outside DRT service area
-                        # we will try to reduce time for CAR so that other alternatives are picked up in next iteration
-                        params.update({'maxPreTransitTime': int(min(drt_trip.legs[0].duration - 10,
-                                                            params.get('maxPreTransitTime')))})
-                        continue
-
-                else:
-                    log.error('Could not determine where person is going. {}'.format(person.id))
-                    # TODO: need to use different status here. Undeliverable is when jsprit cannot fit a person
-                    # in this case it is an input error
-                    # TODO: check if this ever happens
-                    self._drt_undeliverable += 1
-                    return [], DrtStatus.undeliverable
-
-                # **************************************************
-                # ********* Common part for in and out *************
-                # **************************************************
-                if drt_leg.distance < self.env.config.get('drt.min_distance'):
-                    status_log[DrtStatus.too_short_drt_leg] += 1
-                    continue
-
-                if person.get_drt_tw_right() < self.env.now or person.drt_tw_left > self.env.config.get('sim.duration_sec'):
-                    status_log[DrtStatus.too_late_request] += 1
-                    continue
-
-                person.drt_leg = drt_leg.deepcopy()
+            # **************************************************
+            # **********          Trip out         *************
+            # **************************************************
+            elif person.is_out_trip():
                 try:
-                    self._drt_request_routine(person)
-                except DrtUnassigned:
-                    status_log[DrtStatus.unassigned] += 1
+                    drt_leg = self._get_leg_for_out_trip(drt_trip, person)
+                    available_drt_time = person.get_max_trip_duration(person.direct_trip.duration) - \
+                                         (alt.duration - drt_leg.duration)
+                    person.set_drt_tw(drt_leg.duration, first_leg=True, drt_leg=drt_leg,
+                                      available_time=available_drt_time)
+                    pt_walk_leg_index = 0
+                except PTStopServiceOutsideZone:
+                    status_log[DrtStatus.no_stop] += 1
                     continue
-                except DrtUndeliverable:
-                    status_log[DrtStatus.undeliverable] += 1
-                    continue
 
-                drt_trip.legs[pt_walk_leg_index] = person.drt_leg.deepcopy()
-                drt_trip.legs[pt_walk_leg_index].start_coord = person.drt_leg.start_coord
-                drt_trip.legs[pt_walk_leg_index].end_coord = person.drt_leg.start_coord
-                drt_trip.distance = 0
-                drt_trip.duration = sum(leg.duration for leg in drt_trip.legs)
+            else:
+                log.error('Could not determine where person is going. {}'.format(person.id))
+                # TODO: need to use different status here. Undeliverable is when jsprit cannot fit a person
+                # in this case it is an input error
+                # TODO: check if this ever happens
+                self._drt_undeliverable += 1
+                return [], DrtStatus.undeliverable
 
-                drt_trips += [drt_trip]
-                # just take one DRT trip.
-                # and do not add more until person.DRT_leg is used.
+            # **************************************************
+            # ********* Common part for in and out *************
+            # **************************************************
+            if drt_leg.distance < self.env.config.get('drt.min_distance'):
+                status_log[DrtStatus.too_short_drt_leg] += 1
+                continue
 
-                drt_trip_found = True
-                # break
+            if person.get_drt_tw_right() < self.env.now or person.drt_tw_left > self.env.config.get('sim.duration_sec'):
+                status_log[DrtStatus.too_late_request] += 1
+                continue
 
-            if status_log[DrtStatus.no_stop] == 0:
-                # if a trip was not found, but the reasons are not related to kiss_and_ride,
-                # we won't be able to find a trip reducing pre-transit time
-                break
+            person.drt_leg = drt_leg.deepcopy()
+            try:
+                self._drt_request_routine(person)
+            except DrtUnassigned:
+                status_log[DrtStatus.unassigned] += 1
+                continue
+            except DrtUndeliverable:
+                status_log[DrtStatus.undeliverable] += 1
+                continue
+
+            drt_trip.legs[pt_walk_leg_index] = person.drt_leg.deepcopy()
+            drt_trip.legs[pt_walk_leg_index].start_coord = person.drt_leg.start_coord
+            drt_trip.legs[pt_walk_leg_index].end_coord = person.drt_leg.start_coord
+            drt_trip.distance = 0
+            drt_trip.duration = sum(leg.duration for leg in drt_trip.legs)
+
+            drt_trips += [drt_trip]
+
+            # just take one DRT trip.
+            # and do not add more until person.DRT_leg is used.
+            break
 
         status = DrtStatus.routed
         if len(drt_trips) == 0:
