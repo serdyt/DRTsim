@@ -399,27 +399,29 @@ class ServiceProvider(Component):
         log.debug('len pt_alternatives {}'.format(len(pt_alternatives)))
         log.debug('took: {}'.format(time.time() - start))
 
-        # selected = []
-        # if len(pt_alternatives) > 10:
-        #     tmp = [t for t in pt_alternatives]
-        #     # fastest
-        #     selected.append(sorted(tmp, key=lambda trip: trip.duration).pop())
-        #     if person.is_arrive_by():
-        #         # latest arrival
-        #         selected.append(sorted(tmp, key=lambda trip: trip.legs[-1].end_time, reverse=True).pop())
-        #         # earliest arrival
-        #         selected.append(sorted(tmp, key=lambda trip: trip.legs[-1].end_time).pop())
-        #         # in the middle
-        #         selected.append(sorted(tmp, key=lambda trip: trip.legs[-1].end_time)[int(len(tmp)/2)])
-        #     else:
-        #         # earliest start time
-        #         selected.append(sorted(tmp, key=lambda trip: trip.legs[0].start_time).pop())
-        #         # latest start time
-        #         selected.append(sorted(tmp, key=lambda trip: trip.legs[0].start_time, reverse=True).pop())
-        #         # in the middle
-        #         selected.append(sorted(tmp, key=lambda trip: trip.legs[0].start_time)[int(len(tmp)/2)])
-        #
-            # pt_alternatives = selected
+        selected = []
+        if len(pt_alternatives) > 10:
+            tmp = [t for t in pt_alternatives]
+            # fastest
+            selected.append(sorted(tmp, key=lambda trip: trip.duration).pop())
+            if person.is_arrive_by():
+                # latest arrival
+                selected.append(sorted(tmp, key=lambda trip: trip.legs[-1].end_time, reverse=True).pop())
+                # earliest arrival
+                selected.append(sorted(tmp, key=lambda trip: trip.legs[-1].end_time).pop())
+                # in the middle
+                selected.append(sorted(tmp, key=lambda trip: trip.legs[-1].end_time)[int(len(tmp)/2)])
+            else:
+                # earliest start time
+                selected.append(sorted(tmp, key=lambda trip: trip.legs[0].start_time).pop())
+                # latest start time
+                selected.append(sorted(tmp, key=lambda trip: trip.legs[0].start_time, reverse=True).pop())
+                # in the middle
+                selected.append(sorted(tmp, key=lambda trip: trip.legs[0].start_time)[int(len(tmp)/2)])
+
+            selected.extend(self.env.rand.sample(tmp, 6))
+
+            pt_alternatives = selected
 
         for alt in pt_alternatives:
             if alt.legs[0].start_time < 0 or alt.legs[-1].end_time > self.env.config.get('sim.duration_sec'):
