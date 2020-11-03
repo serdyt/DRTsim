@@ -139,23 +139,47 @@ class DefaultRouting(object):
 
         return trips
 
-    @staticmethod
-    def _remove_unnecessary_wait(trip):
-        # first to second legs
+    def _remove_unnecessary_wait(self, trip):
         if len(trip.legs) > 1:
-            if trip.legs[0].mode == OtpMode.WALK:
-                if trip.legs[1].start_time != trip.legs[0].end_time:
-                    delta = trip.legs[1].start_time - trip.legs[0].end_time
-                    trip.legs[0].start_time += delta
-                    trip.legs[0].end_time += delta
-                    trip.duration = trip.legs[-1].end_time - trip.legs[0].start_time
+            # first to second legs
+            if trip.legs[0].mode == OtpMode.WALK or trip.legs[0].mode == OtpMode.CAR:
+                delta = trip.legs[1].start_time - trip.legs[0].end_time
+                if delta > 0:
+                    self._shift_leg_right(trip.legs[0], delta)
             # last leg
             if trip.legs[-1].mode == OtpMode.WALK:
-                if trip.legs[-2].end_time != trip.legs[-1].start_time:
-                    delta = trip.legs[-1].start_time - trip.legs[-2].end_time
-                    trip.legs[-1].start_time -= delta
-                    trip.legs[-1].end_time -= delta
-                    trip.duration = trip.legs[-1].end_time - trip.legs[0].start_time
+                delta = trip.legs[-1].start_time - trip.legs[-2].end_time
+                if delta > 0:
+                    self._shift_leg_left(trip.legs[-1], delta)
+        if len(trip.legs) > 2:
+            if trip.legs[0].mode == OtpMode.CAR and trip.legs[1].mode == OtpMode.WALK:
+                delta = trip.legs[2].start_time - trip.legs[1].end_time
+                if delta > 0:
+                    self._shift_leg_right(trip.legs[1], delta)
+                    self._shift_leg_right(trip.legs[0], delta)
+                delta = trip.legs[1].start_time - trip.legs[0].end_time
+                if delta > 0:
+                    self._shift_leg_right(trip.legs[0], delta)
+            if trip.legs[-1].mode == OtpMode.CAR and trip.legs[-2].mode == OtpMode.WALK:
+                delta = trip.legs[-2].start_time - trip.legs[-3].end_time
+                if delta > 0:
+                    self._shift_leg_left(trip.legs[-2], delta)
+                    self._shift_leg_left(trip.legs[-1], delta)
+                delta = trip.legs[-1].start_time - trip.legs[-2].end_time
+                if delta > 0:
+                    self._shift_leg_left(trip.legs[-1], delta)
+        #  adjust trip duration
+        trip.duration = trip.legs[-1].end_time - trip.legs[0].start_time
+
+    @staticmethod
+    def _shift_leg_left(leg, delta):
+        leg.start_time -= delta
+        leg.end_time -= delta
+
+    @staticmethod
+    def _shift_leg_right(leg, delta):
+        leg.start_time += delta
+        leg.end_time += delta
 
     def osrm_route_request(self, from_place, to_place):
         '''

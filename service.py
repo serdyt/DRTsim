@@ -342,7 +342,7 @@ class ServiceProvider(Component):
                         pt_alternatives.append(alt)
                 # sometimes CAR-WALK trips are generated.
                 # The cycle above then shifts it by one second within the whole time window
-                if len(pt_alt_temp) == 1 and len(pt_alt_temp[0].legs) < 3:
+                if min([len(alt.legs) for alt in pt_alt_temp]) < 3:
                     break
 
                 if person.is_arrive_by():
@@ -352,7 +352,7 @@ class ServiceProvider(Component):
                             alt_tw_right:
                         break
                 else:
-                    alt_tw_left += wait_time + 1
+                    alt_tw_left += wait_time
                     params.update({'time': trunc_microseconds(str(td(seconds=alt_tw_left)))})
                     if alt_tw_left + person.get_max_trip_duration(person.direct_trip.duration) > \
                             person.get_trip_tw_right():
