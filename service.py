@@ -340,6 +340,10 @@ class ServiceProvider(Component):
                             if not self.is_stop_in_zone(self._get_bus_leg_for_out_trip(alt).from_stop):
                                 continue
                         pt_alternatives.append(alt)
+                # sometimes CAR-WALK trips are generated.
+                # The cycle above then shifts it by one second within the whole time window
+                if len(pt_alt_temp) == 1 and len(pt_alt_temp[0].legs) < 3:
+                    break
 
                 if person.is_arrive_by():
                     alt_tw_right -= 1
@@ -454,10 +458,10 @@ class ServiceProvider(Component):
 
                     drt_leg = self._get_leg_for_in_trip(drt_trip, person)
                     available_drt_time = person.get_max_trip_duration(person.direct_trip.duration) - \
-                                         (alt.duration - drt_leg.duration)
+                                         (alt.duration - (drt_leg.duration + person.boarding_time + person.leaving_time))
                     person.set_drt_tw(drt_leg.duration, last_leg=True, drt_leg=drt_leg,
                                       available_time=available_drt_time)
-                    pt_walk_leg_index = -1
+                    pt_car_leg_index = -1
                 except PTStopServiceOutsideZone:
                     status_log[DrtStatus.no_stop] += 1
                     continue
@@ -472,7 +476,7 @@ class ServiceProvider(Component):
                                          (alt.duration - drt_leg.duration)
                     person.set_drt_tw(drt_leg.duration, first_leg=True, drt_leg=drt_leg,
                                       available_time=available_drt_time)
-                    pt_walk_leg_index = 0
+                    pt_car_leg_index = 0
                 except PTStopServiceOutsideZone:
                     status_log[DrtStatus.no_stop] += 1
                     continue
@@ -506,11 +510,11 @@ class ServiceProvider(Component):
                 status_log[DrtStatus.undeliverable] += 1
                 continue
 
-            drt_trip.legs[pt_walk_leg_index] = person.drt_leg.deepcopy()
-            drt_trip.legs[pt_walk_leg_index].start_coord = person.drt_leg.start_coord
-            drt_trip.legs[pt_walk_leg_index].end_coord = person.drt_leg.start_coord
+            drt_trip.legs[pt_car_leg_index] = person.drt_leg.deepcopy()
+            drt_trip.legs[pt_car_leg_index].start_coord = person.drt_leg.start_coord
+            drt_trip.legs[pt_car_leg_index].end_coord = person.drt_leg.start_coord
             drt_trip.distance = 0
-            drt_trip.duration = sum(leg.duration for leg in drt_trip.legs)
+            drt_trip.duration = drt_trip.legs[-1].end_time - drt_trip.legs[0].start_time
 
             drt_trips += [drt_trip]
 

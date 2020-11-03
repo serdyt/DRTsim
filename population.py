@@ -584,8 +584,8 @@ class Person(Component):
         return t
 
     def get_max_trip_duration(self, direct_time):
-        return direct_time * self.drt_time_window_multiplier + self.drt_time_window_constant + \
-               self.boarding_time + self.leaving_time
+        return direct_time * self.drt_time_window_multiplier + self.drt_time_window_constant \
+               + self.boarding_time + self.leaving_time
 
     def set_trip_tw(self):
         if self.is_arrive_by():

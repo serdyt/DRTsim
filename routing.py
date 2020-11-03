@@ -134,9 +134,28 @@ class DefaultRouting(object):
                 trip.append_leg(leg)
 
                 trip.main_mode = trip.main_mode_from_legs()
+            self._remove_unnecessary_wait(trip)
             trips.append(trip)
 
         return trips
+
+    @staticmethod
+    def _remove_unnecessary_wait(trip):
+        # first to second legs
+        if len(trip.legs) > 1:
+            if trip.legs[0].mode == OtpMode.WALK:
+                if trip.legs[1].start_time != trip.legs[0].end_time:
+                    delta = trip.legs[1].start_time - trip.legs[0].end_time
+                    trip.legs[0].start_time += delta
+                    trip.legs[0].end_time += delta
+                    trip.duration = trip.legs[-1].end_time - trip.legs[0].start_time
+            # last leg
+            if trip.legs[-1].mode == OtpMode.WALK:
+                if trip.legs[-2].end_time != trip.legs[-1].start_time:
+                    delta = trip.legs[-1].start_time - trip.legs[-2].end_time
+                    trip.legs[-1].start_time -= delta
+                    trip.legs[-1].end_time -= delta
+                    trip.duration = trip.legs[-1].end_time - trip.legs[0].start_time
 
     def osrm_route_request(self, from_place, to_place):
         '''
