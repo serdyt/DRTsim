@@ -112,9 +112,9 @@ class ServiceProvider(Component):
             raise OTPUnreachable('No traditional alternatives received')
 
         traditional_alternatives2 = []
-        # for trip in traditional_alternatives:
-        #     if self._trip_can_be_accepted(trip, person):
-        #         traditional_alternatives2.append(trip)
+        for trip in traditional_alternatives:
+            if self._trip_can_be_accepted(trip, person):
+                traditional_alternatives2.append(trip)
         #
         # start = time.time()
         # try:
