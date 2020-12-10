@@ -81,8 +81,8 @@ config = {
     'sim.purpose': 'All pt test',
 
     'person.behaviour': 'DefaultBehaviour',
-    # 'person.mode_choice': 'DefaultModeChoice',
-    'person.mode_choice': 'TimeWindowsModeChoice',
+    'person.mode_choice': 'DefaultModeChoice',
+    # 'person.mode_choice': 'TimeWindowsModeChoice',
     'service.routing': 'DefaultRouting',
     'service.router_address': 'http://localhost:8080/otp/routers/skane/plan',
     # 'service.router_scripting_address': 'http://localhost:8080/otp/scripting/run',
@@ -102,7 +102,7 @@ config = {
     # 'person.default_attr.maxWalkDistance': 2000,
 
     'population.input_file': 'data/population_VEHITS_divided_to_pt_and_others_kommun_cut_work_distr.json',
-    'population.input_percentage': 1.0,
+    'population.input_percentage': 0.01,
     # ['all_within', 'pt_only', 'drtable_all', 'drtable_outside', 'all']
     'population.scenario': 'drtable_all',
 
@@ -110,7 +110,7 @@ config = {
     'drt.zones': [z for z in range(12650001, 12650018)],
 
     # maximum of these two will be taken as pre-booking time
-    'drt.planning_in_advance': td(hours=2).total_seconds(),
+    'drt.planning_in_advance': td(hours=1).total_seconds(),
     # 'drt.planning_in_advance_multiplier': 2,
 
     # # Parameters that determine maximum travel time for DRT leg
@@ -122,7 +122,7 @@ config = {
     'pt.drt_time_window_constant_within': 0,
 
     'pt.trip_time_window_multiplier': 1,
-    'pt.trip_time_window_constant': td(hours=1).total_seconds(),
+    'pt.trip_time_window_constant': td(hours=0.5).total_seconds(),
 
     'drt.PT_stops_file': 'data/zone_stops.csv',
     'drt.min_distance': 1000,
