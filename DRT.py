@@ -73,8 +73,10 @@ class Top(Component):
 os.environ['TZ'] = 'Sweden'
 time.tzset()
 config = {
-    'sim.duration': '86400 s',
-    'sim.duration_sec': 86400,
+    # 'sim.duration': '86400 s',
+    # 'sim.duration_sec': 86400,
+    'sim.duration': '43200 s',
+    'sim.duration_sec': 43200,
     'sim.seed': 42,
     'sim.email_notification': True,
     'sim.create_excel': True,
@@ -84,14 +86,14 @@ config = {
     # 'person.mode_choice': 'DefaultModeChoice',
     'person.mode_choice': 'TimeWindowsModeChoice',
     'service.routing': 'DefaultRouting',
-    'service.router_address': 'http://localhost:8080/otp/routers/skane/plan',
+    'service.router_address': 'http://0.0.0.0:8080/otp/routers/lolland/plan',
     # 'service.router_scripting_address': 'http://localhost:8080/otp/scripting/run',
     'service.osrm_route': 'http://0.0.0.0:5000/route/v1/driving/',
     'service.osrm_tdm': 'http://0.0.0.0:5000/table/v1/driving/',
     'service.modes': 'main_modes',  # ['main_modes','all_modes']
-    'date': '11-14-2018',
-    'date.unix_epoch': 1542150000,  # 1542153600 - is one hour earlier!
-
+    'date': '11-17-2020',
+    # 'date.unix_epoch': 1542150000,  # 1542153600 - is one hour earlier!
+    'date.unix_epoch': 1605567600,  # 1605571200,
     # 'db.file': 'data/time_distance_matrix.db',
 
     'person.default_attr.walking_speed': 1.2,
@@ -101,36 +103,37 @@ config = {
     'person.default_attr.leaving_time': 60,
     # 'person.default_attr.maxWalkDistance': 2000,
 
-    'population.input_file': 'data/population_VEHITS_divided_to_pt_and_others_kommun_cut_work_distr.json',
+    'population.input_file': 'data/population_lolland_bus_stops_filtered.json',
     'population.input_percentage': 1.0,
     # ['all_within', 'pt_only', 'drtable_all', 'drtable_outside', 'all']
     'population.scenario': 'drtable_all',
 
     # 'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],  # Sjöbo + Tomelilla
-    'drt.zones': [z for z in range(12650001, 12650018)],
+    # 'drt.zones': [360110, 360120, 360130, 360140, 360210, 360230, 360240, 360250],
+    'drt.zones': [360250, 360240, 360230, 360210],
 
     # maximum of these two will be taken as pre-booking time
-    'drt.planning_in_advance': td(hours=2).total_seconds(),
+    'drt.planning_in_advance': td(hours=0.5).total_seconds(),
     # 'drt.planning_in_advance_multiplier': 2,
 
     # # Parameters that determine maximum travel time for DRT leg
-    'pt.drt_time_window_multiplier_in': 1.55,
+    'pt.drt_time_window_multiplier_in': 1.8,
     'pt.drt_time_window_constant_in': 0,
-    'pt.drt_time_window_multiplier_out': 1.95,
+    'pt.drt_time_window_multiplier_out': 1.8,
     'pt.drt_time_window_constant_out': 0,
-    'pt.drt_time_window_multiplier_within': 1.7,
+    'pt.drt_time_window_multiplier_within': 1.8,
     'pt.drt_time_window_constant_within': 0,
 
     'pt.trip_time_window_multiplier': 1,
-    'pt.trip_time_window_constant': td(hours=1).total_seconds(),
+    'pt.trip_time_window_constant': td(hours=0.5).total_seconds(),
 
-    'drt.PT_stops_file': 'data/zone_stops.csv',
-    'drt.min_distance': 1000,
-    'drt.maxPreTransitTime': 1800,  # 30 minutes
+    'drt.PT_stops_file': 'data/lolland_stops_left.csv',
+    'drt.min_distance': 500,
+    'drt.maxPreTransitTime': 1500,
     'drt.default_max_walk': 3000,
     'drt.visualize_routes': 'false',  # should be a string
     'drt.picture_folder': 'pictures/',
-    'drt.number_vehicles': 10,
+    'drt.number_vehicles': 100,
 
     # not actually in use:
     'drt.vehicle_type': 'minibus',

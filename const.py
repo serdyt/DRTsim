@@ -31,6 +31,8 @@ class LegMode(object):
 
     _MAIN_MODES = ['CAR', 'BICYCLE', 'BUS', 'RAIL', 'WALK']
 
+    _PT_MODES = ['BUS', 'RAIL', 'TRAM', 'SUBWAY']
+
     @staticmethod
     def get_all_modes():
         return [LegMode.__dict__.get(item) for item in LegMode._DICT]
@@ -38,6 +40,10 @@ class LegMode(object):
     @staticmethod
     def get_main_modes():
         return [LegMode.__dict__.get(item) for item in LegMode._MAIN_MODES]
+
+    @staticmethod
+    def get_pt_modes():
+        return [LegMode.__dict__.get(item) for item in LegMode._PT_MODES]
 
     @staticmethod
     def contains(other):

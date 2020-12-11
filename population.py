@@ -34,8 +34,8 @@ class Population(Component):
         self._init_persons()
 
     def _init_persons(self):
-        # self.read_json()
-        self.read_split_json()
+        self.read_json()
+        # self.read_split_json()
         # self.gen_test_pop_outside()
         log.info('{}: Population of {} persons created.'.format(self.env.now, len(self.person_list)))
 
@@ -176,29 +176,32 @@ class Population(Component):
         with open(self.env.config.get('population.input_file'), 'r') as input_file:
             raw_json = json.load(input_file)
             persons = raw_json.get('persons')
-            pers_id = 0
+
             for json_pers in persons:
-                pers_id += 1
 
-                pers = self._person_from_json(json_pers, pers_id)
+                if self.env.rand.choices([False, True],
+                                         [self.env.config.get('population.input_percentage'),
+                                          1 - self.env.config.get('population.input_percentage')])[0]:
+                    continue
 
-                if pers.activities[0].zone in self.env.config.get('drt.zones') \
-                        or pers.activities[1].zone in self.env.config.get('drt.zones'):
+                # if pers.curr_activity.zone in self.env.config.get('drt.zones') \
+                #         or pers.next_activity.zone in self.env.config.get('drt.zones'):
+                #     self.person_list.append(pers)
 
-                    if self.env.rand.choices([False, True],
-                                             [self.env.config.get('population.input_percentage'),
-                                              1 - self.env.config.get('population.input_percentage')])[0]:
-                        continue
-
+                if json_pers['activities'][0]['zone'] in self.env.config.get('drt.zones') \
+                        or json_pers['activities'][1]['zone'] in self.env.config.get('drt.zones'):
+                    pers = self._person_from_json(json_pers)
                     self.person_list.append(pers)
 
-    def _person_from_json(self, json_pers, pers_id):
+    def _person_from_json(self, json_pers, pers_id=None):
         # if self.env.rand.choices([False, True],
         #                          [self.env.config.get('population.input_percentage'),
         #                          1 - self.env.config.get('population.input_percentage')])[0]:
         #     continue
-
-        attributes = {'age': 22, 'id': pers_id, 'otp_parameters': {'arriveBy': True}}
+        if pers_id is not None:
+            attributes = {'age': 22, 'id': pers_id, 'otp_parameters': {'arriveBy': True}}
+        else:
+            attributes = {'age': 22, 'id': json_pers['id'], 'otp_parameters': {'arriveBy': True}}
 
         # TODO: sequence of activities has the same end and start times
         # time window is applied on the planning stage in the behaviour and service
@@ -215,7 +218,8 @@ class Population(Component):
             start_time = seconds_from_str(json_activity.get('start_time'))
 
             coord_json = json_activity.get('coord')
-            coord = Coord(lat=float(coord_json.get('lat')), lon=float(coord_json.get('lon')))
+            # lat,lon format
+            coord = Coord(lat=float(coord_json[0]), lon=float(coord_json[1]))
 
             zone = int(json_activity.get('zone'))
 
