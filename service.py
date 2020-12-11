@@ -22,7 +22,7 @@ from const import maxLat, minLat, maxLon, minLon
 from const import CapacityDimensions as CD
 from sim_utils import Coord, JspritAct, Step, JspritSolution, JspritRoute, UnassignedTrip, trunc_microseconds
 from vehicle import Vehicle, VehicleType
-from sim_utils import ActType, DrtAct, Trip, Leg
+from sim_utils import ActType, DrtAct, Trip, Leg, LegMode
 from population import Person, Population
 from log_utils import TravellerEventType
 from exceptions import *
@@ -73,7 +73,7 @@ class ServiceProvider(Component):
         for i in range(self.env.config.get('drt.number_vehicles')):
             # if you want to change ID assignment method, you should change get_vehicle_by_id() method too
             attrib = {'id': i}
-            coord = Coord(lat=55.630995, lon=13.701037)
+            coord = Coord(lat=54.832973, lon=11.138917)
             v_type = self.vehicle_types.get(0)
             self.vehicles.append(Vehicle(parent=self, attrib=attrib, return_coord=coord, vehicle_type=v_type))
 
@@ -269,6 +269,11 @@ class ServiceProvider(Component):
             new_max_pre_transit = cur_max_pre_transit
             append = False
             for alt in pt_alt_temp:
+                if len(alt.legs) == 1:
+                    continue
+                if len([True for leg in alt.legs if leg.mode in LegMode.get_pt_modes()]) == 0:
+                    continue
+
                 if person.is_in_trip():
                     new_max_pre_transit = min(int(alt.legs[-1].duration), new_max_pre_transit)
                     if alt.legs[-1].duration > cur_max_pre_transit:
@@ -330,6 +335,11 @@ class ServiceProvider(Component):
                 for alt in pt_alt_temp:
                     alt_tw_left = max(alt_tw_left, alt.legs[0].start_time)
                     alt_tw_right = min(alt_tw_right, alt.legs[-1].end_time)
+                    if len(alt.legs) == 1:
+                        continue
+                    if len([True for leg in alt.legs if leg.mode in LegMode.get_pt_modes()]) == 0:
+                        continue
+
                     if person.is_in_trip():
                         wait_time = max(self._drt_transit_get_waiting_time(alt), wait_time)
                     if self._trip_can_be_accepted(alt, person):
@@ -562,11 +572,12 @@ class ServiceProvider(Component):
 
     @staticmethod
     def _get_bus_leg_for_in_trip(drt_trip):
-        if drt_trip.legs[-2].mode == OtpMode.WALK and len(drt_trip.legs) > 3:
-            leg_bus = drt_trip.legs[-3]
-        else:
-            leg_bus = drt_trip.legs[-2]
-        return leg_bus
+        return [leg for leg in drt_trip.legs if leg.mode in LegMode.get_pt_modes()][-1]
+        # if drt_trip.legs[-2].mode == OtpMode.WALK and len(drt_trip.legs) > 3:
+        #     leg_bus = drt_trip.legs[-3]
+        # else:
+        #     leg_bus = drt_trip.legs[-2]
+        # return leg_bus
 
     def _get_leg_for_in_trip(self, drt_trip, person):
         """Extract a walk leg, that should be replaced by DRT, from a PT trip"""
@@ -588,11 +599,12 @@ class ServiceProvider(Component):
 
     @staticmethod
     def _get_bus_leg_for_out_trip(drt_trip):
-        if drt_trip.legs[1].mode == OtpMode.WALK and len(drt_trip.legs) > 3:
-            leg_bus = drt_trip.legs[2]
-        else:
-            leg_bus = drt_trip.legs[1]
-        return leg_bus
+        return [leg for leg in drt_trip.legs if leg.mode in LegMode.get_pt_modes()][0]
+        # if drt_trip.legs[1].mode == OtpMode.WALK and len(drt_trip.legs) > 3:
+        #     leg_bus = drt_trip.legs[2]
+        # else:
+        #     leg_bus = drt_trip.legs[1]
+        # return leg_bus
 
     def _get_leg_for_out_trip(self, drt_trip, person):
         leg_bus = self._get_bus_leg_for_out_trip(drt_trip)
