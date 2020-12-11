@@ -190,6 +190,8 @@ class Population(Component):
 
                 if json_pers['activities'][0]['zone'] in self.env.config.get('drt.zones') \
                         or json_pers['activities'][1]['zone'] in self.env.config.get('drt.zones'):
+                    if seconds_from_str(json_pers['activities'][0]['end_time']) > self.env.config.get('sim.duration_sec'):
+                        continue
                     pers = self._person_from_json(json_pers)
                     self.person_list.append(pers)
 
