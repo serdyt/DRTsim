@@ -49,10 +49,17 @@ class DefaultRouting(object):
         Tries to repeat request if OTP exception has occured
         """
 
-        try:
-            return self._otp_request(from_place, to_place, at_time, mode, attributes)
-        except OTPGeneralRouting as e:
-            return self._otp_request(from_place, to_place, at_time, mode, attributes)
+        trips = []
+        for attempt in range(0, 5):
+            try:
+                trips = self._otp_request(from_place, to_place, at_time, mode, attributes)
+                break
+            except OTPGeneralRouting as e:
+                if attempt == 4:
+                    log.error('Could not perform OTP request from {} to {}, mode, attributes'
+                              .format(from_place, to_place, mode, attributes), e.context)
+                continue
+        return trips
 
     def _otp_request(self,
                      from_place,

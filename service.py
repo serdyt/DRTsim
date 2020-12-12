@@ -647,15 +647,15 @@ class ServiceProvider(Component):
     def standalone_osrm_request(self, person):
         return self.router.osrm_route_request(person.curr_activity.coord, person.next_activity.coord)
 
-    def standalone_otp_request(self, person, mode, otp_attributes):
-        attributes = copy.copy(person.get_routing_parameters())
-        attributes.update(otp_attributes)
-        return self.router.otp_request(person.curr_activity.coord,
-                                       person.next_activity.coord,
-                                       person.next_activity.start_time,
-                                       mode,
-                                       attributes
-                                       )
+    # def standalone_otp_request(self, person, mode, otp_attributes):
+    #     attributes = copy.copy(person.get_routing_parameters())
+    #     attributes.update(otp_attributes)
+    #     return self.router.otp_request(person.curr_activity.coord,
+    #                                    person.next_activity.coord,
+    #                                    person.next_activity.start_time,
+    #                                    mode,
+    #                                    attributes
+    #                                    )
 
     def _get_current_vehicle_positions(self):
         coords_times = []
