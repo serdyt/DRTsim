@@ -162,7 +162,8 @@ class VRPReadWriter(object):
                 if act.type == DrtAct.DELIVERY:
                     id_tag = 'serviceId'
                 elif act.type in [DrtAct.PICK_UP, DrtAct.DROP_OFF]:
-                    id_tag = 'shipmentId'
+                    # id_tag = 'shipmentId'
+                    continue
                 else:
                     log.error('Got unexpected act.type {} during the conversion for jsprit vrp.xml'.format(act.type))
                     raise Exception('Got unexpected act.type {} for jsprit vrp.xml'.format(act.type))

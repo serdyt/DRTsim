@@ -21,7 +21,6 @@ def xls_create_occupancy_charts(res, folder, capacity_dimension):
             return datetime.time(hour=int(hours), minute=int(minutes))
 
         df['time'] = df.time.apply(pr)
-        # print(df)
         df.to_excel(writer, sheet_name='vehicle{}'.format(i), index=False)
         worksheet = writer.sheets['vehicle{}'.format(i)]
         time_format = workbook.add_format({'num_format': 'hh:mm'})

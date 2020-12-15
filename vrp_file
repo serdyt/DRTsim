@@ -1,9 +1,0 @@
-<problem xmlns="http://www.w3schools.com" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.w3schools.com vrp_xml_schema.xsd">
-<problemType>
-<fleetSize>FINITE</fleetSize>
-</problemType>
-<vehicleTypes>
-<type>
-<id />
-<capacity-dimensions>
-<dimensions index="wheelchairs">
