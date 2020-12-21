@@ -578,17 +578,15 @@ class Person(Component):
     def get_rest_drt_duration(self):
         if self.actual_trip is None:
             return self.get_max_drt_duration()
-        elif self.actual_trip.duration is None:
-            return self.get_max_drt_duration()
         elif self.actual_trip.legs is None:
             return self.get_max_drt_duration()
 
         if self.is_local_trip():
-            t = self.get_max_drt_duration() - self.actual_trip.duration
+            t = self.get_max_drt_duration() - (self.env.now - self.actual_trip.legs[0].start_time)
         elif self.is_in_trip():
-            t = self.get_max_drt_duration() - self.actual_trip.legs[0].duration
+            t = self.get_max_drt_duration() - (self.env.now - self.actual_trip.legs[-1].start_time)
         else:
-            t = self.get_max_drt_duration() - self.actual_trip.legs[-1].duration
+            t = self.get_max_drt_duration() - (self.env.now - self.actual_trip.legs[0].start_time)
 
         if t < 0:
             log.error("Person {} was max trip length of {}, but left {}, tw [{}, {}]".

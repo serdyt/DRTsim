@@ -563,7 +563,7 @@ class ServiceProvider(Component):
                 self._drt_too_late_request += 1
                 status = DrtStatus.too_late_request
             else:
-                log.error('{} could not be delivered by DRT_TRANSIT, but there are zero errors as well.'
+                log.warning('{} could not be delivered by DRT_TRANSIT, but there are zero errors as well.'
                           .format(person, ))
 
         return drt_trips, status

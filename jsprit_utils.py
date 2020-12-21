@@ -104,7 +104,8 @@ class VRPReadWriter(object):
             time_element = ET.SubElement(vehicle_element, 'timeSchedule')
             ET.SubElement(time_element, 'start').text = str(coord_time[1])
             # working time form 0 to infinity
-            ET.SubElement(time_element, 'end').text = '1.7976931348623157E308'
+            # ET.SubElement(time_element, 'end').text = '1.7976931348623157E308'
+            ET.SubElement(time_element, 'end').text = str(vehicle.return_time)
             ET.SubElement(vehicle_element, 'returnToDepot').text = 'true'
 
         # Writing vehicle types
@@ -118,10 +119,10 @@ class VRPReadWriter(object):
             for cost in v_type[1].costs.items():
                 ET.SubElement(costs_element, str(cost[0])).text = str(cost[1])
 
-        # Writing services
+        # Writing services / deliveries
         services_element = ET.SubElement(root, 'services')
         for person in service_persons:
-            # if a person is in a vehicle, it must be delivered
+            # if a person is in a vehicle, person must be delivered
             service_element = ET.SubElement(services_element, 'service', attrib={
                                                                                  'id': str(person.id),
                                                                                  'type': 'delivery'

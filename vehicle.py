@@ -54,6 +54,7 @@ class Vehicle(Component):
         self.coord = return_coord
         # TODO: add possibilities to return to different depot
         self.return_coord = return_coord
+        self.return_time = self.env.config.get('sim.duration_sec')
         self.vehicle_type = vehicle_type
         self.id = attrib.get('id')
         self.capacity_dimensions = copy.deepcopy(vehicle_type.capacity_dimensions)
