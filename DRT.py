@@ -104,7 +104,7 @@ config = {
     # 'person.default_attr.maxWalkDistance': 2000,
 
     'population.input_file': 'data/population_lolland_bus_stops_filtered.json',
-    'population.input_percentage': 1.0,
+    'population.input_percentage': 0.01,
     # ['all_within', 'pt_only', 'drtable_all', 'drtable_outside', 'all']
     'population.scenario': 'drtable_all',
 
@@ -133,7 +133,7 @@ config = {
     'drt.default_max_walk': 3000,
     'drt.visualize_routes': 'false',  # should be a string
     'drt.picture_folder': 'pictures/',
-    'drt.number_vehicles': 100,
+    'drt.number_vehicles': 3,
 
     # not actually in use:
     'drt.vehicle_type': 'minibus',

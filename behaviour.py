@@ -85,7 +85,7 @@ class DefaultBehaviour(StateMachine):
         while self.env.peek() == self.env.now:
             # TODO: this makes sure that a request-replan sequence for a person is not broken
             # if it is, we must save multiple requests and have some policy to merge them
-            yield self.person.env.timeout(0.000001)
+            yield self.person.env.timeout(0.0000000001)
         self.person.update_travel_log(TravellerEventType.ACT_FINISHED, self.person.curr_activity)
 
         self.person.set_trip_tw()
@@ -118,7 +118,7 @@ class DefaultBehaviour(StateMachine):
             self.env.process(self.unchoosable())
         else:
             log.info('{}: Person {} have chosen trip {}'.format(self.env.now, self.person.id, chosen_trip))
-            self.person.planned_trip = chosen_trip.deepcopy()
+            self.person.planned_trip = chosen_trip
             self.person.init_actual_trip()
             self.person.serviceProvider.start_trip(self.person)
             self.person.update_travel_log(TravellerEventType.TRIP_CHOSEN, chosen_trip.deepcopy())

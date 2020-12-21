@@ -309,8 +309,9 @@ class DrtAct(ActType):
         self.steps = steps
 
     def __str__(self):
-        return '{}, type {}, duration {}, distance {}, start_time {}, end_time {}'\
-            .format(self.person, self.type, self.duration, self.distance, self.start_time, self.end_time)
+        return 'Person {}, type {}, duration {}, distance {}, start_time {}, end_time {}'\
+            .format(self.person.id if self.person is not None else None,
+                    self.get_string_from_type(self.type), self.duration, self.distance, self.start_time, self.end_time)
 
     def __repr__(self):
         return self.__str__()

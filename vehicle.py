@@ -31,7 +31,7 @@ class VehicleType(object):
 
         self.id = attrib.get('id')
         self.capacity_dimensions = attrib.setdefault('capacity_dimensions', {CD.SEATS: 8, CD.WHEELCHAIRS: 1})
-        self.costs = attrib.setdefault('costs', {VC.DISTANCE: 1.0, VC.FIXED: 0, VC.TIME: 0.5, VC.WAIT: 30})
+        self.costs = attrib.setdefault('costs', {VC.DISTANCE: 1.0, VC.FIXED: 5000, VC.TIME: 0.5, VC.WAIT: 0.5})
 
 
 class Vehicle(Component):
@@ -219,6 +219,7 @@ class Vehicle(Component):
 
             if self.rerouted.triggered:
                 self.rerouted = self.env.event()
+
                 # self._update_travel_log(VehicleEventType.VEHICLE_REROUTED_ON_ROUTE, len(self.passengers))
                 # all the rerouting happens in the service provider
 
@@ -227,7 +228,7 @@ class Vehicle(Component):
                 # request should be processed first
                 # TODO: try to do it with priority resource in a service
                 if self.env.peek() == self.env.now:
-                    yield self.env.timeout(0.05)
+                    yield self.env.timeout(0.0001)
                 act = self.pop_act()  # type: DrtAct
                 # TODO: add vehicle kilometers when first act is rerouted
                 if act.distance is None:

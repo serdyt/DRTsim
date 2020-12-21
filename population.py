@@ -12,7 +12,7 @@ from desmod.component import Component
 import behaviour
 import mode_choice
 
-from sim_utils import Activity, Coord, seconds_from_str, Trip, Leg, Step
+from sim_utils import Activity, Coord, seconds_from_str, Trip, Leg, Step, ActType
 from const import ActivityType as actType
 from const import maxLat, minLat, maxLon, minLon
 from const import CapacityDimensions as CD
@@ -516,18 +516,25 @@ class Person(Component):
         After service provider reconstructs DRT route with OTP, it calls for this to recalculate actual planned route,
         that will be compared with actual and direct trips.
         """
-        drt_acts = [act for act in drt_route if act.person == self]
-        start_act_idx = drt_route.index(drt_acts[0])
-        end_act_idx = drt_route.index(drt_acts[-1])
-        persons_route = drt_route[start_act_idx + 1:end_act_idx + 1]
+        drt_acts = [act for act in drt_route if act.person == self and \
+                    act.type in [ActType.PICK_UP, ActType.DROP_OFF, ActType.DELIVERY] ]
 
         # jsprit has no distance and steps
-        drt_leg = self.planned_trip.legs[self.planned_trip.get_leg_modes().index(OtpMode.DRT)]
-        drt_leg.duration = sum([act.duration for act in persons_route])
+        drt_leg = self.get_planned_drt_leg()
+        if drt_acts[-1].type == ActType.DELIVERY:
+            drt_leg.duration = drt_acts[-1].end_time - drt_leg.start_time
+            drt_leg.end_time = drt_acts[-1].end_time
+        else:
+            drt_leg.duration = drt_acts[-1].end_time - drt_acts[-1].start_time
+            drt_leg.end_time = drt_acts[-1].end_time
+            drt_leg.start_time = drt_acts[-1].start_time
 
-        self.planned_trip.set_duration(sum([leg.duration for leg in self.planned_trip.legs]))
+        self.planned_trip.set_duration(self.planned_trip.legs[-1].end_time - self.planned_trip.legs[0].start_time)
         # self.planned_trip.legs[0].duration = self.planned_trip.duration
         # self.planned_trip.legs[0].distance = self.planned_trip.distance
+
+    def get_planned_drt_leg(self):
+        return self.planned_trip.legs[self.planned_trip.get_leg_modes().index(OtpMode.DRT)]
 
     def change_activity(self):
         """Updates current and next activities from a list of planned activities.

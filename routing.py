@@ -264,10 +264,9 @@ class DefaultRouting(object):
         trip.main_mode = OtpMode.CAR
         return trip
 
-    def drt_request(self, person, vehicle_coords_times, return_vehicle_coords,
+    def drt_request(self, person, new_drt_leg,
+                    vehicle_coords_times, return_vehicle_coords,
                     shipment_persons, service_persons):
-        """NOTE: person.drt_leg will be updated"""
-
         # ***********************************************************
         # ************  Calculate time-distance matrix    ***********
         # ***********************************************************
@@ -275,20 +274,23 @@ class DefaultRouting(object):
         current_vehicle_coords = list(set([ct[0] for ct in vehicle_coords_times]))
         return_vehicle_coords = list(set(return_vehicle_coords))
 
-        # TODO: separate coordinates of onboard(service) and waiting(shipment) travelers
-        persons_start_coords = [pers.drt_leg.start_coord for pers in shipment_persons]
-        persons_start_coords += [pers.drt_leg.end_coord for pers in service_persons]
+        persons_start_coords = [pers.get_planned_drt_leg().start_coord for pers in shipment_persons]
+        persons_start_coords += [new_drt_leg.start_coord]
 
-        persons_end_coords = [pers.drt_leg.end_coord for pers in shipment_persons + service_persons]
+        persons_end_coords = [pers.get_planned_drt_leg().end_coord for pers in shipment_persons]
+        persons_end_coords += [pers.get_planned_drt_leg().end_coord for pers in service_persons]
+        persons_end_coords += [new_drt_leg.end_coord]
 
         # jsprit ignores actual coordinates when it uses tdm. we need to assign a unique ID to each coordinate
         self._prepare_geoid(current_vehicle_coords +
                             persons_start_coords + persons_end_coords + return_vehicle_coords)
 
         start = time.time()
-        shipment_start_coords = [pers.drt_leg.start_coord for pers in shipment_persons]
-        shipment_end_coords = [pers.drt_leg.end_coord for pers in shipment_persons]
-        delivery_end_coord = [pers.drt_leg.end_coord for pers in service_persons]
+        shipment_start_coords = [pers.get_planned_drt_leg().start_coord for pers in shipment_persons]
+        shipment_start_coords += [new_drt_leg.start_coord]
+        shipment_end_coords = [pers.get_planned_drt_leg().end_coord for pers in shipment_persons]
+        shipment_end_coords += [new_drt_leg.end_coord]
+        delivery_end_coord = [pers.get_planned_drt_leg().end_coord for pers in service_persons]
 
         # TODO: catch the exceptions for TDM
         self._calculate_time_distance_matrix(current_vehicle_coords, list(set(return_vehicle_coords)),
@@ -296,7 +298,8 @@ class DefaultRouting(object):
 
         jsprit_vrp_interface.write_vrp(self.env.config.get('jsprit.vrp_file'),
                                        self.service.vehicle_types, self.service.vehicles, vehicle_coords_times,
-                                       shipment_persons, service_persons, self.coord_to_geoid)
+                                       shipment_persons, service_persons,
+                                       person, new_drt_leg, self.service, self.coord_to_geoid)
         log.debug('vrp file calculation takes {}'.format(time.time() - start))
 
         # ***********************************************************
@@ -321,12 +324,14 @@ class DefaultRouting(object):
         self.env.rand.setstate(rstate)
 
         if jsprit_call.returncode != 0:
-            file_id = 'vrp.xml' + str(time.time())
+            errtime = str(time.time())
+            xmlid = 'vrp.xml' + errtime
+            csvid = 'time_distance_matrix.csv' + errtime
             log.error("Jsprit has crashed. Saving input vrp to {}/{}"
-                      .format(self.env.config.get('jsprit.debug_folder'), file_id))
+                      .format(self.env.config.get('jsprit.debug_folder'), xmlid))
             log.error(jsprit_call.stderr.decode("utf-8") .replace('\\n', '\n'))
-            copyfile(self.env.config.get('jsprit.vrp_file'), self.env.config.get('jsprit.debug_folder')+'/'+file_id)
-            copyfile(self.env.config.get('jsprit.tdm_file'), self.env.config.get('jsprit.debug_folder')+'/'+file_id)
+            copyfile(self.env.config.get('jsprit.vrp_file'), self.env.config.get('jsprit.debug_folder')+'/'+xmlid)
+            copyfile(self.env.config.get('jsprit.tdm_file'), self.env.config.get('jsprit.debug_folder')+'/'+csvid)
         log.debug('jsprit takes {}ms of system time'.format(time.time() - start))
 
         # ***********************************************************
@@ -351,22 +356,25 @@ class DefaultRouting(object):
                       .format(person.id, person.next_activity.start_time, person.get_drt_tw_left(), person.get_drt_tw_right()))
             raise DrtUnassigned('Person {} cannot be delivered by DRT'.format(person.id))
 
-        # TODO: I assume that only one route is changed, i.e. insertion algorithm is used.
-        #  If it is not the case, every jsprit_route should be updated
-        modified_route = self._get_person_route(person, solution)
-        if modified_route is None:
-            log.error('Person {} has likely caused jsprit to crash. That may happen if time-windows as screwd.\n'
-                      'Time window from {} to {}'.format(person.id, person.get_drt_tw_left(), person.get_drt_tw_right()))
+        # TODO: Assuming that all routes are modified. All routes need to be updated.
+        new_persons_route = self._get_person_route(person, solution)
+        acts = [act for act in new_persons_route.acts if act.person_id == person.id]
+        new_drt_leg.duration = (acts[-1].arrival_time - acts[0].end_time)
+
+        # if modified_route is None:
+        #     log.error('Person {} has likely caused jsprit to crash. That may happen if time-windows as screwd.\n'
+        #               'Time window from {} to {}'.format(person.id, person.get_drt_tw_left(), person.get_drt_tw_right()))
             # raise DrtUnassigned('Person {} is not listed in any jsprit routes'.format(person.id))
-        solution.routes = None
-        solution.modified_route = modified_route
-        acts = [act for act in solution.modified_route.acts if act.person_id == person.id]
+        # solution.routes = None
+        # solution.modified_route = modified_route
+        # acts = [act for act in solution.modified_route.acts if act.person_id == person.id]
         # jsprit may route vehicles to pick up travelers long before requested start time,
         # thus we calculate actual trip duration based on the end of pickup event
 
-        person.drt_leg.duration = (acts[-1].arrival_time - acts[0].end_time)
+        # person.drt_leg.duration = (acts[-1].arrival_time - acts[0].end_time)
+
         # TODO: calculate distance for all the changed trips (need to call OTP to extract the distance)
-        self.service.pending_drt_requests[person.id] = solution
+        return solution, new_drt_leg
 
     @staticmethod
     def _get_person_route(person, solution):
