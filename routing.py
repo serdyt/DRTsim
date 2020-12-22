@@ -386,8 +386,9 @@ class DefaultRouting(object):
         return None
 
     def get_drt_route_details(self, coord_start, coord_end, at_time):
-        # Gets a direct trip from OSRM
-        # TODO: what is a good name for this function?
+        """Gets a direct trip from OSRM
+        NOTE: OSRM path may differ from OTP due to different snapping and speed rules
+        """
         return self.osrm_route_request(coord_start, coord_end)
 
     def _calculate_time_distance_matrix(self, vehicle_coords, return_coords,

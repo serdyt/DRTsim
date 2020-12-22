@@ -257,9 +257,9 @@ class ActType(object):
         return {ActType.PICK_UP: 'pickupShipment',
                 ActType.DROP_OFF: 'deliverShipment',
                 ActType.DELIVERY: 'delivery',
-                ActType.RETURN: 'drive',
+                ActType.RETURN: 'return',
                 ActType.WAIT: 'wait',
-                ActType.DRIVE: 'return',
+                ActType.DRIVE: 'drive',
                 ActType.IDLE: 'idle',
                 }[act_type]
 

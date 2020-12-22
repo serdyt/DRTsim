@@ -205,6 +205,9 @@ class ServiceProvider(Component):
         Returns a list of drt trips and a status for logging
         """
 
+        if person.id == 3826:
+            print('double yo!')
+
         if person.direct_trip.distance < self.env.config.get('drt.min_distance'):
             log.info('Person {} has trip length of {}. Ignoring DRT'.format(person.id, person.direct_trip.distance))
             self._drt_too_short_trip += 1
@@ -668,10 +671,17 @@ class ServiceProvider(Component):
             self._start_traditional_trip(person)
 
     def get_route_details(self, vehicle):
+        """Requests steps for the next act from OSRM.
+        """
         if vehicle.get_route_len() == 0:
             raise Exception('Cannot request DRT trip for vehicle with no route')
 
         act = vehicle.get_act(0)  # type: DrtAct
+
+        # no need to find route when there is no movement
+        if act.type in [DrtAct.PICK_UP, DrtAct.DROP_OFF, DrtAct.DELIVERY, DrtAct.WAIT]:
+            return
+
         try:
             trip = self.router.get_drt_route_details(coord_start=act.start_coord,
                                                      coord_end=act.end_coord,
@@ -703,7 +713,16 @@ class ServiceProvider(Component):
             log.error('OTP returned multiple legs for DRT trip from {} to {}.'.format(act.start_coord, act.end_coord))
             raise Exception()
 
+        # if act.steps is not None:
+        #     act.distance = trip.distance + act.steps[0].distance
+        #     act.duration = trip.duration + act.steps[0].duration
+        #     act.start_time -= act.steps[0].duration
+        #     act.start_coord = act.steps[0].start_coord
+        #     act.steps += trip.legs[0].steps
+
         if act.steps is not None:
+            if len(act.steps) > 1:
+                print('nonono!')
             act.distance = trip.distance + act.steps[0].distance
             act.duration = trip.duration + act.steps[0].duration
             act.start_time -= act.steps[0].duration
@@ -712,23 +731,33 @@ class ServiceProvider(Component):
         else:
             act.distance = trip.distance
             act.duration = trip.duration
-            act.start_time = act.start_time
             act.steps = trip.legs[0].steps
+            if act.end_time is None:
+                act.end_time = act.start_time + act.duration
 
         extra_time = act.duration - (act.end_time - act.start_time)
         if extra_time != 0:
             if abs(extra_time) > 1:
                 log.error('Act\'s end time does not correspond to its planned duration. '
-                          'Vehicle\'s route need to be moved by {} seconds.'
-                          .format(extra_time))
+                          'Vehicle\'s {} route need to be moved by {} seconds (ratio {}).'
+                          .format(extra_time, vehicle.id, act.duration/(act.end_time - act.start_time)))
 
-            for a in vehicle.get_route_with_return():
-                a.start_time += extra_time
-                a.end_time += extra_time
+            # for a in vehicle.get_route_with_return():
+            #     a.start_time += extra_time
+            #     a.end_time += extra_time
+            ratio = (act.end_time - act.start_time)/act.duration
+            if abs(1 - ratio) > 0.0000001:
+                for step in act.steps[1:]:
+                    step.duration *= ratio
+                act.duration = sum([step.duration for step in act.steps])
+
             # do not change start time of current act
             vehicle.get_act(0).start_time -= extra_time
 
     def _jsprit_to_drt(self, vehicle, jsprit_route: JspritRoute):
+        """Translates jsprit output into vehicle route.
+        Also merges current act of the vehicle into the route.
+        """
         drt_acts = []  # type: List[DrtAct]
 
         first_act = JspritAct(type_=DrtAct.DRIVE, person_id=None, end_time=jsprit_route.start_time)
@@ -763,6 +792,10 @@ class ServiceProvider(Component):
                               end_coord=coord_end, start_coord=coord_start,
                               start_time=pjact.end_time, end_time=njact.arrival_time)
 
+            # *************************************************************
+            # ******   Merge current act of vehicle into new route   ******
+            # *************************************************************
+
             # Vehicle is likely to be doing some step, but we cannot reroute it at any given point,
             # only after it finishes its current step
             if i == 0 and self.env.now != jsprit_route.start_time and vehicle.get_route_len() > 0:
@@ -770,7 +803,7 @@ class ServiceProvider(Component):
                 # if a vehicle is picking up or delivering a person, just save this act in a new route
                 if curr_v_act.type in [DrtAct.PICK_UP, DrtAct.DROP_OFF, DrtAct.DELIVERY]:
                     drt_acts.append(curr_v_act)
-                # if vehicle is on the move, append its current step to a plan
+                # if vehicle is on the move, append its current step to the plan
                 elif curr_v_act.type in [DrtAct.DRIVE, DrtAct.RETURN]:
                     curr_v_step = vehicle.get_current_step()
                     # passed_steps = vehicle.get_passed_steps()
@@ -824,6 +857,7 @@ class ServiceProvider(Component):
         for jsprit_route in jsprit_solution.routes:
             vehicle = self.get_vehicle_by_id(jsprit_route.vehicle_id)  # type: Vehicle
 
+            # new_route will contain the current act of the vehicle
             new_route = self._jsprit_to_drt(vehicle=vehicle, jsprit_route=jsprit_route)
             vehicle.update_partially_executed_trips()
             route_persons = list(set([act.person for act in new_route if act.person is not None]))
@@ -839,6 +873,9 @@ class ServiceProvider(Component):
 
         for vehicle in self.vehicles:
             if vehicle.get_route_len() != 0 and vehicle.id not in [route.vehicle_id for route in jsprit_solution.routes]:
+                if vehicle.get_act(0).type == DrtAct.RETURN:
+                    continue
+                vehicle.set_empty_return_route()
                 if not vehicle.rerouted.triggered:
                     vehicle.rerouted.succeed()
         self.pending_drt_alternatives = {}
