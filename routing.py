@@ -266,7 +266,7 @@ class DefaultRouting(object):
 
     def drt_request(self, person, new_drt_leg,
                     vehicle_coords_times, return_vehicle_coords,
-                    shipment_persons, service_persons):
+                    shipment_persons, service_persons, in_serve_persons):
         # ***********************************************************
         # ************  Calculate time-distance matrix    ***********
         # ***********************************************************
@@ -279,6 +279,7 @@ class DefaultRouting(object):
 
         persons_end_coords = [pers.get_planned_drt_leg().end_coord for pers in shipment_persons]
         persons_end_coords += [pers.get_planned_drt_leg().end_coord for pers in service_persons]
+        persons_end_coords += [pers.get_planned_drt_leg().end_coord for pers in in_serve_persons]
         persons_end_coords += [new_drt_leg.end_coord]
 
         # jsprit ignores actual coordinates when it uses tdm. we need to assign a unique ID to each coordinate
@@ -291,6 +292,7 @@ class DefaultRouting(object):
         shipment_end_coords = [pers.get_planned_drt_leg().end_coord for pers in shipment_persons]
         shipment_end_coords += [new_drt_leg.end_coord]
         delivery_end_coord = [pers.get_planned_drt_leg().end_coord for pers in service_persons]
+        delivery_end_coord += [pers.get_planned_drt_leg().end_coord for pers in in_serve_persons]
 
         # TODO: catch the exceptions for TDM
         self._calculate_time_distance_matrix(current_vehicle_coords, list(set(return_vehicle_coords)),
@@ -298,7 +300,7 @@ class DefaultRouting(object):
 
         jsprit_vrp_interface.write_vrp(self.env.config.get('jsprit.vrp_file'),
                                        self.service.vehicle_types, self.service.vehicles, vehicle_coords_times,
-                                       shipment_persons, service_persons,
+                                       shipment_persons, service_persons, in_serve_persons,
                                        person, new_drt_leg, self.service, self.coord_to_geoid)
         log.debug('vrp file calculation takes {}'.format(time.time() - start))
 
@@ -393,87 +395,9 @@ class DefaultRouting(object):
 
     def _calculate_time_distance_matrix(self, vehicle_coords, return_coords,
                                         shipment_start_coords, shipment_end_coords, delivery_end_coord):
-        """Forms a time-distance matrix for jsprit.
-
-        If a pair of coordinate has been processed previously, time and distance are fetched from the database.
-        If it has not been processed, it is added to a file to be processed by OTP.
-        OTP calculates time and distance between coordinates and saves them to a file.
-
-        Output from OTP and a local database are merged into a one file.
+        """Forms a time-distance matrix for jsprit with OSRM.
         """
         jsprit_tdm_interface.set_writer(self.env.config.get('jsprit.tdm_file'), 'w')
-
-        # start = time.time()
-        # coords_to_process_with_router = []
-        #
-        # vehicle_coords = set(vehicle_coords)
-        # return_coords = set(return_coords)
-        # shipment_start_coords = set(shipment_start_coords)
-        # shipment_end_coords = set(shipment_end_coords)
-        # delivery_end_coord = set(delivery_end_coord)
-        #
-        # self._process_tdm_in_database(vehicle_coords, shipment_start_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(vehicle_coords, delivery_end_coord, coords_to_process_with_otp)
-        # self._process_tdm_in_database(vehicle_coords, return_coords, coords_to_process_with_otp)
-        #
-        # self._process_tdm_in_database(shipment_start_coords, vehicle_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(shipment_end_coords, vehicle_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(delivery_end_coord, vehicle_coords, coords_to_process_with_otp)
-        #
-        # self._process_tdm_in_database(shipment_start_coords, shipment_end_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(shipment_start_coords, shipment_start_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(shipment_start_coords, delivery_end_coord, coords_to_process_with_otp)
-        #
-        # self._process_tdm_in_database(shipment_end_coords, shipment_start_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(shipment_end_coords, delivery_end_coord, coords_to_process_with_otp)
-        # self._process_tdm_in_database(shipment_end_coords, shipment_end_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(shipment_end_coords, return_coords, coords_to_process_with_otp)
-        #
-        # self._process_tdm_in_database(delivery_end_coord, return_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(delivery_end_coord, shipment_start_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(delivery_end_coord, shipment_end_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(delivery_end_coord, delivery_end_coord, coords_to_process_with_otp)
-        #
-        # log.debug('DB processing time {}'.format(time.time() - start))
-        # log.debug('TDM to process with OTP: {} out of {}'
-        #           .format(len(set(coords_to_process_with_otp)),
-        #                   len(vehicle_coords)*len(shipment_start_coords) +
-        #                   len(vehicle_coords)*len(delivery_end_coord) +
-        #                   len(vehicle_coords)*len(return_coords) +
-        #
-        #                   len(shipment_start_coords)*len(vehicle_coords) +
-        #                   len(delivery_end_coord)*len(vehicle_coords) +
-        #
-        #                   len(shipment_start_coords)*len(shipment_end_coords) +
-        #                   len(shipment_start_coords)*len(shipment_start_coords) +
-        #                   len(shipment_start_coords)*len(delivery_end_coord) +
-        #
-        #                   len(shipment_end_coords)*len(shipment_start_coords) +
-        #                   len(shipment_end_coords)*len(delivery_end_coord) +
-        #                   len(shipment_end_coords)*len(shipment_end_coords) +
-        #                   len(shipment_end_coords)*len(return_coords) +
-        #
-        #                   len(delivery_end_coord)*len(return_coords) +
-        #                   len(delivery_end_coord)*len(shipment_start_coords) +
-        #                   len(delivery_end_coord)*len(shipment_end_coords) +
-        #                   len(delivery_end_coord)*len(delivery_end_coord)
-        #                   ))
-        #
-        # log.debug('saved tdm records {}'.format(
-        #     len(vehicle_coords)*len(shipment_end_coords) +
-        #
-        #     len(shipment_start_coords)*len(return_coords) +
-        #     len(shipment_start_coords)*len(return_coords) +
-        #
-        #     len(return_coords)*len(vehicle_coords) +
-        #     len(return_coords)*len(shipment_start_coords) +
-        #     len(return_coords)*len(shipment_end_coords) +
-        #     len(return_coords)*len(delivery_end_coord)+
-        #
-        #     len(shipment_end_coords)*len(vehicle_coords)
-        # ))
-        #
-        # coords_to_process_with_otp = list(set(coords_to_process_with_otp))
 
         coords_to_process_with_router = set(vehicle_coords + return_coords +
                                             shipment_start_coords + shipment_end_coords + delivery_end_coord)

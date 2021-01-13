@@ -159,7 +159,7 @@ class Vehicle(Component):
 
             with open('{}/vehicle_occupancy_{}'.format(log_folder, self.id), 'w') as f:
                 spam_writer = csv.writer(f, delimiter=',',
-                                        quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                                         quotechar='|', quoting=csv.QUOTE_MINIMAL)
                 spam_writer.writerow(("time", "#passengers"))
                 spam_writer.writerows(self.occupancy_stamps)
 
@@ -212,7 +212,7 @@ class Vehicle(Component):
             # wait for the end of current action or for a rerouted event
             timeout = self.get_act(0).end_time - self.env.now
             if timeout < 0:
-                log.error('{}:{}: Negative delay of {} is encountered. Resetting it to zero,'
+                log.error('Vehicle {}:{}: Negative delay of {} is encountered. Resetting it to zero,'
                           .format(self.id, self.env.now, timeout))
                 timeout = 0
             act_executed = self.env.timeout(timeout)  # type: Timeout
@@ -244,10 +244,6 @@ class Vehicle(Component):
                 self._update_executed_passengers_routes(act.steps, act.end_coord)
                 self._update_passengers_travel_log(TravellerEventType.DRT_STOP_FINISHED)
 
-                if act.person is not None:
-                    if act.person.id == 3826:
-                        print('yo!')
-
                 if act.type == DrtAct.DRIVE or act.type == DrtAct.WAIT:
                     if self.get_route_len() == 0:
                         log.error('{}: Vehicle {} drove to no action. Probably to depot. Check if this happen'
@@ -265,6 +261,7 @@ class Vehicle(Component):
                     if new_act.type == DrtAct.DROP_OFF or new_act.type == DrtAct.DELIVERY:
                         log.info('{}: Vehicle {} starts delivering person {}'
                                  .format(self.env.now, self.id, new_act.person.id))
+                        self._start_drop_off(new_act)
 
                     elif new_act.type == DrtAct.PICK_UP:
                         log.info('{}: Vehicle {} starts picking up person {}'
@@ -359,6 +356,9 @@ class Vehicle(Component):
 
             self._is_person_served_within_tw(person)
 
+    def _start_drop_off(self, act):
+        act.person
+
     def _is_person_served_within_tw(self, person):
         if person.get_drt_tw_left() <= self.env.now <= person.get_drt_tw_right():
             return True
@@ -417,17 +417,21 @@ class Vehicle(Component):
         if self.get_route_len() == 0:
             return self.coord, self.env.now
 
-        act = self._route[0]
+        act = self.get_act(0)
         if act.type == act.WAIT:
             return act.end_coord, self.env.now
         elif act.type in [act.PICK_UP, act.DROP_OFF, act.DELIVERY]:
-            return act.end_coord, act.end_time
+            return act.end_coord, self.env.now
         else:
             return self.get_current_coord_time_from_step()
 
     def get_current_coord_time_from_step(self):
         act = self._route[0]
         current_time = act.start_time
+        if act.steps is None:
+            log.warning('{}:{}:No steps in act, probably two request at the same time came\n{}'.format(self.id, self.env.now, act))
+            return act.start_coord, act.start_time
+
         if len(act.steps) == 0:
             log.error('{}: Getting current vehicle position, vehicle {} got no steps in {}\n'
                       'Returning end position of the act'.format(self.env.now, self.id, act))
@@ -447,8 +451,8 @@ class Vehicle(Component):
         if current_time >= self.env.now:
             return act.end_coord, current_time
         else:
-            log.error('{}: There is not enough of steps at_time to fill the act, returning end of a current act.\n{}'
-                      .format(self.env.now, act.flush()))
+            log.error('{}:{}: There is not enough of steps at_time to fill the act, returning end of a current act.\n{}'
+                      .format(self.id, self.env.now, act.flush()))
             return act.end_coord, current_time
             # raise Exception('There is not enough of steps at_time to fill the act')
 

@@ -64,7 +64,7 @@ class VRPReadWriter(object):
 
     # TODO: write end time as well (from the last act)
     def write_vrp(self, vrp_file, vehicle_types, vehicles, vehicle_coords_times, shipment_persons,
-                  service_persons, new_person, new_drt_leg, service, coord_to_geoid):
+                  service_persons, in_serve_persons, new_person, new_drt_leg, service, coord_to_geoid):
         """Creates XML file with Vehicle Routing Problem in jsprit format
 
         :type vehicle_coords_times: List[(Coord, int)]
@@ -75,6 +75,7 @@ class VRPReadWriter(object):
         :param vehicle_coords_times: current (coordinates, time) pairs of vehicles
         :param shipment_persons: list of Person that are not in the vehicle yet
         :param service_persons: list of Person in vehicles
+        :param in_serve_persons: list of Person currently leaving vehicles (similar to sevice_persons)
         :param new_person: person who has submitted a new request
         :param new_drt_leg: potential drt_leg of a new_person
         :param service: service component
@@ -130,6 +131,33 @@ class VRPReadWriter(object):
             self._write_coord(service_element, 'location', person.get_planned_drt_leg().end_coord,
                               coord_to_geoid.get(person.get_planned_drt_leg().end_coord))
             ET.SubElement(service_element, 'duration').text = str(person.leaving_time)
+            self._write_capacity_dimensions(service_element, person.dimensions.items())
+            self._write_time_windows(service_element,
+                                     person.get_drt_tw_left(),
+                                     person.get_drt_tw_right())
+            self._write_max_in_vehicle_time(service_element, person, service=True)
+
+        for person in in_serve_persons:
+            service_element = ET.SubElement(services_element, 'service', attrib={
+                'id': str(person.id),
+                'type': 'delivery'
+            })
+            self._write_coord(service_element, 'location', person.get_planned_drt_leg().end_coord,
+                              coord_to_geoid.get(person.get_planned_drt_leg().end_coord))
+            rest_time = person.leaving_time - \
+                        (person.env.now - person.actual_trip.legs[-1].start_time - person.actual_trip.legs[-1].duration)
+
+            for vehicle in vehicles:
+                if vehicle.get_route_len() != 0:
+                    if person == vehicle.get_act(0).person:
+                        serv_time = person.env.now - vehicle.get_act(0).start_time
+                        break
+            if serv_time != rest_time:
+                log.warning('time has been corrupted for {}'.format(serv_time - rest_time))
+
+            if serv_time < 0.00001:
+                serv_time = 0.00001
+            ET.SubElement(service_element, 'duration').text = str(serv_time)
             self._write_capacity_dimensions(service_element, person.dimensions.items())
             self._write_time_windows(service_element,
                                      person.get_drt_tw_left(),

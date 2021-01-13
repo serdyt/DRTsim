@@ -567,7 +567,7 @@ class ServiceProvider(Component):
                 status = DrtStatus.too_late_request
             else:
                 log.warning('{} could not be delivered by DRT_TRANSIT, but there are zero errors as well.'
-                          .format(person, ))
+                            .format(person, ))
 
         return drt_trips, status
 
@@ -635,13 +635,11 @@ class ServiceProvider(Component):
         # person.leg.start_coord and .end_coord have that, so get the persons
         persons = self.get_scheduled_travelers()
         service_persons = self.get_onboard_travelers()
-        waiting_persons = list(set(persons) - set(service_persons))
-        shipment_persons = waiting_persons
-
-        # remove persons that are in the process of boarding or leaving a vehicle
+        shipment_persons = list(set(persons) - set(service_persons))
+        in_serve_persons = self.get_in_serve_persons()
 
         return self.router.drt_request(person, drt_leg, vehicle_coords_times, vehicle_return_coords,
-                                       shipment_persons, service_persons)
+                                       shipment_persons, service_persons, in_serve_persons)
 
     def standalone_osrm_request(self, person):
         return self.router.osrm_route_request(person.curr_activity.coord, person.next_activity.coord)
@@ -954,14 +952,22 @@ class ServiceProvider(Component):
         persons = []
         for vehicle in self.vehicles:
             if vehicle.route_not_empty():
-                if vehicle.get_act(0).type in [DrtAct.DROP_OFF, DrtAct.DELIVERY]:
+                if vehicle.get_act(0).type in [DrtAct.DROP_OFF, DrtAct.DELIVERY, DrtAct.PICK_UP]:
                     persons += [person for person in vehicle.passengers if person != vehicle.get_act(0).person]
                 else:
                     persons += vehicle.passengers
 
-                if vehicle.get_act(0).type == DrtAct.PICK_UP:
-                    persons += [vehicle.get_act(0).person]
+                # if vehicle.get_act(0).type == DrtAct.PICK_UP:
+                #     persons += [vehicle.get_act(0).person]
 
+        return persons
+
+    def get_in_serve_persons(self):
+        persons = []
+        for vehicle in self.vehicles:
+            if vehicle.route_not_empty():
+                if vehicle.get_act(0).type in [DrtAct.DROP_OFF, DrtAct.DELIVERY, DrtAct.PICK_UP]:
+                    persons.append(vehicle.get_act(0).person)
         return persons
 
     def log_unassigned_trip(self, person):
