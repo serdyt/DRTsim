@@ -44,7 +44,7 @@ class Top(Component):
         self._init_results()
 
         jsprit_tdm_interface.set_writer(self.env.config.get('jsprit.tdm_file'), 'w')
-        db_conn.connect(self.env.config.get('db.file'))
+        # db_conn.connect(self.env.config.get('db.file'))
 
     def connect_children(self):
         for person in self.population.person_list:

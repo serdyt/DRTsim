@@ -99,6 +99,14 @@ class SimEnvironment(simpy.Environment):
             t_stop = self.until
         return self.sim_index, self.now, t_stop, self.timescale
 
+#     def process_prio(self, generator: simpy.events.ProcessGenerator, priority: simpy.events.EventPriority) -> Process:
+#     """Create a new :class:`~simpy.events.Process` instance for
+#     *generator*."""
+#     return ProcessPrio(self, generator)
+#
+# class ProcessPrio(Process):
+#
+
 
 class SimStopEvent(simpy.Event):
     """Event appropriate for stopping the simulation.

@@ -137,32 +137,34 @@ class VRPReadWriter(object):
                                      person.get_drt_tw_right())
             self._write_max_in_vehicle_time(service_element, person, service=True)
 
-        for person in in_serve_persons:
-            service_element = ET.SubElement(services_element, 'service', attrib={
-                'id': str(person.id),
-                'type': 'delivery'
-            })
-            self._write_coord(service_element, 'location', person.get_planned_drt_leg().end_coord,
-                              coord_to_geoid.get(person.get_planned_drt_leg().end_coord))
-            rest_time = person.leaving_time - \
-                        (person.env.now - person.actual_trip.legs[-1].start_time - person.actual_trip.legs[-1].duration)
-
-            for vehicle in vehicles:
-                if vehicle.get_route_len() != 0:
-                    if person == vehicle.get_act(0).person:
-                        serv_time = person.env.now - vehicle.get_act(0).start_time
-                        break
-            if serv_time != rest_time:
-                log.warning('time has been corrupted for {}'.format(serv_time - rest_time))
-
-            if serv_time < 0.00001:
-                serv_time = 0.00001
-            ET.SubElement(service_element, 'duration').text = str(serv_time)
-            self._write_capacity_dimensions(service_element, person.dimensions.items())
-            self._write_time_windows(service_element,
-                                     person.get_drt_tw_left(),
-                                     person.get_drt_tw_right())
-            self._write_max_in_vehicle_time(service_element, person, service=True)
+        # for person in in_serve_persons:
+        #     service_element = ET.SubElement(services_element, 'service', attrib={
+        #         'id': str(person.id),
+        #         'type': 'delivery'
+        #     })
+        #     self._write_coord(service_element, 'location', person.get_planned_drt_leg().end_coord,
+        #                       coord_to_geoid.get(person.get_planned_drt_leg().end_coord))
+        #     rest_time = person.leaving_time - \
+        #                 (person.env.now - person.actual_trip.legs[-1].start_time - person.actual_trip.legs[-1].duration)
+        #
+        #     for vehicle in vehicles:
+        #         if vehicle.get_route_len() != 0:
+        #             if person == vehicle.get_act(0).person:
+        #                 serv_time = person.env.now - vehicle.get_act(0).start_time
+        #                 break
+        #     if serv_time + rest_time != person.leaving_time:
+        #         log.warning('Person {}, will be in serve for {} instead of {}'.
+        #                     format(person.id, serv_time + rest_time, person.leaving_time))
+        #
+        #     # jsprit breaks when values go to scientific notations 1E-5
+        #     if serv_time < 0.0001:
+        #         serv_time = 0.0001
+        #     ET.SubElement(service_element, 'duration').text = str(serv_time)
+        #     self._write_capacity_dimensions(service_element, person.dimensions.items())
+        #     self._write_time_windows(service_element,
+        #                              person.get_drt_tw_left(),
+        #                              person.get_drt_tw_right())
+        #     self._write_max_in_vehicle_time(service_element, person, service=True)
 
         # Writing shipments
         shipments_element = ET.SubElement(root, 'shipments')
@@ -196,6 +198,8 @@ class VRPReadWriter(object):
         self._write_max_in_vehicle_time(shipment_element, new_person)
 
         # Write initial routes
+        # TODO: Add the costs to return to depot to the fixed cost
+        # jsprit, probably considers vehicles initiated, if they are in the initial routes
         initial_routes_element = ET.SubElement(root, 'initialRoutes')
         for vehicle, coord_time in zip(vehicles, vehicle_coords_times):
             if vehicle.get_route_len() == 0:

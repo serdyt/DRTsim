@@ -10,9 +10,12 @@ Otherwise simpy trows an error.
 
 import logging
 from simpy import Event
+
 from statemachine import StateMachine, State
 from exceptions import *
+
 from log_utils import TravellerEventType
+from simpyUtils import Event2
 import population
 
 from sim_utils import OtpMode
@@ -81,14 +84,17 @@ class DefaultBehaviour(StateMachine):
             self.env.process(self.unactivatable())
 
     def on_plan(self):
-        yield Event(self.env).succeed()
-        while self.env.peek() == self.env.now:
-            # TODO: this makes sure that a request-replan sequence for a person is not broken
-            # if it is, we must save multiple requests and have some policy to merge them
-            yield self.person.env.timeout(0.0000000001)
+        yield Event2(self.env).succeed()
+        # while self.env.peek() == self.env.now:
+        #     # TODO: this makes sure that a request-replan sequence for a person is not broken
+        #     # if it is, we must save multiple requests and have some policy to merge them
+        #     yield self.person.env.timeout(0.0000000001)
         self.person.update_travel_log(TravellerEventType.ACT_FINISHED, self.person.curr_activity)
 
         self.person.set_trip_tw()
+
+        # if self.person.id == 493:
+        #     print('debugging')
 
         if self.person.planned_trip is None:
             try:
@@ -98,6 +104,8 @@ class DefaultBehaviour(StateMachine):
 
                 self.person.alternatives = alternatives
                 self.person.update_travel_log(TravellerEventType.TRIP_ALTERNATIVES_RECEIVED, self.person.curr_activity)
+                # if self.person.id in [88, 89]:
+                #     print('check queue')
                 self.env.process(self.choose())
             except (OTPTrivialPath, OTPUnreachable) as e:
                 log.warning('{}'.format(e.msg))
@@ -107,7 +115,7 @@ class DefaultBehaviour(StateMachine):
     def on_choose(self):
         """Chooses one of the alternatives according to config.person.mode_choice
         """
-        yield Event(self.env).succeed()
+        yield Event2(self.env).succeed()
         chosen_trip = self.person.mode_choice.choose(self.person.alternatives)
         if chosen_trip is None:
             log.warning('{}: Trip could not be selected for Person {}.'
@@ -128,6 +136,7 @@ class DefaultBehaviour(StateMachine):
             self.env.process(self.execute_trip())
 
     def on_execute_trip(self):
+        yield Event2(self.env).succeed()
         self.env.process(self.person.serviceProvider.execute_trip(self.person))
         self.person.update_travel_log(TravellerEventType.TRIP_STARTED)
         yield self.person.delivered

@@ -635,8 +635,9 @@ class ServiceProvider(Component):
         # person.leg.start_coord and .end_coord have that, so get the persons
         persons = self.get_scheduled_travelers()
         service_persons = self.get_onboard_travelers()
-        shipment_persons = list(set(persons) - set(service_persons))
+
         in_serve_persons = self.get_in_serve_persons()
+        shipment_persons = list(set(persons) - set(service_persons) - set(in_serve_persons))
 
         return self.router.drt_request(person, drt_leg, vehicle_coords_times, vehicle_return_coords,
                                        shipment_persons, service_persons, in_serve_persons)
@@ -661,6 +662,8 @@ class ServiceProvider(Component):
         return coords_times
 
     def start_trip(self, person: Person):
+        if self.env.now == 16933:
+            print('debug')
         if person.planned_trip.main_mode == OtpMode.DRT:
             self._start_drt_trip(person)
         elif person.planned_trip.main_mode == OtpMode.DRT_TRANSIT:
@@ -671,6 +674,8 @@ class ServiceProvider(Component):
     def get_route_details(self, vehicle):
         """Requests steps for the next act from OSRM.
         """
+        if self.env.now == 16933:
+            print('debug')
         if vehicle.get_route_len() == 0:
             raise Exception('Cannot request DRT trip for vehicle with no route')
 
@@ -720,7 +725,7 @@ class ServiceProvider(Component):
 
         if act.steps is not None:
             if len(act.steps) > 1:
-                print('nonono!')
+                log.critical('Vehicle {} has more than one step in the act. That is a mistake of routing.'.format(vehicle.id))
             act.distance = trip.distance + act.steps[0].distance
             act.duration = trip.duration + act.steps[0].duration
             act.start_time -= act.steps[0].duration
@@ -732,6 +737,9 @@ class ServiceProvider(Component):
             act.steps = trip.legs[0].steps
             if act.end_time is None:
                 act.end_time = act.start_time + act.duration
+
+        if act.duration is None:
+            print('bug!')
 
         extra_time = act.duration - (act.end_time - act.start_time)
         if extra_time != 0:
@@ -868,11 +876,13 @@ class ServiceProvider(Component):
             # which is an exception in simpy
             if not vehicle.rerouted.triggered:
                 vehicle.rerouted.succeed()
+            else:
+                print('debug')
 
+        # if a vehicle had a route at a previous rerouting, but lost it, we need to return vehicle home
         for vehicle in self.vehicles:
             if vehicle.get_route_len() != 0 and vehicle.id not in [route.vehicle_id for route in jsprit_solution.routes]:
-                if vehicle.get_act(0).type == DrtAct.RETURN:
-                    continue
+                vehicle.update_partially_executed_trips()
                 vehicle.set_empty_return_route()
                 if not vehicle.rerouted.triggered:
                     vehicle.rerouted.succeed()
@@ -952,13 +962,13 @@ class ServiceProvider(Component):
         persons = []
         for vehicle in self.vehicles:
             if vehicle.route_not_empty():
-                if vehicle.get_act(0).type in [DrtAct.DROP_OFF, DrtAct.DELIVERY, DrtAct.PICK_UP]:
+                # if delivery is in progress, exclude that person from onboard travellers
+                if vehicle.get_act(0).type in [DrtAct.DROP_OFF, DrtAct.DELIVERY]:
                     persons += [person for person in vehicle.passengers if person != vehicle.get_act(0).person]
                 else:
                     persons += vehicle.passengers
-
-                # if vehicle.get_act(0).type == DrtAct.PICK_UP:
-                #     persons += [vehicle.get_act(0).person]
+                    if vehicle.get_act(0).type == DrtAct.PICK_UP:
+                        persons.append(vehicle.get_act(0).person)
 
         return persons
 

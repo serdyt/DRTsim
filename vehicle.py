@@ -13,6 +13,7 @@ from population import Person
 from const import CapacityDimensions as CD
 from const import VehicleCost as VC
 from log_utils import Event, TravellerEventType, VehicleEventType
+from simpyUtils import Event2, Timeout2
 import service
 
 log = logging.getLogger(__name__)
@@ -70,11 +71,7 @@ class Vehicle(Component):
         self.delivered_travelers = 0
         self.travel_log = []
 
-        self.rerouted = self.env.event()
-
-        # Vehicle publishes an event
-        # Travellers subscribe to it
-        self.event = Event()
+        self.rerouted = Event2(self.env)
 
         self.add_process(self.run)
 
@@ -86,7 +83,7 @@ class Vehicle(Component):
 
     def get_acts_for_initial_route(self):
         """Returns only traveler related acts: Pick_up, drop_off and delivery
-        Also ignores current act"""
+        Also ignores current act (as it is currently in progress, thus, should not be a subject of rerouting)"""
         initial_route = []
         if self.route_not_empty():
             return [act for act in self._route[1:] if act.type in [DrtAct.PICK_UP, DrtAct.DROP_OFF, DrtAct.DELIVERY]]
@@ -201,7 +198,7 @@ class Vehicle(Component):
             if self.get_route_len() == 0:
                 self._update_travel_logs()
                 yield self.rerouted
-                self.rerouted = self.env.event()
+                self.rerouted = Event2(self.env)
 
             if self.get_route_len() != 0:
                 # if self.get_act(0).type in [DrtAct.DRIVE, DrtAct.RETURN]:
@@ -215,11 +212,14 @@ class Vehicle(Component):
                 log.error('Vehicle {}:{}: Negative delay of {} is encountered. Resetting it to zero,'
                           .format(self.id, self.env.now, timeout))
                 timeout = 0
-            act_executed = self.env.timeout(timeout)  # type: Timeout
+            act_executed = Timeout2(self.env, timeout)  # type: Timeout
             yield self.rerouted | act_executed
 
+            if self.id == 101:
+                print('break point')
+
             if self.rerouted.triggered:
-                self.rerouted = self.env.event()
+                self.rerouted = Event2(self.env)
 
                 # self._update_travel_log(VehicleEventType.VEHICLE_REROUTED_ON_ROUTE, len(self.passengers))
                 # all the rerouting happens in the service provider
@@ -228,8 +228,8 @@ class Vehicle(Component):
                 # if a new request came at exactly the same time as a vehicle reached a destination,
                 # request should be processed first
                 # TODO: try to do it with priority resource in a service
-                if self.env.peek() == self.env.now:
-                    yield self.env.timeout(0.0001)
+                # if self.env.peek() == self.env.now:
+                #     yield self.env.timeout(0.0001)
                 act = self.pop_act()  # type: DrtAct
                 # TODO: add vehicle kilometers when first act is rerouted
                 if act.distance is None:
@@ -261,7 +261,7 @@ class Vehicle(Component):
                     if new_act.type == DrtAct.DROP_OFF or new_act.type == DrtAct.DELIVERY:
                         log.info('{}: Vehicle {} starts delivering person {}'
                                  .format(self.env.now, self.id, new_act.person.id))
-                        self._start_drop_off(new_act)
+                        # self._start_drop_off(new_act)
 
                     elif new_act.type == DrtAct.PICK_UP:
                         log.info('{}: Vehicle {} starts picking up person {}'
@@ -297,15 +297,17 @@ class Vehicle(Component):
     def set_empty_return_route(self):
         if self.get_act(0).type == DrtAct.RETURN:
             return
-        if self.get_act(0).start_time < self.env.now:
-            coord_time = self.get_current_coord_time()
-            act = DrtAct(type_=DrtAct.RETURN, person=None,
-                         duration=None,
-                         end_coord=self.return_coord, start_coord=coord_time[0],
-                         start_time=coord_time[1], end_time=None)
-            self.set_route([act])
+
+        coord_time = self.get_current_coord_time()
+        act = DrtAct(type_=DrtAct.RETURN, person=None,
+                     duration=None,
+                     end_coord=self.return_coord, start_coord=coord_time[0],
+                     start_time=coord_time[1], end_time=None)
+
+        if self.get_act(0).type in [DrtAct.DROP_OFF, DrtAct.DELIVERY]:
+            self.set_route([self.get_act(0), act])
         else:
-            self.set_route([])
+            self.set_route([act])
 
     def _drop_off_travelers(self, persons):
         """Remove person from the list of current passengers and calculate statistics"""
@@ -355,9 +357,6 @@ class Vehicle(Component):
                     raise Exception('Person has boarded to a vehicle while it has not enough space')
 
             self._is_person_served_within_tw(person)
-
-    def _start_drop_off(self, act):
-        act.person
 
     def _is_person_served_within_tw(self, person):
         if person.get_drt_tw_left() <= self.env.now <= person.get_drt_tw_right():
@@ -418,10 +417,12 @@ class Vehicle(Component):
             return self.coord, self.env.now
 
         act = self.get_act(0)
+        # if vehicle is waiting - we can reroute it immediately
         if act.type == act.WAIT:
             return act.end_coord, self.env.now
+        # if vehicle is serving a traveller, we need to finnish that act before allowing rerouting
         elif act.type in [act.PICK_UP, act.DROP_OFF, act.DELIVERY]:
-            return act.end_coord, self.env.now
+            return act.end_coord, act.end_time
         else:
             return self.get_current_coord_time_from_step()
 
@@ -463,6 +464,8 @@ class Vehicle(Component):
         """
         act = self.get_act(0)
         current_time = act.start_time
+        if act.steps is None:
+            print('bug!')
         if len(act.steps) == 0:
             log.error('Vehicle {} has an empty act. Trying to fill act with one step'.format(self.id))
             act.steps.append(Step(start_coord=act.start_coord, end_coord=act.end_coord,
@@ -483,8 +486,8 @@ class Vehicle(Component):
             else:
                 pass
 
-        log.error('{}: There is not enough of steps at_time to fill the act, returning the last step.\n{}'
-                  .format(self.env.now, act.flush()))
+        log.error('{}:{}: There is not enough of steps at_time to fill the act, returning the last step.\n{}'
+                  .format(self.id, self.env.now, act.flush()))
         return act.steps[-1]
         # raise Exception('There is not enough of steps at_time to fill the act')
 
