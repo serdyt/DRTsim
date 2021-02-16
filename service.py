@@ -135,7 +135,7 @@ class ServiceProvider(Component):
         """TODO: use local time windows instead of person's.
         Checks if a trip fits into a current day and if it fits into time window.
         """
-        if self._trip_in_time_windows(trip, person) and self._trip_in_current_day(trip) and\
+        if self._trip_in_time_windows(trip, person) and self._trip_in_current_day(trip) and \
                 self._trip_in_max_duration(trip, person):
             return True
         else:
@@ -205,8 +205,6 @@ class ServiceProvider(Component):
         Returns a list of drt trips and a status for logging
         """
 
-        if person.id == 3826:
-            print('double yo!')
 
         if person.direct_trip.distance < self.env.config.get('drt.min_distance'):
             log.info('Person {} has trip length of {}. Ignoring DRT'.format(person.id, person.direct_trip.distance))
@@ -421,14 +419,14 @@ class ServiceProvider(Component):
                 # earliest arrival
                 selected.append(sorted(tmp, key=lambda trip: trip.legs[-1].end_time).pop())
                 # in the middle
-                selected.append(sorted(tmp, key=lambda trip: trip.legs[-1].end_time)[int(len(tmp)/2)])
+                selected.append(sorted(tmp, key=lambda trip: trip.legs[-1].end_time)[int(len(tmp) / 2)])
             else:
                 # earliest start time
                 selected.append(sorted(tmp, key=lambda trip: trip.legs[0].start_time).pop())
                 # latest start time
                 selected.append(sorted(tmp, key=lambda trip: trip.legs[0].start_time, reverse=True).pop())
                 # in the middle
-                selected.append(sorted(tmp, key=lambda trip: trip.legs[0].start_time)[int(len(tmp)/2)])
+                selected.append(sorted(tmp, key=lambda trip: trip.legs[0].start_time)[int(len(tmp) / 2)])
 
             selected.extend(self.env.rand.sample(tmp, 6))
 
@@ -471,7 +469,8 @@ class ServiceProvider(Component):
 
                     drt_leg = self._get_leg_for_in_trip(drt_trip, person)
                     available_drt_time = person.get_max_trip_duration(person.direct_trip.duration) - \
-                                         (alt.duration - (drt_leg.duration + person.boarding_time + person.leaving_time))
+                                         (alt.duration - (
+                                                     drt_leg.duration + person.boarding_time + person.leaving_time))
                     person.set_drt_tw(drt_leg.duration, last_leg=True, drt_leg=drt_leg,
                                       available_time=available_drt_time)
                     pt_car_leg_index = -1
@@ -662,8 +661,6 @@ class ServiceProvider(Component):
         return coords_times
 
     def start_trip(self, person: Person):
-        if self.env.now == 16933:
-            print('debug')
         if person.planned_trip.main_mode == OtpMode.DRT:
             self._start_drt_trip(person)
         elif person.planned_trip.main_mode == OtpMode.DRT_TRANSIT:
@@ -674,8 +671,6 @@ class ServiceProvider(Component):
     def get_route_details(self, vehicle):
         """Requests steps for the next act from OSRM.
         """
-        if self.env.now == 16933:
-            print('debug')
         if vehicle.get_route_len() == 0:
             raise Exception('Cannot request DRT trip for vehicle with no route')
 
@@ -725,7 +720,8 @@ class ServiceProvider(Component):
 
         if act.steps is not None:
             if len(act.steps) > 1:
-                log.critical('Vehicle {} has more than one step in the act. That is a mistake of routing.'.format(vehicle.id))
+                log.critical(
+                    'Vehicle {} has more than one step in the act. That is a mistake of routing.'.format(vehicle.id))
             act.distance = trip.distance + act.steps[0].distance
             act.duration = trip.duration + act.steps[0].duration
             act.start_time -= act.steps[0].duration
@@ -738,20 +734,17 @@ class ServiceProvider(Component):
             if act.end_time is None:
                 act.end_time = act.start_time + act.duration
 
-        if act.duration is None:
-            print('bug!')
-
         extra_time = act.duration - (act.end_time - act.start_time)
         if extra_time != 0:
             if abs(extra_time) > 1:
                 log.error('Act\'s end time does not correspond to its planned duration. '
                           'Vehicle\'s {} route need to be moved by {} seconds (ratio {}).'
-                          .format(extra_time, vehicle.id, act.duration/(act.end_time - act.start_time)))
+                          .format(extra_time, vehicle.id, act.duration / (act.end_time - act.start_time)))
 
             # for a in vehicle.get_route_with_return():
             #     a.start_time += extra_time
             #     a.end_time += extra_time
-            ratio = (act.end_time - act.start_time)/act.duration
+            ratio = (act.end_time - act.start_time) / act.duration
             if abs(1 - ratio) > 0.0000001:
                 for step in act.steps[1:]:
                     step.duration *= ratio
@@ -876,12 +869,13 @@ class ServiceProvider(Component):
             # which is an exception in simpy
             if not vehicle.rerouted.triggered:
                 vehicle.rerouted.succeed()
-            else:
-                print('debug')
 
         # if a vehicle had a route at a previous rerouting, but lost it, we need to return vehicle home
         for vehicle in self.vehicles:
-            if vehicle.get_route_len() != 0 and vehicle.id not in [route.vehicle_id for route in jsprit_solution.routes]:
+            if vehicle.get_route_len() != 0 \
+                    and vehicle.id not in [route.vehicle_id for route in jsprit_solution.routes]:
+                if vehicle.get_act(0).type == DrtAct.RETURN:
+                    continue
                 vehicle.update_partially_executed_trips()
                 vehicle.set_empty_return_route()
                 if not vehicle.rerouted.triggered:

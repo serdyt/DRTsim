@@ -93,9 +93,6 @@ class DefaultBehaviour(StateMachine):
 
         self.person.set_trip_tw()
 
-        # if self.person.id == 493:
-        #     print('debugging')
-
         if self.person.planned_trip is None:
             try:
                 self.person.update_travel_log(TravellerEventType.TRIP_REQUEST_SUBMITTED, self.person.curr_activity)
@@ -104,8 +101,6 @@ class DefaultBehaviour(StateMachine):
 
                 self.person.alternatives = alternatives
                 self.person.update_travel_log(TravellerEventType.TRIP_ALTERNATIVES_RECEIVED, self.person.curr_activity)
-                # if self.person.id in [88, 89]:
-                #     print('check queue')
                 self.env.process(self.choose())
             except (OTPTrivialPath, OTPUnreachable) as e:
                 log.warning('{}'.format(e.msg))

@@ -215,9 +215,6 @@ class Vehicle(Component):
             act_executed = Timeout2(self.env, timeout)  # type: Timeout
             yield self.rerouted | act_executed
 
-            if self.id == 101:
-                print('break point')
-
             if self.rerouted.triggered:
                 self.rerouted = Event2(self.env)
 
@@ -464,8 +461,6 @@ class Vehicle(Component):
         """
         act = self.get_act(0)
         current_time = act.start_time
-        if act.steps is None:
-            print('bug!')
         if len(act.steps) == 0:
             log.error('Vehicle {} has an empty act. Trying to fill act with one step'.format(self.id))
             act.steps.append(Step(start_coord=act.start_coord, end_coord=act.end_coord,
