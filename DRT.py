@@ -129,7 +129,7 @@ config = {
 
     'drt.PT_stops_file': 'data/lolland_stops_left.csv',
     'drt.min_distance': 500,
-    'drt.maxPreTransitTime': 1500,
+    'drt.maxPreTransitTime': 1500,  # max time of car leg in kiss_&_ride
     'drt.default_max_walk': 3000,
     'drt.visualize_routes': 'false',  # should be a string
     'drt.picture_folder': 'pictures/',
