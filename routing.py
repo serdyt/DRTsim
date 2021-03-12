@@ -343,11 +343,11 @@ class DefaultRouting(object):
             raise DrtUndeliverable('jsprit returned no solution. It may be the first and impossible request.'
                                    'Check this.\n'
                                    'The person will ignore DRT mode.')
-        # if person.id in solution.unassigned:
-        if len(solution.unassigned) > 0:
-            file_id = 'vrp_{}_{}.xml'.format(str(time.time()), person.id)
-            copyfile(self.env.config.get('jsprit.vrp_file'), self.env.config.get('jsprit.debug_folder')+'/'+file_id)
-            copyfile(self.env.config.get('jsprit.tdm_file'), self.env.config.get('jsprit.debug_folder')+'/'+file_id)
+        if person.id in solution.unassigned:
+            vrp_id = 'vrp_{}_{}.xml'.format(str(time.time()), person.id)
+            tdm_id = 'time_distance_matrix_{}_{}.csv'.format(str(time.time()), person.id)
+            copyfile(self.env.config.get('jsprit.vrp_file'), self.env.config.get('jsprit.debug_folder')+'/'+vrp_id)
+            copyfile(self.env.config.get('jsprit.tdm_file'), self.env.config.get('jsprit.debug_folder')+'/'+tdm_id)
             log.debug('Person {} cannot be delivered by DRT. Arrive by {}, tw left {}, tw right {}'
                       .format(person.id, person.next_activity.start_time, person.get_drt_tw_left(), person.get_drt_tw_right()))
             raise DrtUnassigned('Person {} cannot be delivered by DRT'.format(person.id))
