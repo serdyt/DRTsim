@@ -321,12 +321,13 @@ class DefaultRouting(object):
         self.env.rand.setstate(rstate)
 
         if jsprit_call.returncode != 0:
-            file_id = 'vrp.xml' + str(time.time())
+            vrp_id = 'vrp.xml' + str(time.time())
+            tdm_id = 'time_distance_matrix.csv' + str(time.time())
             log.error("Jsprit has crashed. Saving input vrp to {}/{}"
-                      .format(self.env.config.get('jsprit.debug_folder'), file_id))
+                      .format(self.env.config.get('jsprit.debug_folder'), vrp_id))
             log.error(jsprit_call.stderr.decode("utf-8") .replace('\\n', '\n'))
-            copyfile(self.env.config.get('jsprit.vrp_file'), self.env.config.get('jsprit.debug_folder')+'/'+file_id)
-            copyfile(self.env.config.get('jsprit.tdm_file'), self.env.config.get('jsprit.debug_folder')+'/'+file_id)
+            copyfile(self.env.config.get('jsprit.vrp_file'), self.env.config.get('jsprit.debug_folder')+'/'+vrp_id)
+            copyfile(self.env.config.get('jsprit.tdm_file'), self.env.config.get('jsprit.debug_folder')+'/'+tdm_id)
         log.debug('jsprit takes {}ms of system time'.format(time.time() - start))
 
         # ***********************************************************
