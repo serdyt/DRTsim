@@ -341,8 +341,12 @@ class Vehicle(Component):
         if person.get_drt_tw_left() <= self.env.now <= person.get_drt_tw_right():
             return True
         else:
-            log.error('{}: Person {} has been served  outside the requested time window: {} - {}'
-                      .format(self.env.now, person.id, person.get_drt_tw_left(), person.get_drt_tw_right()))
+            msg = '{}: Vehicle {}: Person {} has been served outside the requested time window: {} - {}'\
+                .format(self.env.now, self.id, person.id, person.get_drt_tw_left(), person.get_drt_tw_right())
+            if self.env.now - person.get_drt_tw_right() > 60 or person.get_drt_tw_left() - self.env.now > 60:
+                log.error(msg)
+            else:
+                log.debug(msg)
             return False
 
     def _update_passengers_travel_log(self, travel_event_type):
