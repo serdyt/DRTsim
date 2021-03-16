@@ -2,7 +2,7 @@ from sim_utils import Coord, Trip, Step, Leg
 from const import OtpMode
 import json
 import requests
-import logging
+import logging, logging.handlers
 import pprint
 import os
 
@@ -11,6 +11,20 @@ from xls_utils import xls_create_occupancy_charts
 from const import CapacityDimensions as CD
 
 log = logging.getLogger(__name__)
+
+
+def setup_logger(name, log_file, level=logging.INFO):
+    """To setup as many loggers as you want"""
+
+    # handler = logging.FileHandler(log_file)
+    handler = logging.handlers.WatchedFileHandler(log_file)
+
+    # logger = logging.getLogger(name)
+    logger = logging.getLogger(__name__)
+    # logger.setLevel(level)
+    logger.addHandler(handler)
+
+    return logger
 
 
 def _try(o):
@@ -170,6 +184,8 @@ def zipdir(path, ziph):
 
 def gather_logs(config, folder, res):
 
+    sumlog = setup_logger('summary logger', config.get('sim_summary.log'))
+
     log.info('Total {} persons'.format(res.get('total_persons')))
     persons = res.get('Persons')  # List(Person)
     executed_trips = [trip for person in persons for trip in person.executed_trips]
@@ -286,7 +302,7 @@ def gather_logs(config, folder, res):
     pp = pprint.PrettyPrinter()
     log.info(pp.pformat(config))
 
-    files = [config.get('sim.log')]
+    files = [config.get('sim.log'), config.get('sim_summary.log')]
 
     if config.get('sim.create_excel'):
         try:

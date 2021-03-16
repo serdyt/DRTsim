@@ -180,6 +180,7 @@ config.update({
     'sim.person_log_folder': '{}/person_logs'.format(folder),
     'sim.vehicle_log_folder': '{}/vehicle_logs'.format(folder),
     'sim.log': '{}/log'.format(folder),
+    'sim_summary.log': '{}/log_summary'.format(folder),
     'sim.log_zip': '{}/log.zip'.format(folder),
     'sim.folder': folder,
 
@@ -252,7 +253,7 @@ if __name__ == '__main__':
 
     if config.get('sim.email_notification'):
         send_email(subject='Simulation success', text='{}\n{}'.format(message, 'congratulations'),
-                   zip_file=zip_file)
+                   zip_file=config.get('sim_summary.log'))
 
 # if __name__ == '__main__':
 #     import cProfile
