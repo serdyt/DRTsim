@@ -198,10 +198,10 @@ class VRPReadWriter(object):
     @staticmethod
     def _write_max_in_vehicle_time(parent, person, service=False):
         if service:
-            text = str(person.get_rest_drt_duration())
+            num = person.get_rest_drt_duration()
         else:
-            text = str(person.get_max_drt_duration())
-        ET.SubElement(parent, 'maxInVehicleTime').text = text
+            num = person.get_max_drt_duration()
+        ET.SubElement(parent, 'maxInVehicleTime').text = "{:f}".format(num)
 
     @staticmethod
     def _write_coord(parent, location_type, coord, geoid):

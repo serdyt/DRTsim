@@ -589,7 +589,7 @@ class Person(Component):
             t = self.get_max_drt_duration() - (self.env.now - self.actual_trip.legs[0].start_time)
 
         if t < 0:
-            log.error("Person {} was max trip length of {}, but left {}, tw [{}, {}]".
+            log.error("Person {} max trip length of {}, but left {}, tw [{}, {}]".
                       format(self.id, self.get_max_drt_duration(), t, self.get_drt_tw_left(), self.get_drt_tw_right()))
             t = 0
         return t
