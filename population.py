@@ -360,7 +360,14 @@ class Person(Component):
         self.get_routing_parameters().update({'arriveBy': self.is_arrive_by()})
 
     def set_time_window_multiplier(self, pt_alt):
-        self.trip_time_window_multiplier = (pt_alt.duration + 10) / self.get_direct_trip_duration()
+        if pt_alt is None:
+            return
+
+        new_multiplier = (pt_alt.duration + 10) / self.get_direct_trip_duration()
+        if new_multiplier < self.trip_time_window_multiplier:
+            return
+
+        self.trip_time_window_multiplier = new_multiplier
 
     def _set_travel_type_and_time_window_attributes(self):
         if self.curr_activity.zone in self.env.config.get('drt.zones') and \
