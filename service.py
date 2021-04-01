@@ -137,7 +137,7 @@ class ServiceProvider(Component):
         """TODO: use local time windows instead of person's.
         Checks if a trip fits into a current day and if it fits into time window.
         """
-        if self._trip_in_time_windows(trip, person) and self._trip_in_current_day(trip) and\
+        if self._trip_in_time_windows(trip, person) and self._trip_in_current_day(trip) and \
                 self._trip_in_max_duration(trip, person):
             return True
         else:
@@ -145,7 +145,7 @@ class ServiceProvider(Component):
 
     @staticmethod
     def _trip_in_max_duration(trip, person):
-        return trip.duration < person.get_max_trip_duration(person.direct_trip.duration)
+        return trip.duration < person.get_max_trip_duration(person.get_direct_trip_duration())
 
     @staticmethod
     def _trip_in_time_windows(trip, person):
@@ -207,8 +207,8 @@ class ServiceProvider(Component):
         Returns a list of drt trips and a status for logging
         """
 
-        if person.direct_trip.distance < self.env.config.get('drt.min_distance'):
-            log.info('Person {} has trip length of {}. Ignoring DRT'.format(person.id, person.direct_trip.distance))
+        if person.get_direct_trip_distance() < self.env.config.get('drt.min_distance'):
+            log.info('Person {} has trip length of {}. Ignoring DRT'.format(person.id, person.get_direct_trip_distance()))
             self._drt_too_short_trip += 1
             return [], DrtStatus.too_short_drt_leg
 
@@ -226,7 +226,7 @@ class ServiceProvider(Component):
                       start_coord=person.curr_activity.coord,
                       end_coord=person.next_activity.coord)
         person.drt_leg = drt_leg.deepcopy()
-        person.set_drt_tw(person.direct_trip.duration, single_leg=True)
+        person.set_drt_tw(person.get_direct_trip_duration(), single_leg=True)
 
         try:
             self._drt_request_routine(person)
@@ -359,13 +359,13 @@ class ServiceProvider(Component):
                 if person.is_arrive_by():
                     alt_tw_right -= 1
                     params.update({'time': trunc_microseconds(str(td(seconds=alt_tw_right)))})
-                    if person.get_trip_tw_left() + person.get_max_trip_duration(person.direct_trip.duration) > \
+                    if person.get_trip_tw_left() + person.get_max_trip_duration(person.get_direct_trip_duration()) > \
                             alt_tw_right:
                         break
                 else:
                     alt_tw_left += wait_time
                     params.update({'time': trunc_microseconds(str(td(seconds=alt_tw_left)))})
-                    if alt_tw_left + person.get_max_trip_duration(person.direct_trip.duration) > \
+                    if alt_tw_left + person.get_max_trip_duration(person.get_direct_trip_duration()) > \
                             person.get_trip_tw_right():
                         break
 
@@ -421,14 +421,14 @@ class ServiceProvider(Component):
                 # earliest arrival
                 selected.append(sorted(tmp, key=lambda trip: trip.legs[-1].end_time).pop())
                 # in the middle
-                selected.append(sorted(tmp, key=lambda trip: trip.legs[-1].end_time)[int(len(tmp)/2)])
+                selected.append(sorted(tmp, key=lambda trip: trip.legs[-1].end_time)[int(len(tmp) / 2)])
             else:
                 # earliest start time
                 selected.append(sorted(tmp, key=lambda trip: trip.legs[0].start_time).pop())
                 # latest start time
                 selected.append(sorted(tmp, key=lambda trip: trip.legs[0].start_time, reverse=True).pop())
                 # in the middle
-                selected.append(sorted(tmp, key=lambda trip: trip.legs[0].start_time)[int(len(tmp)/2)])
+                selected.append(sorted(tmp, key=lambda trip: trip.legs[0].start_time)[int(len(tmp) / 2)])
 
             selected.extend(self.env.rand.sample(tmp, 6))
 
@@ -439,7 +439,7 @@ class ServiceProvider(Component):
                 status_log[DrtStatus.overnight_trip] += 1
                 continue
 
-            if alt.duration > person.get_max_trip_duration(person.direct_trip.duration):
+            if alt.duration > person.get_max_trip_duration(person.get_direct_trip_duration()):
                 status_log[DrtStatus.too_long_pt_trip] += 1
                 continue
 
@@ -470,8 +470,9 @@ class ServiceProvider(Component):
                 try:
 
                     drt_leg = self._get_leg_for_in_trip(drt_trip, person)
-                    available_drt_time = person.get_max_trip_duration(person.direct_trip.duration) - \
-                                         (alt.duration - (drt_leg.duration + person.boarding_time + person.leaving_time))
+                    available_drt_time = person.get_max_trip_duration(person.get_direct_trip_duration()) - \
+                                         (alt.duration - (
+                                                     drt_leg.duration + person.boarding_time + person.leaving_time))
                     person.set_drt_tw(drt_leg.duration, last_leg=True, drt_leg=drt_leg,
                                       available_time=available_drt_time)
                     pt_car_leg_index = -1
@@ -485,7 +486,7 @@ class ServiceProvider(Component):
             elif person.is_out_trip():
                 try:
                     drt_leg = self._get_leg_for_out_trip(drt_trip, person)
-                    available_drt_time = person.get_max_trip_duration(person.direct_trip.duration) - \
+                    available_drt_time = person.get_max_trip_duration(person.get_direct_trip_duration()) - \
                                          (alt.duration - drt_leg.duration)
                     person.set_drt_tw(drt_leg.duration, first_leg=True, drt_leg=drt_leg,
                                       available_time=available_drt_time)
@@ -565,9 +566,9 @@ class ServiceProvider(Component):
             elif status_log[DrtStatus.too_late_request] != 0:
                 self._drt_too_late_request += 1
                 status = DrtStatus.too_late_request
-            else:
-                log.error('{} could not be delivered by DRT_TRANSIT, but there are zero errors as well.'
-                          .format(person, ))
+            # else:
+            #     log.debug('{} could not be delivered by DRT_TRANSIT, but there are zero errors as well.'
+            #               .format(person, ))
 
         return drt_trips, status
 
@@ -648,15 +649,10 @@ class ServiceProvider(Component):
     def standalone_osrm_request(self, person):
         return self.router.osrm_route_request(person.curr_activity.coord, person.next_activity.coord)
 
-    # def standalone_otp_request(self, person, mode, otp_attributes):
-    #     attributes = copy.copy(person.get_routing_parameters())
-    #     attributes.update(otp_attributes)
-    #     return self.router.otp_request(person.curr_activity.coord,
-    #                                    person.next_activity.coord,
-    #                                    person.next_activity.start_time,
-    #                                    mode,
-    #                                    attributes
-    #                                    )
+    def standalone_otp_request(self, person):
+        """returns the fastest PT alternative with the same attribute as for normal OTP request"""
+        traditional_alternatives = self._traditional_request(person)
+        return min(traditional_alternatives, key=lambda x: x.duration)
 
     def _get_current_vehicle_positions(self):
         coords_times = []
@@ -673,10 +669,17 @@ class ServiceProvider(Component):
             self._start_traditional_trip(person)
 
     def get_route_details(self, vehicle):
+        """Requests steps for the next act from OSRM.
+        """
         if vehicle.get_route_len() == 0:
             raise Exception('Cannot request DRT trip for vehicle with no route')
 
         act = vehicle.get_act(0)  # type: DrtAct
+
+        # no need to find route when there is no movement
+        if act.type in [DrtAct.PICK_UP, DrtAct.DROP_OFF, DrtAct.DELIVERY, DrtAct.WAIT]:
+            return
+
         try:
             trip = self.router.get_drt_route_details(coord_start=act.start_coord,
                                                      coord_end=act.end_coord,
@@ -717,15 +720,16 @@ class ServiceProvider(Component):
         else:
             act.distance = trip.distance
             act.duration = trip.duration
-            act.start_time = act.start_time
             act.steps = trip.legs[0].steps
+            if act.end_time is None:
+                act.end_time = act.start_time + act.duration
 
         extra_time = act.duration - (act.end_time - act.start_time)
         if extra_time != 0:
             if abs(extra_time) > 1:
                 log.error('Act\'s end time does not correspond to its planned duration. '
-                          'Vehicle\'s route need to be moved by {} seconds.'
-                          .format(extra_time))
+                          'Vehicle\'s {} route need to be moved by {} seconds (ratio {}).'
+                          .format(extra_time, vehicle.id, act.duration / (act.end_time - act.start_time)))
 
             for a in vehicle.get_route_with_return():
                 a.start_time += extra_time
@@ -734,6 +738,9 @@ class ServiceProvider(Component):
             vehicle.get_act(0).start_time -= extra_time
 
     def _jsprit_to_drt(self, vehicle, jsprit_route: JspritRoute):
+        """Translates jsprit output into vehicle route.
+        Also merges current act of the vehicle into the route.
+        """
         drt_acts = []  # type: List[DrtAct]
 
         first_act = JspritAct(type_=DrtAct.DRIVE, person_id=None, end_time=jsprit_route.start_time)
@@ -769,6 +776,10 @@ class ServiceProvider(Component):
                               end_coord=coord_end, start_coord=coord_start,
                               start_time=pjact.end_time, end_time=njact.arrival_time)
 
+            # *************************************************************
+            # ******   Merge current act of vehicle into new route   ******
+            # *************************************************************
+
             # Vehicle is likely to be doing some step, but we cannot reroute it at any given point,
             # only after it finishes its current step
             if i == 0 and self.env.now != jsprit_route.start_time and vehicle.get_route_len() > 0:
@@ -776,7 +787,7 @@ class ServiceProvider(Component):
                 # if a vehicle is picking up or delivering a person, just save this act in a new route
                 if curr_v_act.type in [DrtAct.PICK_UP, DrtAct.DROP_OFF, DrtAct.DELIVERY]:
                     drt_acts.append(curr_v_act)
-                # if vehicle is on the move, append its current step to a plan
+                # if vehicle is on the move, append its current step to the plan
                 elif curr_v_act.type in [DrtAct.DRIVE, DrtAct.RETURN]:
                     curr_v_step = vehicle.get_current_step()
                     # passed_steps = vehicle.get_passed_steps()

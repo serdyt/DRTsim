@@ -257,9 +257,9 @@ class ActType(object):
         return {ActType.PICK_UP: 'pickupShipment',
                 ActType.DROP_OFF: 'deliverShipment',
                 ActType.DELIVERY: 'delivery',
-                ActType.RETURN: 'drive',
+                ActType.RETURN: 'return',
                 ActType.WAIT: 'wait',
-                ActType.DRIVE: 'return',
+                ActType.DRIVE: 'drive',
                 ActType.IDLE: 'idle',
                 }[act_type]
 
@@ -309,8 +309,9 @@ class DrtAct(ActType):
         self.steps = steps
 
     def __str__(self):
-        return '{}, type {}, duration {}, distance {}, start_time {}, end_time {}'\
-            .format(self.person, self.type, self.duration, self.distance, self.start_time, self.end_time)
+        return 'Person {}, type {}, duration {}, distance {}, start_time {}, end_time {}'\
+            .format(self.person.id if self.person is not None else None,
+                    self.get_string_from_type(self.type), self.duration, self.distance, self.start_time, self.end_time)
 
     def __repr__(self):
         return self.__str__()
@@ -455,3 +456,8 @@ def seconds_from_str(string):
         return None
     t = datetime.strptime(string, '%H:%M:%S')
     return int(td(hours=t.hour, minutes=t.minute, seconds=t.second).total_seconds())
+
+
+def strip_hour_from_seconds(seconds):
+    """returns only hour from the time in seconds"""
+    return int(seconds / 3600) * 3600

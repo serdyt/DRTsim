@@ -69,6 +69,9 @@ class DefaultBehaviour(StateMachine):
         try:
             direct_trip = self.person.serviceProvider.standalone_osrm_request(self.person)
             self.person.set_direct_trip(direct_trip)
+            shortest_pt_alt = self.person.serviceProvider.standalone_otp_request(self.person)
+            self.person.set_time_window_multiplier(shortest_pt_alt)
+
             timeout = self.person.get_planning_time(direct_trip)
             if timeout > 0:
                 self.person.update_travel_log(TravellerEventType.ACT_STARTED, self.person.curr_activity)

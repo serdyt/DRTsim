@@ -101,7 +101,8 @@ class VRPReadWriter(object):
             time_element = ET.SubElement(vehicle_element, 'timeSchedule')
             ET.SubElement(time_element, 'start').text = str(coord_time[1])
             # working time form 0 to infinity
-            ET.SubElement(time_element, 'end').text = '1.7976931348623157E308'
+            # ET.SubElement(time_element, 'end').text = '1.7976931348623157E308'
+            ET.SubElement(time_element, 'end').text = str(vehicle.return_time)
             ET.SubElement(vehicle_element, 'returnToDepot').text = 'true'
 
         # Writing vehicle types
@@ -118,7 +119,7 @@ class VRPReadWriter(object):
         # Writing services
         services_element = ET.SubElement(root, 'services')
         for person in service_persons:
-            # if a person is in a vehicle, it must be delivered
+            # if a person is in a vehicle, person must be delivered
             service_element = ET.SubElement(services_element, 'service', attrib={
                                                                                  'id': str(person.id),
                                                                                  'type': 'delivery'
@@ -152,7 +153,7 @@ class VRPReadWriter(object):
         # Write initial routes
         initial_routes_element = ET.SubElement(root, 'initialRoutes')
         for vehicle, coord_time in zip(vehicles, vehicle_coords_times):
-            if vehicle.get_route_len == 0:
+            if vehicle.get_route_len() == 0:
                 continue
             route_element = ET.SubElement(initial_routes_element, 'route')
             ET.SubElement(route_element, 'driverId').text = 'noDriver'
@@ -162,8 +163,7 @@ class VRPReadWriter(object):
                 if act.type == DrtAct.DELIVERY:
                     id_tag = 'serviceId'
                 elif act.type in [DrtAct.PICK_UP, DrtAct.DROP_OFF]:
-                    # id_tag = 'shipmentId'
-                    continue
+                    id_tag = 'shipmentId'
                 else:
                     log.error('Got unexpected act.type {} during the conversion for jsprit vrp.xml'.format(act.type))
                     raise Exception('Got unexpected act.type {} for jsprit vrp.xml'.format(act.type))
@@ -198,10 +198,10 @@ class VRPReadWriter(object):
     @staticmethod
     def _write_max_in_vehicle_time(parent, person, service=False):
         if service:
-            text = str(person.get_rest_drt_duration())
+            num = person.get_rest_drt_duration()
         else:
-            text = str(person.get_max_drt_duration())
-        ET.SubElement(parent, 'maxInVehicleTime').text = text
+            num = person.get_max_drt_duration()
+        ET.SubElement(parent, 'maxInVehicleTime').text = "{:f}".format(num)
 
     @staticmethod
     def _write_coord(parent, location_type, coord, geoid):

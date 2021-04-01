@@ -44,7 +44,7 @@ class Top(Component):
         self._init_results()
 
         jsprit_tdm_interface.set_writer(self.env.config.get('jsprit.tdm_file'), 'w')
-        db_conn.connect(self.env.config.get('db.file'))
+        # db_conn.connect(self.env.config.get('db.file'))
 
     def connect_children(self):
         for person in self.population.person_list:
@@ -73,10 +73,8 @@ class Top(Component):
 os.environ['TZ'] = 'Sweden'
 time.tzset()
 config = {
-    # 'sim.duration': '86400 s',
-    # 'sim.duration_sec': 86400,
-    'sim.duration': '43200 s',
-    'sim.duration_sec': 43200,
+    'sim.duration': '86400 s',
+    'sim.duration_sec': 86400,
     'sim.seed': 42,
     'sim.email_notification': True,
     'sim.create_excel': True,
@@ -103,8 +101,8 @@ config = {
     'person.default_attr.leaving_time': 60,
     # 'person.default_attr.maxWalkDistance': 2000,
 
-    'population.input_file': 'data/population_lolland_bus_stops_filtered.json',
-    'population.input_percentage': 1.0,
+    'population.input_file': 'data/population_lolland_4500.json',
+    'population.input_percentage': 0.05,
     # ['all_within', 'pt_only', 'drtable_all', 'drtable_outside', 'all']
     'population.scenario': 'drtable_all',
 
@@ -125,15 +123,15 @@ config = {
     'pt.drt_time_window_constant_within': 0,
 
     'pt.trip_time_window_multiplier': 1,
-    'pt.trip_time_window_constant': td(hours=0.5).total_seconds(),
+    'pt.trip_time_window_constant': td(hours=1.0).total_seconds(),
 
     'drt.PT_stops_file': 'data/lolland_stops_left.csv',
     'drt.min_distance': 500,
-    'drt.maxPreTransitTime': 1500,
+    'drt.maxPreTransitTime': 1500,  # max time of car leg in kiss_&_ride
     'drt.default_max_walk': 3000,
     'drt.visualize_routes': 'false',  # should be a string
     'drt.picture_folder': 'pictures/',
-    'drt.number_vehicles': 100,
+    'drt.number_vehicles': 30,
 
     # not actually in use:
     'drt.vehicle_type': 'minibus',
@@ -144,6 +142,11 @@ config = {
         'taxi': {
             'capacity_dimensions': {CD.SEATS: 4}
         }
+    },
+    'otp.default_attributes': {
+        'arriveBy': 'False',
+        'maxWalkDistance': 2000,
+        'maxTransfers': 10
     },
 
 }
@@ -180,6 +183,7 @@ config.update({
     'sim.person_log_folder': '{}/person_logs'.format(folder),
     'sim.vehicle_log_folder': '{}/vehicle_logs'.format(folder),
     'sim.log': '{}/log'.format(folder),
+    'sim_summary.log': '{}/log_summary'.format(folder),
     'sim.log_zip': '{}/log.zip'.format(folder),
     'sim.folder': folder,
 
@@ -252,7 +256,7 @@ if __name__ == '__main__':
 
     if config.get('sim.email_notification'):
         send_email(subject='Simulation success', text='{}\n{}'.format(message, 'congratulations'),
-                   zip_file=zip_file)
+                   zip_file=config.get('sim_summary.log'))
 
 # if __name__ == '__main__':
 #     import cProfile
