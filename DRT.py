@@ -73,10 +73,8 @@ class Top(Component):
 os.environ['TZ'] = 'Sweden'
 time.tzset()
 config = {
-    # 'sim.duration': '86400 s',
-    # 'sim.duration_sec': 86400,
-    'sim.duration': '43200 s',
-    'sim.duration_sec': 43200,
+    'sim.duration': '86400 s',
+    'sim.duration_sec': 86400,
     'sim.seed': 42,
     'sim.email_notification': True,
     'sim.create_excel': True,
@@ -103,8 +101,8 @@ config = {
     'person.default_attr.leaving_time': 60,
     # 'person.default_attr.maxWalkDistance': 2000,
 
-    'population.input_file': 'data/population_lolland_bus_stops_filtered.json',
-    'population.input_percentage': 1.0,
+    'population.input_file': 'data/population_lolland_4500.json',
+    'population.input_percentage': 0.05,
     # ['all_within', 'pt_only', 'drtable_all', 'drtable_outside', 'all']
     'population.scenario': 'drtable_all',
 
@@ -125,7 +123,7 @@ config = {
     'pt.drt_time_window_constant_within': 0,
 
     'pt.trip_time_window_multiplier': 1,
-    'pt.trip_time_window_constant': td(hours=0.5).total_seconds(),
+    'pt.trip_time_window_constant': td(hours=1.0).total_seconds(),
 
     'drt.PT_stops_file': 'data/lolland_stops_left.csv',
     'drt.min_distance': 500,
@@ -133,7 +131,7 @@ config = {
     'drt.default_max_walk': 3000,
     'drt.visualize_routes': 'false',  # should be a string
     'drt.picture_folder': 'pictures/',
-    'drt.number_vehicles': 100,
+    'drt.number_vehicles': 30,
 
     # not actually in use:
     'drt.vehicle_type': 'minibus',
@@ -144,6 +142,11 @@ config = {
         'taxi': {
             'capacity_dimensions': {CD.SEATS: 4}
         }
+    },
+    'otp.default_attributes': {
+        'arriveBy': 'False',
+        'maxWalkDistance': 2000,
+        'maxTransfers': 10
     },
 
 }

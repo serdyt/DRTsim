@@ -12,7 +12,7 @@ from desmod.component import Component
 import behaviour
 import mode_choice
 
-from sim_utils import Activity, Coord, seconds_from_str, Trip, Leg, Step, ActType
+from sim_utils import Activity, Coord, seconds_from_str, Trip, Leg, Step, ActType, strip_hour_from_seconds
 from const import ActivityType as actType
 from const import maxLat, minLat, maxLon, minLon
 from const import CapacityDimensions as CD
@@ -190,7 +190,8 @@ class Population(Component):
 
                 if json_pers['activities'][0]['zone'] in self.env.config.get('drt.zones') \
                         or json_pers['activities'][1]['zone'] in self.env.config.get('drt.zones'):
-                    if seconds_from_str(json_pers['activities'][0]['end_time']) > self.env.config.get('sim.duration_sec'):
+                    if seconds_from_str(json_pers['activities'][0]['end_time']) > self.env.config.get(
+                            'sim.duration_sec'):
                         continue
                     pers = self._person_from_json(json_pers)
                     self.person_list.append(pers)
@@ -216,8 +217,8 @@ class Population(Component):
             type_str = json_activity.get('type')
             type_ = actType.get_activity(type_str)
 
-            end_time = seconds_from_str(json_activity.get('end_time'))
-            start_time = seconds_from_str(json_activity.get('start_time'))
+            start_time = strip_hour_from_seconds(seconds_from_str(json_activity.get('start_time')))
+            end_time = strip_hour_from_seconds(seconds_from_str(json_activity.get('end_time')))
 
             coord_json = json_activity.get('coord')
             # lat,lon format
@@ -357,6 +358,9 @@ class Person(Component):
     def update_otp_params(self):
         """Sets new otp params for a new trip. Params are deducted from activity"""
         self.get_routing_parameters().update({'arriveBy': self.is_arrive_by()})
+
+    def set_time_window_multiplier(self, pt_alt):
+        self.trip_time_window_multiplier = (pt_alt.duration + 10) / self.get_direct_trip_duration()
 
     def _set_travel_type_and_time_window_attributes(self):
         if self.curr_activity.zone in self.env.config.get('drt.zones') and \
@@ -508,6 +512,15 @@ class Person(Component):
     def set_direct_trip(self, trip):
         self.direct_trip = trip
 
+    def get_direct_trip_duration(self):
+        return self.get_direct_trip().duration
+
+    def get_direct_trip_distance(self):
+        return self.get_direct_trip().distance
+
+    def get_direct_trip(self):
+        return self.direct_trip
+
     def set_drt_status(self, status):
         self.drt_status.append(status)
 
@@ -517,7 +530,7 @@ class Person(Component):
         that will be compared with actual and direct trips.
         """
         drt_acts = [act for act in drt_route if act.person == self and \
-                    act.type in [ActType.PICK_UP, ActType.DROP_OFF, ActType.DELIVERY] ]
+                    act.type in [ActType.PICK_UP, ActType.DROP_OFF, ActType.DELIVERY]]
 
         # jsprit has no distance and steps
         drt_leg = self.get_planned_drt_leg()
@@ -571,7 +584,7 @@ class Person(Component):
 
     def get_max_drt_duration(self):
         if self.is_local_trip():
-            return self.get_max_trip_duration(self.direct_trip.duration)
+            return self.get_max_trip_duration(self.get_direct_trip_duration())
         else:
             return self.get_drt_tw_right() - self.get_drt_tw_left()
 
@@ -595,20 +608,21 @@ class Person(Component):
         return t
 
     def get_max_trip_duration(self, direct_time):
-        return direct_time * self.drt_time_window_multiplier + self.drt_time_window_constant \
-               + self.boarding_time + self.leaving_time
+        """Computes maximum trip duration according to direct_time*dtm + dtc"""
+        return direct_time * self.drt_time_window_multiplier + self.drt_time_window_constant + \
+            self.boarding_time + self.leaving_time
 
     def set_trip_tw(self):
         if self.is_arrive_by():
             self.trip_tw_right = self.next_activity.start_time
             self.trip_tw_left = self.next_activity.start_time - \
-                                self.get_max_trip_duration(self.direct_trip.duration) * self.trip_time_window_multiplier - \
-                                self.trip_time_window_constant
+                self.get_max_trip_duration(self.get_direct_trip_duration()) * self.trip_time_window_multiplier - \
+                self.trip_time_window_constant
         else:
             self.trip_tw_left = self.curr_activity.end_time
             self.trip_tw_right = self.curr_activity.end_time + \
-                                 self.get_max_trip_duration(self.direct_trip.duration) * self.trip_time_window_multiplier + \
-                                 self.trip_time_window_constant
+                 self.get_max_trip_duration(self.get_direct_trip_duration()) * self.trip_time_window_multiplier + \
+                 self.trip_time_window_constant
 
         if self.trip_tw_left < self.env.now:
             self.trip_tw_left = self.env.now

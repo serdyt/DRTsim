@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+max#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Sun Dec 30 13:49:45 2018
@@ -67,13 +67,13 @@ class DefaultRouting(object):
                      at_time,
                      mode: str,
                      attributes=None):
-        default_attributes = {'fromPlace': str(from_place),
-                              'toPlace': str(to_place),
-                              'time': trunc_microseconds(str(td(seconds=at_time))),
-                              'date': self.env.config.get('date'),
-                              'mode': mode,
-                              'arriveBy': 'True',
-                              'maxWalkDistance': 2000}
+        default_attributes = self.env.config.get('otp.default_attributes').copy()
+        default_attributes.update({'fromPlace': str(from_place),
+                                   'toPlace': str(to_place),
+                                   'time': trunc_microseconds(str(td(seconds=at_time))),
+                                   'date': self.env.config.get('date'),
+                                   'mode': mode
+                                   })
         if attributes is not None:
             default_attributes.update(attributes)
         resp = requests.get(self.url, params=default_attributes)

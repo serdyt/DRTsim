@@ -144,7 +144,7 @@ class ServiceProvider(Component):
 
     @staticmethod
     def _trip_in_max_duration(trip, person):
-        return trip.duration < person.get_max_trip_duration(person.direct_trip.duration)
+        return trip.duration < person.get_max_trip_duration(person.get_direct_trip_duration())
 
     @staticmethod
     def _trip_in_time_windows(trip, person):
@@ -206,8 +206,8 @@ class ServiceProvider(Component):
         Returns a list of drt trips and a status for logging
         """
 
-        if person.direct_trip.distance < self.env.config.get('drt.min_distance'):
-            log.info('Person {} has trip length of {}. Ignoring DRT'.format(person.id, person.direct_trip.distance))
+        if person.get_direct_trip_distance() < self.env.config.get('drt.min_distance'):
+            log.info('Person {} has trip length of {}. Ignoring DRT'.format(person.id, person.get_direct_trip_distance()))
             self._drt_too_short_trip += 1
             return [], DrtStatus.too_short_drt_leg
 
@@ -225,7 +225,7 @@ class ServiceProvider(Component):
                       start_coord=person.curr_activity.coord,
                       end_coord=person.next_activity.coord)
         person.drt_leg = drt_leg.deepcopy()
-        person.set_drt_tw(person.direct_trip.duration, single_leg=True)
+        person.set_drt_tw(person.get_direct_trip_duration(), single_leg=True)
 
         try:
             self._drt_request_routine(person)
@@ -358,13 +358,13 @@ class ServiceProvider(Component):
                 if person.is_arrive_by():
                     alt_tw_right -= 1
                     params.update({'time': trunc_microseconds(str(td(seconds=alt_tw_right)))})
-                    if person.get_trip_tw_left() + person.get_max_trip_duration(person.direct_trip.duration) > \
+                    if person.get_trip_tw_left() + person.get_max_trip_duration(person.get_direct_trip_duration()) > \
                             alt_tw_right:
                         break
                 else:
                     alt_tw_left += wait_time
                     params.update({'time': trunc_microseconds(str(td(seconds=alt_tw_left)))})
-                    if alt_tw_left + person.get_max_trip_duration(person.direct_trip.duration) > \
+                    if alt_tw_left + person.get_max_trip_duration(person.get_direct_trip_duration()) > \
                             person.get_trip_tw_right():
                         break
 
@@ -438,7 +438,7 @@ class ServiceProvider(Component):
                 status_log[DrtStatus.overnight_trip] += 1
                 continue
 
-            if alt.duration > person.get_max_trip_duration(person.direct_trip.duration):
+            if alt.duration > person.get_max_trip_duration(person.get_direct_trip_duration()):
                 status_log[DrtStatus.too_long_pt_trip] += 1
                 continue
 
@@ -469,7 +469,7 @@ class ServiceProvider(Component):
                 try:
 
                     drt_leg = self._get_leg_for_in_trip(drt_trip, person)
-                    available_drt_time = person.get_max_trip_duration(person.direct_trip.duration) - \
+                    available_drt_time = person.get_max_trip_duration(person.get_direct_trip_duration()) - \
                                          (alt.duration - (
                                                      drt_leg.duration + person.boarding_time + person.leaving_time))
                     person.set_drt_tw(drt_leg.duration, last_leg=True, drt_leg=drt_leg,
@@ -485,7 +485,7 @@ class ServiceProvider(Component):
             elif person.is_out_trip():
                 try:
                     drt_leg = self._get_leg_for_out_trip(drt_trip, person)
-                    available_drt_time = person.get_max_trip_duration(person.direct_trip.duration) - \
+                    available_drt_time = person.get_max_trip_duration(person.get_direct_trip_duration()) - \
                                          (alt.duration - drt_leg.duration)
                     person.set_drt_tw(drt_leg.duration, first_leg=True, drt_leg=drt_leg,
                                       available_time=available_drt_time)
@@ -648,15 +648,10 @@ class ServiceProvider(Component):
     def standalone_osrm_request(self, person):
         return self.router.osrm_route_request(person.curr_activity.coord, person.next_activity.coord)
 
-    # def standalone_otp_request(self, person, mode, otp_attributes):
-    #     attributes = copy.copy(person.get_routing_parameters())
-    #     attributes.update(otp_attributes)
-    #     return self.router.otp_request(person.curr_activity.coord,
-    #                                    person.next_activity.coord,
-    #                                    person.next_activity.start_time,
-    #                                    mode,
-    #                                    attributes
-    #                                    )
+    def standalone_otp_request(self, person):
+        """returns the fastest PT alternative with the same attribute as for normal OTP request"""
+        traditional_alternatives = self._traditional_request(person)
+        return min(traditional_alternatives, key=lambda x: x.duration)
 
     def _get_current_vehicle_positions(self):
         coords_times = []
