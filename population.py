@@ -36,72 +36,36 @@ class Population(Component):
     def _init_persons(self):
         self.read_json()
         # self.read_split_json()
-        # self.gen_test_pop_outside()
+        # self.gen_test_pop_lolland()
         log.info('{}: Population of {} persons created.'.format(self.env.now, len(self.person_list)))
 
-    def gen_test_pop_outside(self):
+    def gen_test_pop_lolland(self):
 
-        home = Coord(latlon=(55.673389, 13.744803))
-        th = td(hours=10, minutes=20).total_seconds()
-        work = Coord(latlon=(55.436701, 13.811424))
-        tw = td(hours=15, minutes=0).total_seconds()
-        self.gen_manual_pers(home, th, work, tw, 0, 12650003, 12800000)
-
-        home = Coord(latlon=(55.673389, 13.744803))
-        th = td(hours=10, minutes=15).total_seconds()
-        work = Coord(latlon=(55.436701, 13.811424))
-        tw = td(hours=15, minutes=0).total_seconds()
-        self.gen_manual_pers(home, th, work, tw, 1, 12650003, 12800000)
-
-        home = Coord(latlon=(55.673389, 13.744803))
-        th = td(hours=10, minutes=20).total_seconds()
-        work = Coord(latlon=(55.436701, 13.811424))
-        tw = td(hours=15, minutes=0).total_seconds()
-        self.gen_manual_pers(home, th, work, tw, 2, 12650003, 12800000)
-
-        home = Coord(latlon=(55.673389, 13.744803))
-        th = td(hours=10, minutes=17).total_seconds()
-        work = Coord(latlon=(55.436701, 13.811424))
-        tw = td(hours=15, minutes=0).total_seconds()
-        self.gen_manual_pers(home, th, work, tw, 3, 12650003, 12800000)
-
-        home = Coord(latlon=(55.673389, 13.744803))
-        th = td(hours=10, minutes=8).total_seconds()
-        work = Coord(latlon=(55.436701, 13.811424))
-        tw = td(hours=15, minutes=0).total_seconds()
-        self.gen_manual_pers(home, th, work, tw, 4, 12650003, 12800000)
-
-        home = Coord(latlon=(55.673389, 13.744803))
-        th = td(hours=9, minutes=50).total_seconds()
-        work = Coord(latlon=(55.436701, 13.811424))
-        tw = td(hours=15, minutes=0).total_seconds()
-        self.gen_manual_pers(home, th, work, tw, 5, 12650003, 12800000)
-
-        home = Coord(latlon=(55.673389, 13.744803))
-        th = td(hours=9, minutes=50).total_seconds()
-        work = Coord(latlon=(55.500098, 13.797303))
-        tw = td(hours=15, minutes=0).total_seconds()
-        self.gen_manual_pers(home, th, work, tw, 6, 12650003, 12800000)
+        home = Coord(latlon=(54.66195, 11.35894))
+        th = td(hours=7, minutes=0).total_seconds()
+        work = Coord(latlon=(54.83325, 11.13819))
+        tw = td(hours=11, minutes=0).total_seconds()
+        self.gen_manual_pers(home, th, work, tw, 0, 12650003, 360210)
 
     def gen_manual_pers(self, home, th, work, tw, i, zh, zw):
-        attributes = {'age': 22, 'id': i, 'otp_parameters': {'arriveBy': True}}
+        attributes = {'age': 22, 'id': i, 'otp_parameters': {'arriveBy': False}}
         activities = [
-            Activity(type_=actType.HOME,
+            Activity(type_=actType.WORK,
                      coord=home,
                      end_time=th,
                      zone=zh
                      ),
-            Activity(type_=actType.WORK,
+            Activity(type_=actType.HOME,
                      coord=work,
                      start_time=th,
                      end_time=tw,
                      zone=zw
                      ),
-            Activity(type_=actType.HOME,
-                     coord=home,
-                     start_time=tw,
-                     zone=zh
-                     )
+            # Activity(type_=actType.HOME,
+            #          coord=home,
+            #          start_time=tw,
+            #          zone=zh
+            #          )
         ]
         self.person_list.append(Person(parent=self, attributes=attributes, activities=activities))
 
@@ -360,7 +324,14 @@ class Person(Component):
         self.get_routing_parameters().update({'arriveBy': self.is_arrive_by()})
 
     def set_time_window_multiplier(self, pt_alt):
-        self.trip_time_window_multiplier = (pt_alt.duration + 10) / self.get_direct_trip_duration()
+        if pt_alt is None:
+            return
+
+        new_multiplier = (pt_alt.duration + 10) / self.get_direct_trip_duration()
+        if new_multiplier < self.drt_time_window_multiplier:
+            return
+
+        self.drt_time_window_multiplier = new_multiplier
 
     def _set_travel_type_and_time_window_attributes(self):
         if self.curr_activity.zone in self.env.config.get('drt.zones') and \
@@ -581,6 +552,19 @@ class Person(Component):
     def is_out_trip(self):
         return self.curr_activity.zone in self.env.config.get('drt.zones') \
                and self.next_activity.zone not in self.env.config.get('drt.zones')
+
+    def is_trip_within_tw_constant(self, trip):
+        """Do not use. A hack for lolland case."""
+        if self.is_arrive_by():
+            if trip.legs[-1].end_time > self.next_activity.start_time - self.trip_time_window_constant:
+                return True
+            else:
+                return False
+        else:
+            if trip.legs[0].start_time < self.curr_activity.end_time + self.trip_time_window_constant:
+                return True
+            else:
+                return False
 
     def get_max_drt_duration(self):
         if self.is_local_trip():

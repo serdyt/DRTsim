@@ -70,7 +70,7 @@ class Top(Component):
         # self.env.results['no_suitable_pt_stop'] = 0
 
 
-os.environ['TZ'] = 'Sweden'
+# os.environ['TZ'] = 'Denmark'
 time.tzset()
 config = {
     'sim.duration': '86400 s',
@@ -183,7 +183,7 @@ config.update({
     'sim.person_log_folder': '{}/person_logs'.format(folder),
     'sim.vehicle_log_folder': '{}/vehicle_logs'.format(folder),
     'sim.log': '{}/log'.format(folder),
-    'sim_summary.log': '{}/log_summary'.format(folder),
+    'sim_summary.log': '{}/log_summary.log'.format(folder),
     'sim.log_zip': '{}/log.zip'.format(folder),
     'sim.folder': folder,
 
