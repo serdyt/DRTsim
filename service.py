@@ -651,7 +651,28 @@ class ServiceProvider(Component):
 
     def standalone_otp_request(self, person):
         """returns the fastest PT alternative with the same attribute as for normal OTP request"""
-        traditional_alternatives = self._traditional_request(person)
+
+        # traditional_alternatives = self._traditional_request(person)
+        mode = 'TRANSIT,WALK'
+        traditional_alternatives = []
+        try:
+            traditional_alternatives += self.router.otp_request(person.curr_activity.coord,
+                                                                person.next_activity.coord,
+                                                                person.next_activity.start_time,
+                                                                mode,
+                                                                copy.copy(person.get_routing_parameters()))
+        except OTPNoPath as e:
+            log.warning('{}\n{}'.format(e.msg, e.context))
+
+        if len(traditional_alternatives) == 0:
+            raise OTPUnreachable(msg="Person's {} origin or destination are unreachable".format(person.id),
+                                 context=str(person))
+
+        traditional_alternatives = [alt for alt in traditional_alternatives if alt.main_mode not in ('CAR', 'WALK')]
+        traditional_alternatives = [trip for trip in traditional_alternatives
+                                    if person.is_trip_within_tw_constant(trip) and self._trip_in_current_day(trip)]
+        if len(traditional_alternatives) == 0:
+            return None
         return min(traditional_alternatives, key=lambda x: x.duration)
 
     def _get_current_vehicle_positions(self):
