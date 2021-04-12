@@ -79,7 +79,7 @@ class DefaultBehaviour(StateMachine):
                 self.person.update_travel_log(TravellerEventType.ACT_STARTED, self.person.curr_activity)
             yield self.person.env.timeout(timeout)
             self.env.process(self.plan())
-        except (OTPNoPath, OTPTrivialPath) as e:
+        except (OTPNoPath, OTPTrivialPath, OTPUnreachable) as e:
             log.warning('{}: {}\n{}'.format(self.env.now, e.msg, e.context))
             log.warning('{}: Person {} will be excluded from the simulation'.format(self.env.now, self.person))
             yield Event(self.env).succeed()
