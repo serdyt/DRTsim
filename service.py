@@ -182,11 +182,13 @@ class ServiceProvider(Component):
             if mode in ['DRT']:
                 continue
             try:
+                attributes = copy.copy(self.env.config.get('otp.banned_trips'))
+                attributes.update(person.get_routing_parameters())
                 traditional_alternatives += self.router.otp_request(person.curr_activity.coord,
                                                                     person.next_activity.coord,
                                                                     person.next_activity.start_time,
                                                                     mode,
-                                                                    copy.copy(person.get_routing_parameters()))
+                                                                    attributes)
             except OTPNoPath as e:
                 log.warning('{}\n{}'.format(e.msg, e.context))
                 continue
