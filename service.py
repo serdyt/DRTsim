@@ -255,7 +255,8 @@ class ServiceProvider(Component):
         Saves all the valid maxPreTransitTimes.
         """
         mode = self._drt_transit_get_mode(person)
-        params = copy.copy(person.get_routing_parameters())
+        params = copy.copy(self.env.config.get('otp.banned_trips'))
+        params.update(person.get_routing_parameters())
         max_pre_transit_times = []
         cur_max_pre_transit = self.env.config.get('drt.maxPreTransitTime')
         params.update({'maxPreTransitTime': cur_max_pre_transit})
@@ -315,7 +316,8 @@ class ServiceProvider(Component):
 
         Gradually reduces or increases 'arrive by' or 'depart at' parameters to scan through all the time window.
         """
-        params = copy.copy(person.get_routing_parameters())
+        params = copy.copy(self.env.config.get('otp.banned_trips'))
+        params.update(person.get_routing_parameters())
         pt_alternatives = []
         mode = self._drt_transit_get_mode(person)
         for max_pre_transit in max_pre_transit_times:
