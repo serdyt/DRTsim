@@ -6,6 +6,7 @@ Created on Wed Dec 19 14:58:25 2018
 @author: ai6644
 """
 
+from math import sin, cos, sqrt, atan2, radians
 from typing import List
 from datetime import timedelta as td
 from datetime import datetime
@@ -397,6 +398,33 @@ class Coord(object):
         else:
             self.lat = lat
             self.lon = lon
+
+    def is_near(self, other, precision=1000):
+        """
+        :param precision: distance that is considered to be near
+        :type other: Coord
+        """
+
+        # approximate radius of earth in km
+        R = 6373.0
+
+        lat1 = radians(self.lat)
+        lon1 = radians(self.lon)
+        lat2 = radians(other.lat)
+        lon2 = radians(other.lon)
+
+        dlon = lon2 - lon1
+        dlat = lat2 - lat1
+
+        a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
+        c = 2 * atan2(sqrt(a), sqrt(1 - a))
+
+        distance = R * c
+        if distance*1000 < precision:
+            return True
+        else:
+            return False
+
 
     def to_json(self):
         return json.dumps(self, default=lambda o: self._try(o), sort_keys=True, indent=4, separators=(',', ':'))

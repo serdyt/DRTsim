@@ -41,9 +41,9 @@ class Population(Component):
 
     def gen_test_pop_lolland(self):
 
-        home = Coord(latlon=(54.66195, 11.35894))
+        home = Coord(latlon=(54.838255, 11.361212))
         th = td(hours=7, minutes=0).total_seconds()
-        work = Coord(latlon=(54.83325, 11.13819))
+        work = Coord(latlon=(54.856341, 11.119079))
         tw = td(hours=11, minutes=0).total_seconds()
         self.gen_manual_pers(home, th, work, tw, 0, 12650003, 360210)
 
@@ -542,8 +542,21 @@ class Person(Component):
         return self.otp_parameters
 
     def is_local_trip(self):
-        return self.curr_activity.zone in self.env.config.get('drt.zones') \
-               and self.next_activity.zone in self.env.config.get('drt.zones')
+        """
+        Checks is both origin and destination are within drt zone "self.env.config.get('drt.zones')"
+        Also if a trip goes to a transfer point, it is considered local
+
+        :return: True if local, False if not
+        """
+        start_in = self.curr_activity.zone in self.env.config.get('drt.zones')
+        end_in = self.next_activity.zone in self.env.config.get('drt.zones')
+        if start_in and end_in:
+            return True
+
+        start_transfer = any(self.curr_activity.coord.is_near(tr) for tr in self.env.config.get('drt.transfer_points'))
+        end_transfer = any(self.next_activity.coord.is_near(tr) for tr in self.env.config.get('drt.transfer_points'))
+
+        return (start_transfer and end_in) or (start_in and end_transfer)
 
     def is_in_trip(self):
         return self.curr_activity.zone not in self.env.config.get('drt.zones') \

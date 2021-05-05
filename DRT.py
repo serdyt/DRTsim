@@ -23,7 +23,8 @@ from population import Population
 from service import ServiceProvider
 from const import OtpMode, LegMode, DrtStatus
 from jsprit_utils import jsprit_tdm_interface
-from db_utils import db_conn
+# from db_utils import db_conn
+from sim_utils import Coord
 from const import CapacityDimensions as CD
 
 
@@ -89,9 +90,8 @@ config = {
     'service.osrm_route': 'http://0.0.0.0:5000/route/v1/driving/',
     'service.osrm_tdm': 'http://0.0.0.0:5000/table/v1/driving/',
     'service.modes': 'main_modes',  # ['main_modes','all_modes']
-    'date': '11-17-2020',
-    # 'date.unix_epoch': 1542150000,  # 1542153600 - is one hour earlier!
-    'date.unix_epoch': 1605567600,  # 1605571200,
+    'date': '11-12-2019',
+    'date.unix_epoch': 1573513200,
     # 'db.file': 'data/time_distance_matrix.db',
 
     'person.default_attr.walking_speed': 1.2,
@@ -109,6 +109,9 @@ config = {
     # 'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],  # Sjöbo + Tomelilla
     # 'drt.zones': [360110, 360120, 360130, 360140, 360210, 360230, 360240, 360250],
     'drt.zones': [360250, 360240, 360230, 360210],
+    # trips near (see Coord.is_near()) this location are considered local
+    #
+    'drt.transfer_points': [Coord(lat=54.837899, lon=11.365052)],
 
     # maximum of these two will be taken as pre-booking time
     'drt.planning_in_advance': td(hours=0.5).total_seconds(),
@@ -126,6 +129,8 @@ config = {
     'pt.trip_time_window_constant': td(hours=1.0).total_seconds(),
 
     'drt.PT_stops_file': 'data/lolland_stops_left.csv',
+    'drt.PT_extra_stops_file': 'data/extra_drt_transfer_stops.txt',
+
     'drt.min_distance': 500,
     'drt.maxPreTransitTime': 1500,  # max time of car leg in kiss_&_ride
     'drt.default_max_walk': 3000,
@@ -149,8 +154,9 @@ config = {
         'maxTransfers': 10
     },
     'otp.banned_trips': {'bannedTrips': ''},
-
-    'otp.banned_trips_file': 'data/banned trips.txt'
+    'otp.banned_trips_file': 'data/banned trips.txt',
+    'otp.banned_stops': {'bannedStops': ''},
+    'otp.banned_stops_file': 'data/banned stops.txt'
 
 }
 
@@ -198,6 +204,13 @@ with open(config.get('otp.banned_trips_file')) as f:
     txt = txt.strip(',')
     print(txt)
     config.update({'otp.banned_trips': {'bannedTrips': txt}})
+    f.close()
+
+with open(config.get('otp.banned_stops_file')) as f:
+    txt = f.read().rstrip() + ',' + config.get('otp.banned_stops').get('bannedStops')
+    txt = txt.strip(',')
+    print(txt)
+    config.update({'otp.banned_stops': {'bannedStops': txt}})
     f.close()
 
 os.mkdir(config.get('jsprit.debug_folder'))

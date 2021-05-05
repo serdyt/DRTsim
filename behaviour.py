@@ -58,8 +58,6 @@ class DefaultBehaviour(StateMachine):
             return False
 
     def on_activate(self):
-        # otp_attributes = {'maxWalkDistance': self.env.config.get('drt.default_max_walk'),
-        #                   'numItineraries': 1}
         if self._activity_time_screwed():
             yield Event(self.env).succeed()
             self.env.process(self.unactivatable())
