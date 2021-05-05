@@ -21,6 +21,7 @@ from const import OtpMode, DrtStatus
 from const import maxLat, minLat, maxLon, minLon
 from const import CapacityDimensions as CD
 from sim_utils import Coord, JspritAct, Step, JspritSolution, JspritRoute, UnassignedTrip, trunc_microseconds
+from sim_utils import strip_seconds
 from vehicle import Vehicle, VehicleType
 from sim_utils import ActType, DrtAct, Trip, Leg, LegMode
 from population import Person, Population
@@ -122,7 +123,7 @@ class ServiceProvider(Component):
 
         traditional_alternatives2 = []
         for trip in traditional_alternatives:
-            if self._trip_can_be_accepted(trip, person):
+            if self._pt_trip_can_be_accepted(trip, person):
                 traditional_alternatives2.append(trip)
 
         if not any([True for trip in traditional_alternatives2 if trip.main_mode in [OtpMode.TRANSIT]]):
@@ -144,6 +145,16 @@ class ServiceProvider(Component):
             log.warning('no alternatives received by {}'.format(person.scope))
         return alternatives
 
+    def _pt_trip_can_be_accepted(self, trip, person):
+        """TODO: use local time windows instead of person's.
+        Checks if a trip fits into a current day and if it fits into time window.
+        """
+        if person.is_trip_within_tw_constant(trip) and self._trip_in_current_day(trip) and \
+                self._trip_in_max_duration(trip, person):
+            return True
+        else:
+            return False
+
     def _trip_can_be_accepted(self, trip, person):
         """TODO: use local time windows instead of person's.
         Checks if a trip fits into a current day and if it fits into time window.
@@ -160,6 +171,7 @@ class ServiceProvider(Component):
 
     @staticmethod
     def _trip_in_time_windows(trip, person):
+        """TODO: check only start/end of the trip on being within time-window"""
         if trip.legs[0].start_time < person.get_trip_tw_left() or trip.legs[-1].end_time > person.get_trip_tw_right():
             return False
         else:
@@ -180,6 +192,11 @@ class ServiceProvider(Component):
                     if leg.mode in OtpMode.get_pt_modes() and self.is_stop_in_zone(leg.to_stop)]
 
     def _traditional_request(self, person):
+        """
+        Tries to route traditional alternatives with the modes defined by config.get('service.modes')
+        :param person:
+        :return: trip alternatives
+        """
         traditional_alternatives = []
         modes_config = self.env.config.get('service.modes')
         if modes_config == 'main_modes':
@@ -198,7 +215,7 @@ class ServiceProvider(Component):
                 attributes.update(person.get_routing_parameters())
                 traditional_alternatives += self.router.otp_request(person.curr_activity.coord,
                                                                     person.next_activity.coord,
-                                                                    person.next_activity.start_time,
+                                                                    strip_seconds(person.next_activity.start_time),
                                                                     mode,
                                                                     attributes)
             except OTPNoPath as e:
@@ -271,11 +288,12 @@ class ServiceProvider(Component):
         max_pre_transit_times = []
         cur_max_pre_transit = self.env.config.get('drt.maxPreTransitTime')
         params.update({'maxPreTransitTime': cur_max_pre_transit})
+        request_time = person.get_trip_tw_left()
         while True:
             try:
                 pt_alt_temp = self.router.otp_request(person.curr_activity.coord,
                                                       person.next_activity.coord,
-                                                      person.next_activity.start_time,
+                                                      request_time,
                                                       mode,
                                                       params
                                                       )
@@ -337,11 +355,12 @@ class ServiceProvider(Component):
             alt_tw_left = self.env.now
             alt_tw_right = self.env.config.get('sim.duration_sec')
             params.update({'time': trunc_microseconds(str(td(seconds=person.next_activity.start_time)))})
+            request_time = person.get_trip_tw_left()
             while True:
                 try:
                     pt_alt_temp = self.router.otp_request(person.curr_activity.coord,
                                                           person.next_activity.coord,
-                                                          person.next_activity.start_time,
+                                                          request_time,
                                                           mode,
                                                           params
                                                           )
@@ -680,7 +699,7 @@ class ServiceProvider(Component):
         try:
             traditional_alternatives += self.router.otp_request(person.curr_activity.coord,
                                                                 person.next_activity.coord,
-                                                                person.next_activity.start_time,
+                                                                strip_seconds(person.next_activity.start_time),
                                                                 mode,
                                                                 copy.copy(person.get_routing_parameters()))
         except OTPNoPath as e:

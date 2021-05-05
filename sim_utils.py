@@ -486,6 +486,6 @@ def seconds_from_str(string):
     return int(td(hours=t.hour, minutes=t.minute, seconds=t.second).total_seconds())
 
 
-def strip_hour_from_seconds(seconds):
+def strip_seconds(seconds):
     """returns only hour from the time in seconds"""
     return int(seconds / 3600) * 3600

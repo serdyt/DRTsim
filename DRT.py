@@ -102,7 +102,7 @@ config = {
     # 'person.default_attr.maxWalkDistance': 2000,
 
     'population.input_file': 'data/population_lolland_4500.json',
-    'population.input_percentage': 1.0,
+    'population.input_percentage': 0.01,
     # ['all_within', 'pt_only', 'drtable_all', 'drtable_outside', 'all']
     'population.scenario': 'drtable_all',
 
@@ -114,7 +114,7 @@ config = {
     'drt.transfer_points': [Coord(lat=54.837899, lon=11.365052)],
 
     # maximum of these two will be taken as pre-booking time
-    'drt.planning_in_advance': td(hours=0.5).total_seconds(),
+    'drt.planning_in_advance': td(hours=1.01).total_seconds(),
     # 'drt.planning_in_advance_multiplier': 2,
 
     # # Parameters that determine maximum travel time for DRT leg

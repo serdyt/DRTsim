@@ -12,7 +12,7 @@ from desmod.component import Component
 import behaviour
 import mode_choice
 
-from sim_utils import Activity, Coord, seconds_from_str, Trip, Leg, Step, ActType, strip_hour_from_seconds
+from sim_utils import Activity, Coord, seconds_from_str, Trip, Leg, Step, ActType
 from const import ActivityType as actType
 from const import maxLat, minLat, maxLon, minLon
 from const import CapacityDimensions as CD
@@ -181,8 +181,8 @@ class Population(Component):
             type_str = json_activity.get('type')
             type_ = actType.get_activity(type_str)
 
-            start_time = strip_hour_from_seconds(seconds_from_str(json_activity.get('start_time')))
-            end_time = strip_hour_from_seconds(seconds_from_str(json_activity.get('end_time')))
+            start_time = seconds_from_str(json_activity.get('start_time'))
+            end_time = seconds_from_str(json_activity.get('end_time'))
 
             coord_json = json_activity.get('coord')
             # lat,lon format
@@ -610,16 +610,17 @@ class Person(Component):
             self.boarding_time + self.leaving_time
 
     def set_trip_tw(self):
+        """Time windows are set around the desired departure/arrival time"""
         if self.is_arrive_by():
             self.trip_tw_right = self.next_activity.start_time
             self.trip_tw_left = self.next_activity.start_time - \
                 self.get_max_trip_duration(self.get_direct_trip_duration()) * self.trip_time_window_multiplier - \
                 self.trip_time_window_constant
         else:
-            self.trip_tw_left = self.curr_activity.end_time
+            self.trip_tw_left = self.curr_activity.end_time - self.trip_time_window_constant / 2
             self.trip_tw_right = self.curr_activity.end_time + \
                  self.get_max_trip_duration(self.get_direct_trip_duration()) * self.trip_time_window_multiplier + \
-                 self.trip_time_window_constant
+                 self.trip_time_window_constant / 2
 
         if self.trip_tw_left < self.env.now:
             self.trip_tw_left = self.env.now
