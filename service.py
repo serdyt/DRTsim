@@ -97,7 +97,16 @@ class ServiceProvider(Component):
             self.vehicle_types[i] = VehicleType(attrib={'id': i})
 
     def _init_zone_pt_stops(self):
-        self._zone_pt_stops = pandas.read_csv(self.env.config.get('drt.PT_stops_file'), sep=',')['stop_id'].values
+        self._zone_pt_stops = pandas.read_csv(self.env.config.get('drt.PT_stops_file'), sep=',')['stop_id'].to_list()
+        try:
+            with open(self.env.config.get('drt.PT_extra_stops_file')) as f:
+                stops = f.read().strip().split(',')
+                self._zone_pt_stops.extend(stops)
+        except FileNotFoundError as e:
+            log.warning('************************************************************************')
+            log.warning('file {} not found'.format(self.env.config.get('drt.PT_extra_stops_file')))
+            log.warning('check \'drt.PT_extra_stops_file\' in the config')
+            log.warning('************************************************************************')
 
     def is_stop_in_zone(self, stop_id):
         return stop_id in self._zone_pt_stops
@@ -185,6 +194,7 @@ class ServiceProvider(Component):
                 continue
             try:
                 attributes = copy.copy(self.env.config.get('otp.banned_trips'))
+                attributes.update(self.env.config.get('otp.banned_stops'))
                 attributes.update(person.get_routing_parameters())
                 traditional_alternatives += self.router.otp_request(person.curr_activity.coord,
                                                                     person.next_activity.coord,
@@ -256,6 +266,7 @@ class ServiceProvider(Component):
         """
         mode = self._drt_transit_get_mode(person)
         params = copy.copy(self.env.config.get('otp.banned_trips'))
+        params.update(self.env.config.get('otp.banned_stops'))
         params.update(person.get_routing_parameters())
         max_pre_transit_times = []
         cur_max_pre_transit = self.env.config.get('drt.maxPreTransitTime')
@@ -317,6 +328,7 @@ class ServiceProvider(Component):
         Gradually reduces or increases 'arrive by' or 'depart at' parameters to scan through all the time window.
         """
         params = copy.copy(self.env.config.get('otp.banned_trips'))
+        params.update(self.env.config.get('otp.banned_stops'))
         params.update(person.get_routing_parameters())
         pt_alternatives = []
         mode = self._drt_transit_get_mode(person)

@@ -41,9 +41,9 @@ class Population(Component):
 
     def gen_test_pop_lolland(self):
 
-        home = Coord(latlon=(54.66195, 11.35894))
+        home = Coord(latlon=(54.85685, 11.11885))
         th = td(hours=7, minutes=0).total_seconds()
-        work = Coord(latlon=(54.83325, 11.13819))
+        work = Coord(latlon=(54.838255, 11.361212))
         tw = td(hours=11, minutes=0).total_seconds()
         self.gen_manual_pers(home, th, work, tw, 0, 12650003, 360210)
 
