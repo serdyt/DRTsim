@@ -128,8 +128,9 @@ config = {
     'pt.trip_time_window_multiplier': 1,
     'pt.trip_time_window_constant': td(hours=1.0).total_seconds(),
 
+    # these two files define at which stops are eligible for DRT to perform transfers
     'drt.PT_stops_file': 'data/lolland_stops_left.csv',
-    'drt.PT_extra_stops_file': 'data/extra_drt_transfer_stops.txt',
+    'drt.PT_extra_stops_file': 'data/extra_drt_transfer_stops lines [780,717,725].txt',
 
     'drt.min_distance': 500,
     'drt.maxPreTransitTime': 1500,  # max time of car leg in kiss_&_ride
@@ -154,7 +155,7 @@ config = {
         'maxTransfers': 10
     },
     'otp.banned_trips': {'bannedTrips': ''},
-    'otp.banned_trips_file': 'data/banned trips.txt',
+    'otp.banned_trips_file': 'data/banned trips lines [780,717,725].txt',
     'otp.banned_stops': {'bannedStops': ''},
     'otp.banned_stops_file': 'data/banned stops.txt'
 
