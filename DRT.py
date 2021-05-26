@@ -102,7 +102,7 @@ config = {
     # 'person.default_attr.maxWalkDistance': 2000,
 
     'population.input_file': 'data/population_lolland_4500.json',
-    'population.input_percentage': 0.01,
+    'population.input_percentage': 1.0,
     # ['all_within', 'pt_only', 'drtable_all', 'drtable_outside', 'all']
     'population.scenario': 'drtable_all',
 
@@ -111,7 +111,9 @@ config = {
     'drt.zones': [360250, 360240, 360230, 360210],
     # trips near (see Coord.is_near()) this location are considered local
     #
-    'drt.transfer_points': [Coord(lat=54.837899, lon=11.365052)],
+    'drt.transfer_points': [Coord(lat=54.837899, lon=11.365052),
+                            oord(lat=54.881666504245416, lon=11.358272981013629),
+                            Coord(lat=54.75995263251924, lon=11.332806322256774)],
 
     # maximum of these two will be taken as pre-booking time
     'drt.planning_in_advance': td(hours=1.01).total_seconds(),
@@ -128,8 +130,9 @@ config = {
     'pt.trip_time_window_multiplier': 1,
     'pt.trip_time_window_constant': td(hours=1.0).total_seconds(),
 
+    # these two files define at which stops are eligible for DRT to perform transfers
     'drt.PT_stops_file': 'data/lolland_stops_left.csv',
-    'drt.PT_extra_stops_file': 'data/extra_drt_transfer_stops.txt',
+    'drt.PT_extra_stops_file': 'data/extra_drt_transfer_stops lines [780,717,725].txt',
 
     'drt.min_distance': 500,
     'drt.maxPreTransitTime': 1500,  # max time of car leg in kiss_&_ride
@@ -154,7 +157,7 @@ config = {
         'maxTransfers': 10
     },
     'otp.banned_trips': {'bannedTrips': ''},
-    'otp.banned_trips_file': 'data/banned trips.txt',
+    'otp.banned_trips_file': 'data/banned trips lines [780,717,725].txt',
     'otp.banned_stops': {'bannedStops': ''},
     'otp.banned_stops_file': 'data/banned stops.txt'
 
