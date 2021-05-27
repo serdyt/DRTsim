@@ -112,7 +112,7 @@ config = {
     # trips near (see Coord.is_near()) this location are considered local
     #
     'drt.transfer_points': [Coord(lat=54.837899, lon=11.365052),
-                            oord(lat=54.881666504245416, lon=11.358272981013629),
+                            Coord(lat=54.881666504245416, lon=11.358272981013629),
                             Coord(lat=54.75995263251924, lon=11.332806322256774)],
 
     # maximum of these two will be taken as pre-booking time
