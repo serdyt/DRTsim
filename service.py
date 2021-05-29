@@ -21,7 +21,7 @@ from const import OtpMode, DrtStatus
 from const import maxLat, minLat, maxLon, minLon
 from const import CapacityDimensions as CD
 from sim_utils import Coord, JspritAct, Step, JspritSolution, JspritRoute, UnassignedTrip, trunc_microseconds
-from sim_utils import strip_seconds
+from sim_utils import strip_to_hour
 from vehicle import Vehicle, VehicleType
 from sim_utils import ActType, DrtAct, Trip, Leg, LegMode
 from population import Person, Population
@@ -149,7 +149,7 @@ class ServiceProvider(Component):
         """TODO: use local time windows instead of person's.
         Checks if a trip fits into a current day and if it fits into time window.
         """
-        if person.is_trip_within_tw_constant(trip) and self._trip_in_current_day(trip) and \
+        if person.is_trip_starts_within_tw_constant(trip) and self._trip_in_current_day(trip) and \
                 self._trip_in_max_duration(trip, person):
             return True
         else:
@@ -172,10 +172,11 @@ class ServiceProvider(Component):
     @staticmethod
     def _trip_in_time_windows(trip, person):
         """TODO: check only start/end of the trip on being within time-window"""
-        if trip.legs[0].start_time < person.get_trip_tw_left() or trip.legs[-1].end_time > person.get_trip_tw_right():
-            return False
-        else:
-            return True
+        return person.is_trip_starts_within_tw_constant(trip)
+        # if trip.legs[0].start_time < person.get_trip_tw_left() or trip.legs[-1].end_time > person.get_trip_tw_right():
+        #     return False
+        # else:
+        #     return True
 
     def _trip_in_current_day(self, trip):
         if trip.legs[0].start_time < self.env.now or trip.legs[-1].end_time > self.env.config['sim.duration_sec']:
@@ -215,7 +216,7 @@ class ServiceProvider(Component):
                 attributes.update(person.get_routing_parameters())
                 traditional_alternatives += self.router.otp_request(person.curr_activity.coord,
                                                                     person.next_activity.coord,
-                                                                    strip_seconds(person.next_activity.start_time),
+                                                                    person.get_trip_departure_for_otp(),
                                                                     mode,
                                                                     attributes)
             except OTPNoPath as e:
@@ -288,7 +289,7 @@ class ServiceProvider(Component):
         max_pre_transit_times = []
         cur_max_pre_transit = self.env.config.get('drt.maxPreTransitTime')
         params.update({'maxPreTransitTime': cur_max_pre_transit})
-        request_time = person.get_trip_tw_left()
+        request_time = person.get_trip_departure_for_otp()
         while True:
             try:
                 pt_alt_temp = self.router.otp_request(person.curr_activity.coord,
@@ -355,7 +356,7 @@ class ServiceProvider(Component):
             alt_tw_left = self.env.now
             alt_tw_right = self.env.config.get('sim.duration_sec')
             params.update({'time': trunc_microseconds(str(td(seconds=person.next_activity.start_time)))})
-            request_time = person.get_trip_tw_left()
+            request_time = person.get_trip_departure_for_otp()
             while True:
                 try:
                     pt_alt_temp = self.router.otp_request(person.curr_activity.coord,
@@ -512,8 +513,8 @@ class ServiceProvider(Component):
 
                     drt_leg = self._get_leg_for_in_trip(drt_trip, person)
                     available_drt_time = person.get_max_trip_duration(person.get_direct_trip_duration()) - \
-                                         (alt.duration - (
-                                                     drt_leg.duration + person.boarding_time + person.leaving_time))
+                                            (alt.duration - (
+                                                drt_leg.duration + person.boarding_time + person.leaving_time))
                     person.set_drt_tw(drt_leg.duration, last_leg=True, drt_leg=drt_leg,
                                       available_time=available_drt_time)
                     pt_car_leg_index = -1
@@ -551,7 +552,8 @@ class ServiceProvider(Component):
                 status_log[DrtStatus.too_short_drt_leg] += 1
                 continue
 
-            if person.get_drt_tw_right() < self.env.now or person.drt_tw_left > self.env.config.get('sim.duration_sec'):
+            if person.get_drt_tw_start_right() < self.env.now or \
+                    person.get_drt_tw_start_left() > self.env.config.get('sim.duration_sec'):
                 status_log[DrtStatus.too_late_request] += 1
                 continue
 
@@ -699,7 +701,7 @@ class ServiceProvider(Component):
         try:
             traditional_alternatives += self.router.otp_request(person.curr_activity.coord,
                                                                 person.next_activity.coord,
-                                                                strip_seconds(person.next_activity.start_time),
+                                                                strip_to_hour(person.next_activity.start_time),
                                                                 mode,
                                                                 copy.copy(person.get_routing_parameters()))
         except OTPNoPath as e:
@@ -711,7 +713,7 @@ class ServiceProvider(Component):
 
         traditional_alternatives = [alt for alt in traditional_alternatives if alt.main_mode not in ('CAR', 'WALK')]
         traditional_alternatives = [trip for trip in traditional_alternatives
-                                    if person.is_trip_within_tw_constant(trip) and self._trip_in_current_day(trip)]
+                                    if person.is_trip_starts_within_tw_constant(trip) and self._trip_in_current_day(trip)]
         if len(traditional_alternatives) == 0:
             return None
         return min(traditional_alternatives, key=lambda x: x.duration)

@@ -300,7 +300,7 @@ class Vehicle(Component):
                 log.error('{} drt_executed event has not been created'.format(person))
             person.drt_executed.succeed()
 
-            self._is_person_served_within_tw(person)
+            self._is_person_served_within_tw(person, pickup=False)
 
         n = len(persons)
         self.delivered_travelers += n
@@ -335,19 +335,32 @@ class Vehicle(Component):
                 if self.capacity_dimensions[dimension[0]] < 0:
                     raise Exception('Person has boarded to a vehicle while it has not enough space')
 
-            self._is_person_served_within_tw(person)
+            self._is_person_served_within_tw(person, pickup=True)
 
-    def _is_person_served_within_tw(self, person):
-        if person.get_drt_tw_left() <= self.env.now <= person.get_drt_tw_right():
-            return True
+    def _is_person_served_within_tw(self, person, pickup=True):
+        if pickup:
+            if person.get_drt_tw_start_left() <= self.env.now <= person.get_drt_tw_start_right():
+                return True
         else:
-            msg = '{}: Vehicle {}: Person {} has been served outside the requested time window: {} - {}'\
-                .format(self.env.now, self.id, person.id, person.get_drt_tw_left(), person.get_drt_tw_right())
-            if self.env.now - person.get_drt_tw_right() > 60 or person.get_drt_tw_left() - self.env.now > 60:
+            if person.get_drt_tw_end_left() <= self.env.now <= person.get_drt_tw_end_right():
+                return True
+
+        msg = '{}: Vehicle {}: Person {} has been served outside the requested time window: [{} - {}, {} - {}]'\
+            .format(self.env.now, self.id, person.id,
+                    person.get_drt_tw_start_left(), person.get_drt_tw_start_right(),
+                    person.get_drt_tw_end_left(), person.get_drt_tw_end_right())
+
+        if pickup:
+            if self.env.now - person.get_drt_tw_start_right() > 60 or person.get_drt_tw_start_left() - self.env.now > 60:
                 log.error(msg)
             else:
                 log.debug(msg)
-            return False
+        else:
+            if self.env.now - person.get_drt_tw_end_right() > 60 or person.get_drt_tw_end_left() - self.env.now > 60:
+                log.error(msg)
+            else:
+                log.debug(msg)
+        return False
 
     def _update_passengers_travel_log(self, travel_event_type):
         for person in self.passengers:

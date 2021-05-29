@@ -225,13 +225,16 @@ class UnassignedTrip(object):
         self.person = person
         self.start_activity = person.curr_activity
         self.end_activity = person.next_activity
-        self.tw_left = person.get_drt_tw_left()
-        self.tw_right = person.get_drt_tw_right()
+        self.tw_start_left = person.get_drt_tw_start_left()
+        self.tw_start_right = person.get_drt_tw_start_right()
+        self.tw_end_left = person.get_drt_tw_end_left()
+        self.tw_end_right = person.get_drt_tw_end_right()
 
     def __str__(self):
-        return 'Person {} tried to go from {} to {} in interval [{} - {}]'\
+        return 'Person {} tried to go from {} to {} in interval [{} - {}, {} - {}]'\
             .format(self.person.id, self.start_activity, self.end_activity,
-                    get_sec(self.tw_left), get_sec(self.tw_right))
+                    get_sec(self.tw_start_left), get_sec(self.tw_start_right),
+                    get_sec(self.tw_end_left), get_sec(self.tw_end_right))
 
 
 class ActType(object):
@@ -486,6 +489,6 @@ def seconds_from_str(string):
     return int(td(hours=t.hour, minutes=t.minute, seconds=t.second).total_seconds())
 
 
-def strip_seconds(seconds):
+def strip_to_hour(seconds):
     """returns only hour from the time in seconds"""
     return int(seconds / 3600) * 3600

@@ -129,8 +129,8 @@ class VRPReadWriter(object):
             ET.SubElement(service_element, 'duration').text = str(person.leaving_time)
             self._write_capacity_dimensions(service_element, person.dimensions.items())
             self._write_time_windows(service_element,
-                                     person.get_drt_tw_left(),
-                                     person.get_drt_tw_right())
+                                     person.get_drt_tw_end_left(),
+                                     person.get_drt_tw_end_right())
             self._write_max_in_vehicle_time(service_element, person, service=True)
 
         # Writing shipments
@@ -140,12 +140,12 @@ class VRPReadWriter(object):
             self._write_shipment_step(shipment_element, 'pickup', person.drt_leg.start_coord,
                                       coord_to_geoid.get(person.drt_leg.start_coord),
                                       person.boarding_time,
-                                      person.get_drt_tw_left(), person.get_drt_tw_right()
+                                      person.get_drt_tw_start_left(), person.get_drt_tw_start_right()
                                       )
             self._write_shipment_step(shipment_element, 'delivery', person.drt_leg.end_coord,
                                       coord_to_geoid.get(person.drt_leg.end_coord),
                                       person.leaving_time,
-                                      person.get_drt_tw_left(), person.get_drt_tw_right()
+                                      person.get_drt_tw_end_left(), person.get_drt_tw_end_right()
                                       )
             self._write_capacity_dimensions(shipment_element, person.dimensions.items())
             self._write_max_in_vehicle_time(shipment_element, person)
@@ -180,14 +180,16 @@ class VRPReadWriter(object):
         shipment_type_element = ET.SubElement(parent, shipment_type)
         self._write_coord(shipment_type_element, 'location', coord, geoid)
         ET.SubElement(shipment_type_element, 'duration').text = str(execution_time)
-        self._write_time_windows(shipment_type_element, tw_start, tw_end)
+        if shipment_type != 'delivery':
+            self._write_time_windows(shipment_type_element, tw_start, tw_end)
 
     @staticmethod
     def _write_time_windows(parent, tw_start, tw_end):
-        time_windows_element = ET.SubElement(parent, 'timeWindows')
-        time_window_element = ET.SubElement(time_windows_element, 'timeWindow')
-        ET.SubElement(time_window_element, 'start').text = str(tw_start)
-        ET.SubElement(time_window_element, 'end').text = str(tw_end)
+        if tw_start is not None and tw_end is not None:
+            time_windows_element = ET.SubElement(parent, 'timeWindows')
+            time_window_element = ET.SubElement(time_windows_element, 'timeWindow')
+            ET.SubElement(time_window_element, 'start').text = str(tw_start)
+            ET.SubElement(time_window_element, 'end').text = str(tw_end)
 
     @staticmethod
     def _write_capacity_dimensions(parent, dimensions):
