@@ -120,11 +120,11 @@ config = {
     # 'drt.planning_in_advance_multiplier': 2,
 
     # # Parameters that determine maximum travel time for DRT leg
-    'pt.drt_time_window_multiplier_in': 1.8,
+    'pt.drt_time_window_multiplier_in': 1.4,
     'pt.drt_time_window_constant_in': 0,
-    'pt.drt_time_window_multiplier_out': 1.8,
+    'pt.drt_time_window_multiplier_out': 1.4,
     'pt.drt_time_window_constant_out': 0,
-    'pt.drt_time_window_multiplier_within': 1.8,
+    'pt.drt_time_window_multiplier_within': 1.4,
     'pt.drt_time_window_constant_within': 0,
 
     'pt.trip_time_window_multiplier': 1,

@@ -643,9 +643,9 @@ class Person(Component):
         if single_leg:
             if self.is_arrive_by():
                 self.drt_tw_start_left = self.next_activity.start_time - self.trip_time_window_constant / 2 - \
-                    self.get_direct_trip_duration() * self.trip_time_window_multiplier
+                    self.get_direct_trip_duration() * self.drt_time_window_multiplier
                 self.drt_tw_start_right = self.next_activity.start_time + self.trip_time_window_constant / 2 - \
-                    self.get_direct_trip_duration() * self.trip_time_window_multiplier
+                    self.get_direct_trip_duration() * self.drt_time_window_multiplier
                 self.drt_tw_end_left = self.drt_tw_start_left
                 self.drt_tw_end_right = self.get_trip_tw_right()
             else:
