@@ -79,7 +79,7 @@ config = {
     'sim.seed': 42,
     'sim.email_notification': True,
     'sim.create_excel': True,
-    'sim.purpose': 'All pt test',
+    'sim.purpose': 'debugging',
 
     'person.behaviour': 'DefaultBehaviour',
     # 'person.mode_choice': 'DefaultModeChoice',
@@ -120,12 +120,9 @@ config = {
     # 'drt.planning_in_advance_multiplier': 2,
 
     # # Parameters that determine maximum travel time for DRT leg
-    'pt.drt_time_window_multiplier_in': 1.4,
-    'pt.drt_time_window_constant_in': 0,
-    'pt.drt_time_window_multiplier_out': 1.4,
-    'pt.drt_time_window_constant_out': 0,
-    'pt.drt_time_window_multiplier_within': 1.4,
-    'pt.drt_time_window_constant_within': 0,
+
+    'pt.max_trip_duration_multiplier': 1.4,
+    'pt.max_trip_duration_constant': 0,
 
     'pt.trip_time_window_multiplier': 1,
     'pt.trip_time_window_constant': td(hours=1.0).total_seconds(),
@@ -163,22 +160,19 @@ config = {
 
 }
 
-folder = '-p-{}-pre-{}-dwc-{}-dwm-{}-twc-{}-twm-{}-nv-{}'.\
-    format([config.get('population.scenario'),
-            config.get('population.input_percentage')],
-            config.get('drt.planning_in_advance'),
-            [
-                config.get('pt.drt_time_window_constant_within'),
-                config.get('pt.drt_time_window_constant_in'),
-                config.get('pt.drt_time_window_constant_out')
-            ],
-            [
-                config.get('pt.drt_time_window_multiplier_within'),
-                config.get('pt.drt_time_window_multiplier_in'),
-                config.get('pt.drt_time_window_multiplier_out')
-            ],
+folder = '{}-p-{}-pre-{}-dwc-{}-dwm-{}-twc-{}-twm-{}-nv-{}'.\
+    format(config.get('sim.purpose'),
+           [
+            config.get('population.scenario'),
+            config.get('population.input_percentage')
+           ],
+           config.get('drt.planning_in_advance'),
+
+           config.get('pt.drt_time_window_constant'),
+           config.get('pt.drt_time_window_multiplier'),
            config.get('pt.trip_time_window_constant'),
            config.get('pt.trip_time_window_multiplier'),
+
            config.get('drt.number_vehicles'))
 try:
     shutil.rmtree(folder)

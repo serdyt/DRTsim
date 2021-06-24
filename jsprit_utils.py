@@ -180,8 +180,7 @@ class VRPReadWriter(object):
         shipment_type_element = ET.SubElement(parent, shipment_type)
         self._write_coord(shipment_type_element, 'location', coord, geoid)
         ET.SubElement(shipment_type_element, 'duration').text = str(execution_time)
-        if shipment_type != 'delivery':
-            self._write_time_windows(shipment_type_element, tw_start, tw_end)
+        self._write_time_windows(shipment_type_element, tw_start, tw_end)
 
     @staticmethod
     def _write_time_windows(parent, tw_start, tw_end):

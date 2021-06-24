@@ -7,6 +7,7 @@ import logging
 from datetime import timedelta as td
 import json
 from typing import List, Dict
+from math import floor, ceil
 
 from desmod.component import Component
 import behaviour
@@ -266,10 +267,10 @@ class Person(Component):
 
         self.otp_parameters = {}
         self.attributes = {}
-        self.drt_time_window_multiplier = 0
-        self.drt_time_window_constant = 0
-        self.trip_time_window_multiplier = 0
-        self.trip_time_window_constant = 0
+        self.max_trip_duration_multiplier = 0
+        self.max_trip_duration_constant = 0
+        self.time_window_multiplier = 0
+        self.time_window_constant = 0
         self.travel_type = None
         self._set_attributes(attributes)
 
@@ -335,41 +336,34 @@ class Person(Component):
             return
 
         new_multiplier = (pt_alt.duration + 10) / self.get_direct_trip_duration()
-        if new_multiplier < self.drt_time_window_multiplier:
+        if new_multiplier < self.max_trip_duration_multiplier:
             return
 
-        self.drt_time_window_multiplier = new_multiplier
+        self.max_trip_duration_multiplier = new_multiplier
 
     def _set_travel_type_and_time_window_attributes(self):
         if self.curr_activity.zone in self.env.config.get('drt.zones') and \
                 self.next_activity.zone in self.env.config.get('drt.zones'):
-            m = self.env.config.get('pt.drt_time_window_multiplier_within')
-            c = self.env.config.get('pt.drt_time_window_constant_within')
             t = TravelType.WITHIN
         elif self.curr_activity.zone in self.env.config.get('drt.zones') and \
                 self.next_activity.zone not in self.env.config.get('drt.zones'):
-            m = self.env.config.get('pt.drt_time_window_multiplier_out')
-            c = self.env.config.get('pt.drt_time_window_constant_out')
             t = TravelType.OUT
         elif self.curr_activity.zone not in self.env.config.get('drt.zones') and \
                 self.next_activity.zone in self.env.config.get('drt.zones'):
-            m = self.env.config.get('pt.drt_time_window_multiplier_in')
-            c = self.env.config.get('pt.drt_time_window_constant_in')
             t = TravelType.IN
         else:
             log.error('Cannot determine what time window attributes to assign to a person.'
                       'Assigning default "within".'
                       'Person {}, activities'.format(self.id, self.activities))
-            m = self.env.config.get('pt.drt_time_window_multiplier_within')
-            c = self.env.config.get('pt.drt_time_window_constant_within')
             t = TravelType.WITHIN
 
-        self.trip_time_window_multiplier = self.env.config.get('pt.trip_time_window_multiplier')
-        self.trip_time_window_constant = self.env.config.get('pt.trip_time_window_constant')
-
         self.travel_type = t
-        self.drt_time_window_multiplier = m
-        self.drt_time_window_constant = c
+
+        self.time_window_multiplier = self.env.config.get('pt.trip_time_window_multiplier')
+        self.time_window_constant = self.env.config.get('pt.trip_time_window_constant')
+
+        self.max_trip_duration_multiplier = self.env.config.get('pt.max_trip_duration_multiplier')
+        self.max_trip_duration_constant = self.env.config.get('pt.max_trip_duration_constant')
 
     def save_travel_log(self):
         """Saves travel log to a file."""
@@ -573,15 +567,14 @@ class Person(Component):
         return self.curr_activity.zone in self.env.config.get('drt.zones') \
                and self.next_activity.zone not in self.env.config.get('drt.zones')
 
-    def is_trip_starts_within_tw_constant(self, trip):
-        """Do not use. A hack for lolland case."""
+    def is_trip_within_tw(self, trip):
         if self.is_arrive_by():
-            if trip.legs[-1].end_time > self.next_activity.start_time - self.trip_time_window_constant / 2:
+            if self.get_trip_tw_end_left() <= trip.legs[-1].end_time <= self.get_trip_tw_end_right():
                 return True
             else:
                 return False
         else:
-            if trip.legs[0].start_time < self.curr_activity.end_time + self.trip_time_window_constant / 2:
+            if self.get_trip_tw_start_left() <= trip.legs[0].start_time <= self.get_trip_tw_start_right():
                 return True
             else:
                 return False
@@ -613,25 +606,30 @@ class Person(Component):
             t = 0
         return t
 
+    def get_time_window(self):
+        return self.time_window_constant + self.time_window_multiplier * self.get_direct_trip_duration()
+
     def get_max_trip_duration(self, direct_time):
         """Computes maximum trip duration according to direct_time*dtm + dtc"""
-        return direct_time * self.drt_time_window_multiplier + self.drt_time_window_constant + \
-            self.boarding_time + self.leaving_time
+        return direct_time * self.max_trip_duration_multiplier + self.max_trip_duration_constant + \
+               self.boarding_time + self.leaving_time
 
     def set_trip_tw(self):
-        """Time windows are set around the desired departure/arrival time
-        This time window includes HTE WHOLE trip!
+        """
+        TODO: replace this with start/end time window and max trip duration
+        Time windows are set around the desired departure/arrival time
+        This time window includes THE WHOLE trip!
         """
         if self.is_arrive_by():
-            self.trip_tw_right = self.next_activity.start_time + self.trip_time_window_constant / 2
+            self.trip_tw_right = self.next_activity.start_time + ceil(self.get_time_window() / 2)
             self.trip_tw_left = self.next_activity.start_time - \
-                self.get_max_trip_duration(self.get_direct_trip_duration()) * self.trip_time_window_multiplier - \
-                self.trip_time_window_constant / 2
+                                self.get_max_trip_duration(self.get_direct_trip_duration()) - \
+                                ceil(self.get_time_window() / 2)
         else:
-            self.trip_tw_left = self.curr_activity.end_time - self.trip_time_window_constant / 2
+            self.trip_tw_left = self.curr_activity.end_time - ceil(self.get_time_window() / 2)
             self.trip_tw_right = self.curr_activity.end_time + \
-                 self.get_max_trip_duration(self.get_direct_trip_duration()) * self.trip_time_window_multiplier + \
-                 self.trip_time_window_constant / 2
+                                 self.get_max_trip_duration(self.get_direct_trip_duration()) + \
+                                 ceil(self.get_time_window() / 2)
 
         if self.trip_tw_left < self.env.now:
             self.trip_tw_left = self.env.now
@@ -640,17 +638,21 @@ class Person(Component):
 
     def set_drt_tw(self, drt_direct_time, single_leg=False, first_leg=False, last_leg=False, drt_leg=None,
                    available_time=None):
+        """
+        drt_tw_end - is the time window for the departure
+        Currently it is equal to trip_tw. Should we remove it?
+        """
         if single_leg:
             if self.is_arrive_by():
-                self.drt_tw_start_left = self.next_activity.start_time - self.trip_time_window_constant / 2 - \
-                    self.get_direct_trip_duration() * self.drt_time_window_multiplier
-                self.drt_tw_start_right = self.next_activity.start_time + self.trip_time_window_constant / 2 - \
-                    self.get_direct_trip_duration() * self.drt_time_window_multiplier
+                self.drt_tw_start_left = self.next_activity.start_time - ceil(self.get_time_window() / 2) - \
+                                         self.get_max_trip_duration(self.get_direct_trip_duration())
+                self.drt_tw_start_right = self.next_activity.start_time + ceil(self.get_time_window() / 2) - \
+                                          self.get_max_trip_duration(self.get_direct_trip_duration())
                 self.drt_tw_end_left = self.drt_tw_start_left
                 self.drt_tw_end_right = self.get_trip_tw_right()
             else:
-                self.drt_tw_start_left = self.next_activity.start_time - self.trip_time_window_constant / 2
-                self.drt_tw_start_right = self.next_activity.start_time + self.trip_time_window_constant / 2
+                self.drt_tw_start_left = self.next_activity.start_time - ceil(self.get_time_window() / 2)
+                self.drt_tw_start_right = self.next_activity.start_time + ceil(self.get_time_window() / 2)
                 self.drt_tw_end_left = self.drt_tw_start_left
                 self.drt_tw_end_right = self.get_trip_tw_right()
 
@@ -684,37 +686,12 @@ class Person(Component):
     def set_max_drt_duration(self, duration):
         self.max_drt_duration = duration
 
-    # def set_drt_tw(self, drt_direct_time, single_leg=False, first_leg=False, last_leg=False, drt_leg=None,
-    #                available_time=None):
-    #     tw = self.get_max_trip_duration(drt_direct_time)
-    #     if available_time is not None:
-    #         # tw = min(available_time, tw)
-    #         tw = available_time
-    #
-    #     if single_leg:
-    #         self.drt_tw_left = self.get_trip_tw_left()
-    #         self.drt_tw_right = self.get_trip_tw_right()
-    #     elif first_leg:
-    #         self.drt_tw_left = drt_leg.end_time - tw
-    #         self.drt_tw_right = drt_leg.end_time
-    #     elif last_leg:
-    #         self.drt_tw_left = drt_leg.start_time
-    #         self.drt_tw_right = drt_leg.start_time + tw
-    #     else:
-    #         raise Exception('Incorrect input for time window calculation for Person {}.\n{} {} {}'
-    #                         .format(self.id, drt_direct_time, single_leg, first_leg, last_leg, drt_leg))
-    #
-    #     if self.drt_tw_left < self.env.now:
-    #         self.drt_tw_left = self.env.now
-    #     if self.drt_tw_right > self.env.config.get('sim.duration_sec'):
-    #         self.drt_tw_right = self.env.config.get('sim.duration_sec')
-
-    def get_trip_departure_for_otp(self):
+    def get_trip_departure_with_tw_for_otp(self):
         """Returns a time for OTP time parameter"""
         if self.is_arrive_by():
-            return self.get_trip_tw_right()
+            return self.get_trip_tw_end_right()
         else:
-            return self.get_trip_tw_left()
+            return self.get_trip_tw_start_left()
 
     def get_drt_tw_end_left(self):
         return self.drt_tw_end_left
@@ -728,18 +705,22 @@ class Person(Component):
     def get_drt_tw_start_right(self):
         return self.drt_tw_start_right
 
-    # def get_drt_tw_left(self):
-    #     """Returns: time in seconds when the left time window border starts"""
-    #     return self.drt_tw_left
-    #
-    # def get_drt_tw_right(self):
-    #     """Returns: time in seconds when the right time window border starts"""
-    #     return self.drt_tw_right
-
     def get_trip_tw_left(self):
         return self.trip_tw_left
 
     def get_trip_tw_right(self):
+        return self.trip_tw_right
+
+    def get_trip_tw_start_left(self):
+        return self.trip_tw_left
+
+    def get_trip_tw_start_right(self):
+        return self.trip_tw_left + self.get_time_window()
+
+    def get_trip_tw_end_left(self):
+        return self.trip_tw_right - self.get_time_window()
+
+    def get_trip_tw_end_right(self):
         return self.trip_tw_right
 
     def dumps(self):

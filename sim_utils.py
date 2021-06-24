@@ -104,6 +104,7 @@ class Leg(object):
     def __repr__(self):
         return self.__str__()
 
+
 class Step(object):
     """Arguments:|
     start_coord       <Coord>|
@@ -428,7 +429,6 @@ class Coord(object):
         else:
             return False
 
-
     def to_json(self):
         return json.dumps(self, default=lambda o: self._try(o), sort_keys=True, indent=4, separators=(',', ':'))
 
@@ -489,6 +489,6 @@ def seconds_from_str(string):
     return int(td(hours=t.hour, minutes=t.minute, seconds=t.second).total_seconds())
 
 
-def strip_to_hour(seconds):
+def trunc_time_to_hour(seconds):
     """returns only hour from the time in seconds"""
     return int(seconds / 3600) * 3600

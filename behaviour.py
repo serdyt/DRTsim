@@ -64,13 +64,17 @@ class DefaultBehaviour(StateMachine):
             return
 
         self.person.update_otp_params()
+
         try:
             direct_trip = self.person.serviceProvider.standalone_osrm_request(self.person)
             self.person.set_direct_trip(direct_trip)
-            shortest_pt_alt = self.person.serviceProvider.standalone_otp_request(self.person)
+            self.person.set_trip_tw()
+            shortest_pt_alt = self.person.serviceProvider.fastest_pt_trip_within_hour_otp_request(self.person)
 
             if shortest_pt_alt is not None:
                 self.person.set_time_window_multiplier(shortest_pt_alt)
+                # as we are changing the multiplier, time windows need to be recalculated
+                self.person.set_trip_tw()
 
             timeout = self.person.get_planning_time(direct_trip)
             if timeout > 0:
@@ -90,8 +94,6 @@ class DefaultBehaviour(StateMachine):
             # if it is, we must save multiple requests and have some policy to merge them
             yield self.person.env.timeout(0.000001)
         self.person.update_travel_log(TravellerEventType.ACT_FINISHED, self.person.curr_activity)
-
-        self.person.set_trip_tw()
 
         if self.person.planned_trip is None:
             try:
@@ -149,17 +151,21 @@ class DefaultBehaviour(StateMachine):
                           'maxWalkDistance': self.env.config.get('drt.default_max_walk'),
                           'numItineraries': 1}
         self.person.update_otp_params()
+
         if self._activity_time_screwed():
             yield Event(self.env).succeed()
             self.env.process(self.unreactivatable())
             return
         try:
             direct_trip = self.person.serviceProvider.standalone_osrm_request(self.person)
+            self.person.set_trip_tw()
+            shortest_pt_alt = self.person.serviceProvider.fastest_pt_trip_within_hour_otp_request(self.person)
+            if shortest_pt_alt is not None:
+                self.person.set_time_window_multiplier(shortest_pt_alt)
+                self.person.set_trip_tw()
+
             timeout = self.person.get_planning_time(direct_trip)
             self.person.set_direct_trip(direct_trip)
-            # transit_trip = self.person.serviceProvider.standalone_otp_request(self.person, OtpMode.TRANSIT,
-            #                                                                   otp_attributes)
-            # timeout = self.person.get_planning_time(transit_trip[0])
             if timeout > 0:
                 self.person.update_travel_log(TravellerEventType.ACT_STARTED, self.person.curr_activity)
             yield self.person.env.timeout(timeout)

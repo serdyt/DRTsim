@@ -21,7 +21,7 @@ from const import OtpMode, DrtStatus
 from const import maxLat, minLat, maxLon, minLon
 from const import CapacityDimensions as CD
 from sim_utils import Coord, JspritAct, Step, JspritSolution, JspritRoute, UnassignedTrip, trunc_microseconds
-from sim_utils import strip_to_hour
+from sim_utils import trunc_time_to_hour
 from vehicle import Vehicle, VehicleType
 from sim_utils import ActType, DrtAct, Trip, Leg, LegMode
 from population import Person, Population
@@ -149,7 +149,7 @@ class ServiceProvider(Component):
         """TODO: use local time windows instead of person's.
         Checks if a trip fits into a current day and if it fits into time window.
         """
-        if person.is_trip_starts_within_tw_constant(trip) and self._trip_in_current_day(trip) and \
+        if person.is_trip_within_tw(trip) and self._trip_in_current_day(trip) and \
                 self._trip_in_max_duration(trip, person):
             return True
         else:
@@ -159,7 +159,7 @@ class ServiceProvider(Component):
         """TODO: use local time windows instead of person's.
         Checks if a trip fits into a current day and if it fits into time window.
         """
-        if self._trip_in_time_windows(trip, person) and self._trip_in_current_day(trip) and \
+        if person.is_trip_within_tw(trip) and self._trip_in_current_day(trip) and \
                 self._trip_in_max_duration(trip, person):
             return True
         else:
@@ -172,7 +172,7 @@ class ServiceProvider(Component):
     @staticmethod
     def _trip_in_time_windows(trip, person):
         """TODO: check only start/end of the trip on being within time-window"""
-        return person.is_trip_starts_within_tw_constant(trip)
+        return person.is_trip_within_tw(trip)
         # if trip.legs[0].start_time < person.get_trip_tw_left() or trip.legs[-1].end_time > person.get_trip_tw_right():
         #     return False
         # else:
@@ -216,7 +216,7 @@ class ServiceProvider(Component):
                 attributes.update(person.get_routing_parameters())
                 traditional_alternatives += self.router.otp_request(person.curr_activity.coord,
                                                                     person.next_activity.coord,
-                                                                    person.get_trip_departure_for_otp(),
+                                                                    person.get_trip_departure_with_tw_for_otp(),
                                                                     mode,
                                                                     attributes)
             except OTPNoPath as e:
@@ -289,7 +289,7 @@ class ServiceProvider(Component):
         max_pre_transit_times = []
         cur_max_pre_transit = self.env.config.get('drt.maxPreTransitTime')
         params.update({'maxPreTransitTime': cur_max_pre_transit})
-        request_time = person.get_trip_departure_for_otp()
+        request_time = person.get_trip_departure_with_tw_for_otp()
         while True:
             try:
                 pt_alt_temp = self.router.otp_request(person.curr_activity.coord,
@@ -356,7 +356,7 @@ class ServiceProvider(Component):
             alt_tw_left = self.env.now
             alt_tw_right = self.env.config.get('sim.duration_sec')
             params.update({'time': trunc_microseconds(str(td(seconds=person.next_activity.start_time)))})
-            request_time = person.get_trip_departure_for_otp()
+            request_time = person.get_trip_departure_with_tw_for_otp()
             while True:
                 try:
                     pt_alt_temp = self.router.otp_request(person.curr_activity.coord,
@@ -568,8 +568,8 @@ class ServiceProvider(Component):
                 continue
 
             drt_trip.legs[pt_car_leg_index] = person.drt_leg.deepcopy()
-            drt_trip.legs[pt_car_leg_index].start_coord = person.drt_leg.start_coord
-            drt_trip.legs[pt_car_leg_index].end_coord = person.drt_leg.start_coord
+            # drt_trip.legs[pt_car_leg_index].start_coord = person.drt_leg.start_coord
+            # drt_trip.legs[pt_car_leg_index].end_coord = person.drt_leg.start_coord
             drt_trip.distance = 0
             drt_trip.duration = drt_trip.legs[-1].end_time - drt_trip.legs[0].start_time
 
@@ -692,16 +692,16 @@ class ServiceProvider(Component):
     def standalone_osrm_request(self, person):
         return self.router.osrm_route_request(person.curr_activity.coord, person.next_activity.coord)
 
-    def standalone_otp_request(self, person):
+    def fastest_pt_trip_within_hour_otp_request(self, person):
         """returns the fastest PT alternative with the same attribute as for normal OTP request"""
 
-        # traditional_alternatives = self._traditional_request(person)
         mode = 'TRANSIT,WALK'
         traditional_alternatives = []
         try:
             traditional_alternatives += self.router.otp_request(person.curr_activity.coord,
                                                                 person.next_activity.coord,
-                                                                strip_to_hour(person.next_activity.start_time),
+                                                                # this is the important line. Remove minutes.
+                                                                trunc_time_to_hour(person.next_activity.start_time),
                                                                 mode,
                                                                 copy.copy(person.get_routing_parameters()))
         except OTPNoPath as e:
@@ -713,7 +713,7 @@ class ServiceProvider(Component):
 
         traditional_alternatives = [alt for alt in traditional_alternatives if alt.main_mode not in ('CAR', 'WALK')]
         traditional_alternatives = [trip for trip in traditional_alternatives
-                                    if person.is_trip_starts_within_tw_constant(trip) and self._trip_in_current_day(trip)]
+                                    if person.is_trip_within_tw(trip) and self._trip_in_current_day(trip)]
         if len(traditional_alternatives) == 0:
             return None
         return min(traditional_alternatives, key=lambda x: x.duration)
