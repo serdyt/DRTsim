@@ -69,6 +69,7 @@ class Vehicle(Component):
         self.meters_by_occupancy = [0 for _ in range(self.capacity_dimensions.get(CD.SEATS) + 1)]
         self.delivered_travelers = 0
         self.travel_log = []
+        self.trace_log = []
 
         self.rerouted = self.env.event()
 
@@ -150,27 +151,46 @@ class Vehicle(Component):
     def _save_vehicle_travel_logs(self):
         log_folder = self.env.config.get('sim.vehicle_log_folder')
         try:
-            with open('{}/vehicle_{}'.format(log_folder, self.id), 'w') as f:
-                for record in self.travel_log:
-                    if len(record) > 2:
-                        f.write(VehicleEventType.to_str(record[0], record[1], *record[2]))
+            if len(self.travel_log) > 0:
+                with open('{}/vehicle_{}'.format(log_folder, self.id), 'w') as f:
+                    for record in self.travel_log:
+                        if len(record) > 2:
+                            f.write(VehicleEventType.to_str(record[0], record[1], *record[2]))
+                        else:
+                            f.write(VehicleEventType.to_str(record[0], record[1]))
+
+            if len(self.occupancy_stamps) > 0:
+                with open('{}/vehicle_occupancy_{}'.format(log_folder, self.id), 'w') as f:
+                    spam_writer = csv.writer(f, delimiter=',',
+                                             quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                    spam_writer.writerow(("time", "#passengers"))
+                    spam_writer.writerows(self.occupancy_stamps)
+
+            if len(self.status_stamps) > 0:
+                with open('{}/vehicle_status_{}'.format(log_folder, self.id), 'w') as f:
+                    spam_writer = csv.writer(f, delimiter=',',
+                                             quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                    spam_writer.writerow(("time", "status (PICK_UP={}, DELIVERY={}, DRIVE={},"
+                                                  "WAIT={}, RETURN={}, IDLE={})"
+                                          .format(DrtAct.PICK_UP, DrtAct.DELIVERY, DrtAct.DRIVE,
+                                                  DrtAct.WAIT, DrtAct.RETURN, DrtAct.IDLE)))
+                    spam_writer.writerows(self.status_stamps)
+
+            if len(self.trace_log) > 0:
+                with open('{}/vehicle_trace_{}'.format(log_folder, self.id), 'w') as f:
+                    spam_writer = csv.writer(f, delimiter=',',
+                                             quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                    spam_writer.writerow(["lat", "lon", "time"])
+                    if type(self.trace_log[0]) == Step:
+                        coords = [(self.trace_log[0].start_coord.lat, self.trace_log[0].start_coord.lon)]
                     else:
-                        f.write(VehicleEventType.to_str(record[0], record[1]))
-
-            with open('{}/vehicle_occupancy_{}'.format(log_folder, self.id), 'w') as f:
-                spam_writer = csv.writer(f, delimiter=',',
-                                         quotechar='|', quoting=csv.QUOTE_MINIMAL)
-                spam_writer.writerow(("time", "#passengers"))
-                spam_writer.writerows(self.occupancy_stamps)
-
-            with open('{}/vehicle_status_{}'.format(log_folder, self.id), 'w') as f:
-                spam_writer = csv.writer(f, delimiter=',',
-                                         quotechar='|', quoting=csv.QUOTE_MINIMAL)
-                spam_writer.writerow(("time", "status (PICK_UP={}, DELIVERY={}, DRIVE={},"
-                                              "WAIT={}, RETURN={}, IDLE={})"
-                                      .format(DrtAct.PICK_UP, DrtAct.DELIVERY, DrtAct.DRIVE,
-                                              DrtAct.WAIT, DrtAct.RETURN, DrtAct.IDLE)))
-                spam_writer.writerows(self.status_stamps)
+                        coords = [(self.trace_log[0][0].start_coord.lat, self.trace_log[0][0].start_coord.lon, self.trace_log[0])]
+                    for step in self.trace_log:
+                        if type(step) == Step:
+                            coords.extend([(step.end_coord.lat, step.end_coord.lon)])
+                        else:
+                            coords.extend([(step[0].end_coord.lat, step[0].end_coord.lon, step[1])])
+                    spam_writer.writerows(coords)
 
         except OSError as e:
             log.critical(e.strerror)
@@ -239,7 +259,7 @@ class Vehicle(Component):
                 self.ride_time += act.duration
                 self.coord = act.end_coord
 
-                # if len(self.passengers) != 0:
+                self._update_trace_log(act.steps)
                 self._update_executed_passengers_routes(act.steps, act.end_coord)
                 self._update_passengers_travel_log(TravellerEventType.DRT_STOP_FINISHED)
 
@@ -324,6 +344,11 @@ class Vehicle(Component):
         else:
             raise Exception('unsupported activity type {}, cannot make a log'.format(self.get_act(0).type))
 
+    def _update_trace_log(self, steps):
+        if len(steps) != 0:
+            self.trace_log.extend(steps)
+            self.trace_log[-1] = (self.trace_log[-1], self.env.now)
+
     def _pickup_travelers(self, persons):
         """Append persons to the list of current passengers
         and reduce capacity dimensions according to traveler's attributes"""
@@ -372,6 +397,7 @@ class Vehicle(Component):
             self._update_passengers_travel_log(TravellerEventType.DRT_ON_ROUTE_REROUTED)
             passed_steps = self.get_passed_steps()
             if len(passed_steps) > 0:
+                self._update_trace_log(passed_steps)
                 self._update_executed_passengers_routes(passed_steps, self.get_current_coord_time()[0])
                 self.vehicle_kilometers += sum([step.distance for step in passed_steps])
                 self.ride_time += sum([step.duration for step in passed_steps])
