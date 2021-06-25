@@ -113,7 +113,8 @@ config = {
     #
     'drt.transfer_points': [Coord(lat=54.837899, lon=11.365052),
                             Coord(lat=54.881666504245416, lon=11.358272981013629),
-                            Coord(lat=54.75995263251924, lon=11.332806322256774)],
+                            Coord(lat=54.75995263251924, lon=11.332806322256774),
+                            Coord(lat=54.74732957122566, lon=11.33153043838237)],
 
     # maximum of these two will be taken as pre-booking time
     'drt.planning_in_advance': td(hours=1.01).total_seconds(),
@@ -121,7 +122,7 @@ config = {
 
     # # Parameters that determine maximum travel time for DRT leg
 
-    'pt.max_trip_duration_multiplier': 1.4,
+    'pt.max_trip_duration_multiplier': 1.5,
     'pt.max_trip_duration_constant': 0,
 
     'pt.trip_time_window_multiplier': 1,
@@ -129,11 +130,11 @@ config = {
 
     # these two files define at which stops are eligible for DRT to perform transfers
     'drt.PT_stops_file': 'data/lolland_stops_left.csv',
-    'drt.PT_extra_stops_file': 'data/extra_drt_transfer_stops lines [780,717,725].txt',
+    'drt.PT_extra_stops_file': 'data/extra_drt_transfer_stops lines [780,717,716,725].txt',
 
     'drt.min_distance': 500,
-    'drt.maxPreTransitTime': 1500,  # max time of car leg in kiss_&_ride
-    'drt.default_max_walk': 3000,
+    'drt.maxPreTransitTime': 2200,  # max time of car leg in kiss_&_ride
+    'drt.default_max_walk': 1000,
     'drt.visualize_routes': 'false',  # should be a string
     'drt.picture_folder': 'pictures/',
     'drt.number_vehicles': 30,
@@ -154,9 +155,9 @@ config = {
         'maxTransfers': 10
     },
     'otp.banned_trips': {'bannedTrips': ''},
-    'otp.banned_trips_file': 'data/banned trips lines [780,717,725].txt',
+    'otp.banned_trips_file': 'data/banned trips lines [780,717,716,725].txt',
     'otp.banned_stops': {'bannedStops': ''},
-    'otp.banned_stops_file': 'data/banned stops.txt'
+    'otp.banned_stops_file': 'data/banned stops[780,717,716,752].txt'
 
 }
 
