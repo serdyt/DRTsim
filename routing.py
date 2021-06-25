@@ -369,8 +369,8 @@ class DefaultRouting(object):
         # jsprit may route vehicles to pick up travelers long before requested start time,
         # thus we calculate actual trip duration based on the end of pickup event
 
-        person.drt_leg.duration = (acts[-1].arrival_time - acts[0].end_time)
-        person.drt_leg.start_time = acts[0].arrival_time
+        person.drt_leg.duration = (acts[-1].arrival_time + person.leaving_time - acts[0].end_time + person.boarding_time)
+        person.drt_leg.start_time = acts[0].end_time - person.boarding_time
         person.drt_leg.end_time = acts[-1].end_time
         # TODO: calculate distance for all the changed trips (need to call OTP to extract the distance)
         self.service.pending_drt_requests[person.id] = solution
