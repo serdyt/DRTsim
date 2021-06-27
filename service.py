@@ -126,20 +126,20 @@ class ServiceProvider(Component):
             if self._pt_trip_can_be_accepted(trip, person):
                 traditional_alternatives2.append(trip)
 
-        if not any([True for trip in traditional_alternatives2 if trip.main_mode in [OtpMode.TRANSIT]]):
-            start = time.time()
-            try:
-                drt_alternatives, status = self._drt_request(person)
-                person.set_drt_status(status)
-            except OTPNoPath as e:
-                log.warning('{}\n{}'.format(e.msg, e.context))
-                log.warning('Person {} will not consider DRT'.format(person))
-                drt_alternatives = []
-
-            log.debug('DRT request took {}'.format(time.time() - start))
-            alternatives = traditional_alternatives2 + drt_alternatives
-        else:
-            alternatives = traditional_alternatives2
+        # if not any([True for trip in traditional_alternatives2 if trip.main_mode in [OtpMode.TRANSIT]]):
+        #     start = time.time()
+        #     try:
+        #         drt_alternatives, status = self._drt_request(person)
+        #         person.set_drt_status(status)
+        #     except OTPNoPath as e:
+        #         log.warning('{}\n{}'.format(e.msg, e.context))
+        #         log.warning('Person {} will not consider DRT'.format(person))
+        #         drt_alternatives = []
+        #
+        #     log.debug('DRT request took {}'.format(time.time() - start))
+        #     alternatives = traditional_alternatives2 + drt_alternatives
+        # else:
+        alternatives = traditional_alternatives2
 
         if len(alternatives) == 0:
             log.warning('no alternatives received by {}'.format(person.scope))
