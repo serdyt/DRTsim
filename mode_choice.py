@@ -41,12 +41,19 @@ class TimeWindowsModeChoice(object):
         :type alternatives: [Trip]
         """
         times = []
-        for alt in alternatives:
+        # remove this, hack for lolland case when max trip duration was wrong.
+        alts = [alt for alt in alternatives if alt.main_mode not in [OtpMode.CAR]]
+        if len(alts) == 0:
+            alts_cheat = alternatives
+        else:
+            alts_cheat = alts
+
+        for alt in alts_cheat:
             if alt.main_mode in [OtpMode.CAR]:
                 times.append(self.person.get_max_trip_duration(self.person.get_direct_trip_duration()))
             else:
                 times.append(alt.duration)
-        return min(zip(times, alternatives), key=lambda x: x[0])[1]
+        return min(zip(times, alts_cheat), key=lambda x: x[0])[1]
 
 
 class DefaultModeChoice(object):
