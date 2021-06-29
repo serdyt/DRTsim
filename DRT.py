@@ -125,7 +125,7 @@ config = {
     'pt.max_trip_duration_multiplier': 1.5,
     'pt.max_trip_duration_constant': 0,
 
-    'pt.trip_time_window_multiplier': 1,
+    'pt.trip_time_window_multiplier': 0,
     'pt.trip_time_window_constant': td(hours=1.0).total_seconds(),
 
     # these two files define at which stops are eligible for DRT to perform transfers
