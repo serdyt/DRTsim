@@ -151,7 +151,7 @@ config = {
     },
     'otp.default_attributes': {
         'arriveBy': 'False',
-        'maxWalkDistance': 2000,
+        'maxWalkDistance': 1000,
         'maxTransfers': 10
     },
     'otp.banned_trips': {'bannedTrips': ''},
