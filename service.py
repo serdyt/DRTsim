@@ -355,7 +355,6 @@ class ServiceProvider(Component):
             params.update({'maxPreTransitTime': max_pre_transit})
             alt_tw_left = self.env.now
             alt_tw_right = self.env.config.get('sim.duration_sec')
-            params.update({'time': trunc_microseconds(str(td(seconds=person.next_activity.start_time)))})
             request_time = person.get_trip_departure_with_tw_for_otp()
             while True:
                 try:
