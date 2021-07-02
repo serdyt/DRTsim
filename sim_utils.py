@@ -67,7 +67,7 @@ class Leg(object):
     # TODO:assignment of mode as a string is confusing, remove it, or use constant
     def __init__(self, mode=None, start_coord=None, from_stop=None, end_coord=None, to_stop=None,
                  start_time=None, end_time=None,
-                 distance=None, duration=None, steps=None):
+                 distance=None, duration=None, steps=None, trip_id=None):
         self.mode = mode
         self.start_coord = start_coord
         self.end_coord = end_coord
@@ -77,6 +77,8 @@ class Leg(object):
         # The two below only used for PT legs
         self.from_stop = from_stop
         self.to_stop = to_stop
+        # To measure occupancy
+        self.trip_id = trip_id
 
         self.start_time = start_time
         self.end_time = end_time
@@ -95,7 +97,8 @@ class Leg(object):
                    end_time=copy.copy(self.end_time),
                    distance=copy.copy(self.distance),
                    duration=copy.copy(self.duration),
-                   steps=steps)
+                   steps=steps,
+                   trip_id=copy.copy(self.trip_id))
 
     def __str__(self):
         return 'leg from {} to {}, mode {}, start {} end {}'\
