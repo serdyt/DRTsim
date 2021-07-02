@@ -138,6 +138,9 @@ class DefaultRouting(object):
                     # we are not interested in the first part
                     leg.from_stop = int(raw_from.get('stopId').split(':')[1])
                     leg.to_stop = int(raw_to.get('stopId').split(':')[1])
+
+                    leg.trip_id = int(raw_leg.get('tripId').split(':')[1])
+
                 trip.append_leg(leg)
 
                 trip.main_mode = trip.main_mode_from_legs()
