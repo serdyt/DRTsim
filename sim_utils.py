@@ -101,7 +101,10 @@ class Leg(object):
                    distance=copy.copy(self.distance),
                    duration=copy.copy(self.duration),
                    steps=steps,
-                   trip_id=copy.copy(self.trip_id))
+                   trip_id=copy.copy(self.trip_id),
+                   route=copy.copy(self.route),
+                   route_id=copy.copy(self.route_id)
+                   )
 
     def __str__(self):
         return 'leg from {} to {}, mode {}, start {} end {}'\
