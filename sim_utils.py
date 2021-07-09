@@ -67,7 +67,8 @@ class Leg(object):
     # TODO:assignment of mode as a string is confusing, remove it, or use constant
     def __init__(self, mode=None, start_coord=None, from_stop=None, end_coord=None, to_stop=None,
                  start_time=None, end_time=None,
-                 distance=None, duration=None, steps=None, trip_id=None):
+                 distance=None, duration=None, steps=None,
+                 trip_id=None, route=None, route_id=None):
         self.mode = mode
         self.start_coord = start_coord
         self.end_coord = end_coord
@@ -79,6 +80,8 @@ class Leg(object):
         self.to_stop = to_stop
         # To measure occupancy
         self.trip_id = trip_id
+        self.route = route
+        self.route_id = route_id
 
         self.start_time = start_time
         self.end_time = end_time
