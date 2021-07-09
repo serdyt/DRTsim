@@ -140,7 +140,7 @@ class DefaultRouting(object):
                     leg.to_stop = int(raw_to.get('stopId').split(':')[1])
 
                     leg.trip_id = int(raw_leg.get('tripId').split(':')[1])
-                    leg.route = int(raw_leg.get('route'))
+                    leg.route = str(raw_leg.get('route'))
                     leg.route_id = int(raw_leg.get('routeId').split(':')[1])
 
                 trip.append_leg(leg)
