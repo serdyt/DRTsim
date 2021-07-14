@@ -711,7 +711,8 @@ class ServiceProvider(Component):
             traditional_alternatives += self.router.otp_request(person.curr_activity.coord,
                                                                 person.next_activity.coord,
                                                                 # this is the important line. Remove minutes.
-                                                                trunc_time_to_hour(person.next_activity.start_time),
+                                                                # trunc_time_to_hour(person.next_activity.start_time),
+                                                                person.get_trip_departure_with_tw_for_otp(),
                                                                 mode,
                                                                 attributes)
         except OTPNoPath as e:
