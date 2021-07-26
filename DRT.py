@@ -101,7 +101,7 @@ config = {
     'person.default_attr.leaving_time': 60,
     # 'person.default_attr.maxWalkDistance': 2000,
 
-    'population.input_file': 'data/population_lolland_4500.json',
+    'population.input_file': 'data/population_lolland_4500_0.json',
     'population.input_percentage': 1.0,
     # ['all_within', 'pt_only', 'drtable_all', 'drtable_outside', 'all']
     'population.scenario': 'drtable_all',
