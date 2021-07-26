@@ -154,6 +154,8 @@ config = {
         'maxWalkDistance': 1000,
         'maxTransfers': 10
     },
+    'otp.always_banned_trips': {'bannedTrips': ''},
+    'otp.always_banned_trips_file': 'data/always banned trips [800].txt',
     'otp.banned_trips': {'bannedTrips': ''},
     'otp.banned_trips_file': 'data/banned trips lines [780,717,716,725].txt',
     'otp.banned_stops': {'bannedStops': ''},
@@ -196,6 +198,13 @@ config.update({
 
     'drt.picture_folder': '{}/pictures/'.format(folder),
 })
+
+with open(config.get('otp.always_banned_trips_file')) as f:
+    txt = f.read().rstrip() + ',' + config.get('otp.always_banned_trips').get('bannedTrips')
+    txt = txt.strip(',')
+    print(txt)
+    config.update({'otp.always_banned_trips': {'bannedTrips': txt}})
+    f.close()
 
 with open(config.get('otp.banned_trips_file')) as f:
     txt = f.read().rstrip() + ',' + config.get('otp.banned_trips').get('bannedTrips')

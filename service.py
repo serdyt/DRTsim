@@ -211,7 +211,9 @@ class ServiceProvider(Component):
             if mode in ['DRT']:
                 continue
             try:
-                attributes = copy.copy(self.env.config.get('otp.banned_trips'))
+                attributes = copy.copy(self.env.config.get('otp.always_banned_trips'))
+                attributes['banned_trips'] = attributes.get('bannedTrips').strip(',') + ',' + \
+                                             self.env.config.get('otp.banned_trips').get('bannedTrips')
                 attributes.update(self.env.config.get('otp.banned_stops'))
                 attributes.update(person.get_routing_parameters())
                 traditional_alternatives += self.router.otp_request(person.curr_activity.coord,
@@ -283,7 +285,9 @@ class ServiceProvider(Component):
         Saves all the valid maxPreTransitTimes.
         """
         mode = self._drt_transit_get_mode(person)
-        params = copy.copy(self.env.config.get('otp.banned_trips'))
+        params = copy.copy(self.env.config.get('otp.always_banned_trips'))
+        params['banned_trips'] = params.get('bannedTrips').strip(',') + ',' + \
+                                    self.env.config.get('otp.banned_trips').get('bannedTrips')
         params.update(self.env.config.get('otp.banned_stops'))
         params.update(person.get_routing_parameters())
         max_pre_transit_times = []
@@ -346,7 +350,10 @@ class ServiceProvider(Component):
 
         Gradually reduces or increases 'arrive by' or 'depart at' parameters to scan through all the time window.
         """
-        params = copy.copy(self.env.config.get('otp.banned_trips'))
+        params = copy.copy(self.env.config.get('otp.always_banned_trips'))
+        params = copy.copy(self.env.config.get('otp.always_banned_trips'))
+        params['banned_trips'] = params.get('bannedTrips').strip(',') + ',' + \
+                                 self.env.config.get('otp.banned_trips').get('bannedTrips')
         params.update(self.env.config.get('otp.banned_stops'))
         params.update(person.get_routing_parameters())
         pt_alternatives = []
@@ -696,6 +703,10 @@ class ServiceProvider(Component):
 
         mode = 'TRANSIT,WALK'
         traditional_alternatives = []
+
+        attributes = copy.copy(self.env.config.get('otp.always_banned_trips'))
+        attributes.update(person.get_routing_parameters())
+
         try:
             traditional_alternatives += self.router.otp_request(person.curr_activity.coord,
                                                                 person.next_activity.coord,
@@ -703,7 +714,7 @@ class ServiceProvider(Component):
                                                                 # trunc_time_to_hour(person.next_activity.start_time),
                                                                 person.get_trip_departure_with_tw_for_otp(),
                                                                 mode,
-                                                                copy.copy(person.get_routing_parameters()))
+                                                                attributes)
         except OTPNoPath as e:
             log.warning('{}\n{}'.format(e.msg, e.context))
 
