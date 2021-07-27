@@ -212,7 +212,7 @@ class ServiceProvider(Component):
                 continue
             try:
                 attributes = copy.copy(self.env.config.get('otp.always_banned_trips'))
-                attributes['banned_trips'] = attributes.get('bannedTrips').strip(',') + ',' + \
+                attributes['bannedTrips'] = attributes.get('bannedTrips').strip(',') + ',' + \
                                              self.env.config.get('otp.banned_trips').get('bannedTrips')
                 attributes.update(self.env.config.get('otp.banned_stops'))
                 attributes.update(person.get_routing_parameters())
@@ -286,7 +286,7 @@ class ServiceProvider(Component):
         """
         mode = self._drt_transit_get_mode(person)
         params = copy.copy(self.env.config.get('otp.always_banned_trips'))
-        params['banned_trips'] = params.get('bannedTrips').strip(',') + ',' + \
+        params['bannedTrips'] = params.get('bannedTrips').strip(',') + ',' + \
                                     self.env.config.get('otp.banned_trips').get('bannedTrips')
         params.update(self.env.config.get('otp.banned_stops'))
         params.update(person.get_routing_parameters())
@@ -352,7 +352,7 @@ class ServiceProvider(Component):
         """
         params = copy.copy(self.env.config.get('otp.always_banned_trips'))
         params = copy.copy(self.env.config.get('otp.always_banned_trips'))
-        params['banned_trips'] = params.get('bannedTrips').strip(',') + ',' + \
+        params['bannedTrips'] = params.get('bannedTrips').strip(',') + ',' + \
                                  self.env.config.get('otp.banned_trips').get('bannedTrips')
         params.update(self.env.config.get('otp.banned_stops'))
         params.update(person.get_routing_parameters())
