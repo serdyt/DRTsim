@@ -72,6 +72,14 @@ class DefaultBehaviour(StateMachine):
             shortest_pt_alt = self.person.serviceProvider.fastest_pt_trip_within_hour_otp_request(self.person)
 
             if shortest_pt_alt is not None:
+                buses = [leg.route for leg in shortest_pt_alt.legs]
+                to_exclude = sum([line in self.env.config.get('pt.lines_to_exclude') for line in buses])
+                if to_exclude:
+                    yield Event(self.env).succeed()
+                    self.env.process(self.unactivatable())
+                    return
+
+            if shortest_pt_alt is not None:
                 self.person.set_time_window_multiplier(shortest_pt_alt)
                 # as we are changing the multiplier, time windows need to be recalculated
                 self.person.set_trip_tw()

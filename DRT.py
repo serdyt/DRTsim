@@ -128,6 +128,8 @@ config = {
     'pt.trip_time_window_multiplier': 0,
     'pt.trip_time_window_constant': td(hours=1.0).total_seconds(),
 
+    'pt.lines_to_exclude': ['772', '792', '774', '773', '791', '771'],
+
     # these two files define at which stops are eligible for DRT to perform transfers
     'drt.PT_stops_file': 'data/lolland_stops_left.csv',
     'drt.PT_extra_stops_file': 'data/extra_drt_transfer_stops lines [780,717,716,725].txt',
