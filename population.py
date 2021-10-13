@@ -614,6 +614,27 @@ class Person(Component):
         return direct_time * self.max_trip_duration_multiplier + self.max_trip_duration_constant + \
                self.boarding_time + self.leaving_time
 
+    def get_default_time_window(self):
+        return self.env.config.get('pt.default_trip_time_window_constant') + \
+               self.env.config.get('pt.default_trip_time_window_multiplier') * self.get_direct_trip_duration()
+
+    def set_default_trip_tw(self):
+        if self.is_arrive_by():
+            self.trip_tw_right = self.next_activity.start_time + ceil(self.get_default_time_window() / 2)
+            self.trip_tw_left = self.next_activity.start_time - \
+                                self.get_max_trip_duration(self.get_direct_trip_duration()) - \
+                                ceil(self.get_default_time_window() / 2)
+        else:
+            self.trip_tw_left = self.curr_activity.end_time - ceil(self.get_default_time_window() / 2)
+            self.trip_tw_right = self.curr_activity.end_time + \
+                                 self.get_max_trip_duration(self.get_direct_trip_duration()) + \
+                                 ceil(self.get_default_time_window() / 2)
+
+        if self.trip_tw_left < self.env.now:
+            self.trip_tw_left = self.env.now
+        if self.trip_tw_right > self.env.config.get('sim.duration_sec'):
+            self.trip_tw_right = self.env.config.get('sim.duration_sec')
+
     def set_trip_tw(self):
         """
         TODO: replace this with start/end time window and max trip duration

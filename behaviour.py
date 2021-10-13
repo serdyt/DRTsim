@@ -68,7 +68,7 @@ class DefaultBehaviour(StateMachine):
         try:
             direct_trip = self.person.serviceProvider.standalone_osrm_request(self.person)
             self.person.set_direct_trip(direct_trip)
-            self.person.set_trip_tw()
+            self.person.set_default_trip_tw()
             shortest_pt_alt = self.person.serviceProvider.fastest_pt_trip_within_hour_otp_request(self.person)
 
             if shortest_pt_alt is not None:
@@ -82,7 +82,7 @@ class DefaultBehaviour(StateMachine):
             if shortest_pt_alt is not None:
                 self.person.set_time_window_multiplier(shortest_pt_alt)
                 # as we are changing the multiplier, time windows need to be recalculated
-                self.person.set_trip_tw()
+            self.person.set_trip_tw()
 
             timeout = self.person.get_planning_time(direct_trip)
             if timeout > 0:
