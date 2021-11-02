@@ -724,7 +724,7 @@ class ServiceProvider(Component):
 
         traditional_alternatives = [alt for alt in traditional_alternatives if alt.main_mode not in ('CAR', 'WALK')]
         traditional_alternatives = [trip for trip in traditional_alternatives
-                                    if person.is_trip_within_tw(trip) and self._trip_in_current_day(trip)]
+                                    if person.is_trip_within_default_tw(trip) and self._trip_in_current_day(trip)]
         if len(traditional_alternatives) == 0:
             return None
         return min(traditional_alternatives, key=lambda x: x.duration)

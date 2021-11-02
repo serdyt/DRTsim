@@ -102,7 +102,7 @@ config = {
     # 'person.default_attr.maxWalkDistance': 2000,
 
     'population.input_file': 'data/population_lolland_4500_0.json',
-    'population.input_percentage': 0.01,
+    'population.input_percentage': 1.0,
     # ['all_within', 'pt_only', 'drtable_all', 'drtable_outside', 'all']
     'population.scenario': 'drtable_all',
 
@@ -127,7 +127,7 @@ config = {
 
     'pt.trip_time_window_multiplier': 0,
     'pt.default_trip_time_window_multiplier': 0,
-    'pt.trip_time_window_constant': td(hours=0.25).total_seconds(),
+    'pt.trip_time_window_constant': td(hours=1.0).total_seconds(),
     'pt.default_trip_time_window_constant': td(hours=1.0).total_seconds(),
 
     # These are school lines that we have fragmented data for (and they go to weird destinations)

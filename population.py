@@ -579,6 +579,20 @@ class Person(Component):
             else:
                 return False
 
+    def is_trip_within_default_tw(self, trip):
+        if self.is_arrive_by():
+            if self.get_trip_tw_end_right() - self.env.config.get('pt.default_trip_time_window_constant') \
+                    <= trip.legs[-1].end_time <= self.get_trip_tw_end_right():
+                return True
+            else:
+                return False
+        else:
+            if self.get_trip_tw_start_left() <= trip.legs[0].start_time <= \
+                    self.get_trip_tw_start_left() + self.env.config.get('pt.default_trip_time_window_constant'):
+                return True
+            else:
+                return False
+
     def get_max_drt_duration(self):
         if self.is_local_trip():
             return self.get_max_trip_duration(self.get_direct_trip_duration())

@@ -73,6 +73,7 @@ class DefaultBehaviour(StateMachine):
 
             if shortest_pt_alt is not None:
                 buses = [leg.route for leg in shortest_pt_alt.legs]
+                # This excludes PT trips on school lines
                 to_exclude = sum([line in self.env.config.get('pt.lines_to_exclude') for line in buses])
                 if to_exclude:
                     yield Event(self.env).succeed()
