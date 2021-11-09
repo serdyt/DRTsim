@@ -163,6 +163,8 @@ config = {
     'otp.always_banned_trips_file': 'data/always banned trips [800].txt',
     'otp.banned_trips': {'bannedTrips': ''},
     'otp.banned_trips_file': 'data/banned trips lines [780,717,716,725].txt',
+    'otp.banned_rail': {'bannedTrips': ''},
+    'otp.banned_rail_file': 'data/banned rail trips.txt',
     'otp.banned_stops': {'bannedStops': ''},
     'otp.banned_stops_file': 'data/banned stops[780,717,716,752].txt'
 
@@ -216,6 +218,13 @@ with open(config.get('otp.banned_trips_file')) as f:
     txt = txt.strip(',')
     print(txt)
     config.update({'otp.banned_trips': {'bannedTrips': txt}})
+    f.close()
+
+with open(config.get('otp.banned_rail_file')) as f:
+    txt = f.read().rstrip() + ',' + config.get('otp.banned_rail').get('bannedTrips')
+    txt = txt.strip(',')
+    print(txt)
+    config.update({'otp.banned_rail': {'bannedTrips': txt}})
     f.close()
 
 with open(config.get('otp.banned_stops_file')) as f:

@@ -126,20 +126,20 @@ class ServiceProvider(Component):
             if self._pt_trip_can_be_accepted(trip, person):
                 traditional_alternatives2.append(trip)
 
-        if not any([True for trip in traditional_alternatives2 if trip.main_mode in [OtpMode.TRANSIT]]):
-            start = time.time()
-            try:
-                drt_alternatives, status = self._drt_request(person)
-                person.set_drt_status(status)
-            except OTPNoPath as e:
-                log.warning('{}\n{}'.format(e.msg, e.context))
-                log.warning('Person {} will not consider DRT'.format(person))
-                drt_alternatives = []
+        # if not any([True for trip in traditional_alternatives2 if trip.main_mode in [OtpMode.TRANSIT]]):
+        start = time.time()
+        try:
+            drt_alternatives, status = self._drt_request(person)
+            person.set_drt_status(status)
+        except OTPNoPath as e:
+            log.warning('{}\n{}'.format(e.msg, e.context))
+            log.warning('Person {} will not consider DRT'.format(person))
+            drt_alternatives = []
 
-            log.debug('DRT request took {}'.format(time.time() - start))
-            alternatives = traditional_alternatives2 + drt_alternatives
-        else:
-            alternatives = traditional_alternatives2
+        log.debug('DRT request took {}'.format(time.time() - start))
+        alternatives = traditional_alternatives2 + drt_alternatives
+        # else:
+        #     alternatives = traditional_alternatives2
 
         if len(alternatives) == 0:
             log.warning('no alternatives received by {}'.format(person.scope))
@@ -211,10 +211,7 @@ class ServiceProvider(Component):
             if mode in ['DRT']:
                 continue
             try:
-                attributes = copy.copy(self.env.config.get('otp.always_banned_trips'))
-                attributes['bannedTrips'] = attributes.get('bannedTrips').strip(',') + ',' + \
-                                             self.env.config.get('otp.banned_trips').get('bannedTrips')
-                attributes.update(self.env.config.get('otp.banned_stops'))
+                attributes = self._prepare_banned_attributes_otp()
                 attributes.update(person.get_routing_parameters())
                 traditional_alternatives += self.router.otp_request(person.curr_activity.coord,
                                                                     person.next_activity.coord,
@@ -249,7 +246,14 @@ class ServiceProvider(Component):
         if person.is_local_trip():
             drt_trips, status = self._drt_local(person)
         else:
-            drt_trips, status = self._drt_transit(person)
+            drt_trips1, status1 = self._drt_transit(person)
+            drt_trips2, status2 = self._drt_transit(person, ban_rail=True)
+            drt_trips = drt_trips1 + drt_trips2
+            if DrtStatus.routed in [status1, status2]:
+                status = DrtStatus.routed
+            else:
+                # TODO: status need to be reworked or removed
+                status = DrtStatus.unassigned
 
         return drt_trips, status
 
@@ -277,7 +281,7 @@ class ServiceProvider(Component):
         drt_trip.duration = drt_trip.legs[0].duration
         return [drt_trip], DrtStatus.routed
 
-    def _drt_transit_find_max_pre_transit(self, person):
+    def _drt_transit_find_max_pre_transit(self, person, ban_rail: bool = False):
         """Finds preTransitTimes (maximum duration of CAR in kiss and ride)
         so that transfer stops are within service zone
 
@@ -285,10 +289,7 @@ class ServiceProvider(Component):
         Saves all the valid maxPreTransitTimes.
         """
         mode = self._drt_transit_get_mode(person)
-        params = copy.copy(self.env.config.get('otp.always_banned_trips'))
-        params['bannedTrips'] = params.get('bannedTrips').strip(',') + ',' + \
-                                    self.env.config.get('otp.banned_trips').get('bannedTrips')
-        params.update(self.env.config.get('otp.banned_stops'))
+        params = self._prepare_banned_attributes_otp(ban_rail=ban_rail)
         params.update(person.get_routing_parameters())
         max_pre_transit_times = []
         cur_max_pre_transit = self.env.config.get('drt.maxPreTransitTime')
@@ -344,17 +345,23 @@ class ServiceProvider(Component):
         else:
             return 0
 
-    def _drt_transit_find_pt_alternatives(self, person, max_pre_transit_times):
+    def _prepare_banned_attributes_otp(self, ban_rail: bool = False):
+        params = copy.copy(self.env.config.get('otp.always_banned_trips'))
+        params['bannedTrips'] = params.get('bannedTrips').strip(',') + ',' + \
+                                self.env.config.get('otp.banned_trips').get('bannedTrips')
+        if ban_rail:
+            params['bannedTrips'] = params.get('bannedTrips').strip(',') + ',' + \
+                                    self.env.config.get('otp.banned_rail').get('bannedTrips')
+        params.update(self.env.config.get('otp.banned_stops'))
+        return params
+
+    def _drt_transit_find_pt_alternatives(self, person, max_pre_transit_times, ban_rail: bool = False):
         """Finds kiss and ride alternatives that satisfy maximum duration and time windows restriction,
         and transfer zone is withing DRT service zone
 
         Gradually reduces or increases 'arrive by' or 'depart at' parameters to scan through all the time window.
         """
-        params = copy.copy(self.env.config.get('otp.always_banned_trips'))
-        params = copy.copy(self.env.config.get('otp.always_banned_trips'))
-        params['bannedTrips'] = params.get('bannedTrips').strip(',') + ',' + \
-                                 self.env.config.get('otp.banned_trips').get('bannedTrips')
-        params.update(self.env.config.get('otp.banned_stops'))
+        params = self._prepare_banned_attributes_otp(ban_rail)
         params.update(person.get_routing_parameters())
         pt_alternatives = []
         mode = self._drt_transit_get_mode(person)
@@ -431,10 +438,9 @@ class ServiceProvider(Component):
                             "{}".format(person))
         return mode
 
-    def _drt_transit(self, person: Person):
+    def _drt_transit(self, person: Person, ban_rail: bool = False):
 
         drt_trips = []
-        status_log = {}
 
         # TODO: currently taking a first trip that fits person's request
         # TODO: check all feasible trips and form alternatives for each
@@ -449,12 +455,12 @@ class ServiceProvider(Component):
             DrtStatus.too_long_pt_trip: 0}
 
         start = time.time()
-        max_pre_transit_times = self._drt_transit_find_max_pre_transit(person)
+        max_pre_transit_times = self._drt_transit_find_max_pre_transit(person, ban_rail)
         log.debug('len max pre transit times {}'.format(len(max_pre_transit_times)))
         log.debug('took: {}'.format(time.time() - start))
 
         start = time.time()
-        pt_alternatives = self._drt_transit_find_pt_alternatives(person, max_pre_transit_times)
+        pt_alternatives = self._drt_transit_find_pt_alternatives(person, max_pre_transit_times, ban_rail)
         log.debug('len pt_alternatives {}'.format(len(pt_alternatives)))
         log.debug('took: {}'.format(time.time() - start))
 

@@ -161,6 +161,9 @@ class TripAttr(Enum):
     DIST = 'DIST'
 
 
+# TODO: The whole idea need to be reworked or removed
+# we have multiple cycles of finding DRT trip, they all have their own statuses
+# it is meaningless to save them all
 class DrtStatus(Enum):
     routed = 'routed'  # normal DRT operation, currently all routed trips are executed
     undeliverable = 'undeliverable'  # request cannot be delivered due to OTP errors (if no path found)
