@@ -246,15 +246,9 @@ class ServiceProvider(Component):
         if person.is_local_trip():
             drt_trips, status = self._drt_local(person)
         else:
-            drt_trips1, status1 = self._drt_transit(person)
-            drt_trips2, status2 = self._drt_transit(person, ban_rail=True)
-            drt_trips = drt_trips1 + drt_trips2
-            if DrtStatus.routed in [status1, status2]:
-                status = DrtStatus.routed
-            else:
-                # TODO: status need to be reworked or removed
-                status = DrtStatus.unassigned
-
+            drt_trips, status = self._drt_transit(person)
+            if len(drt_trips) == 0:
+                drt_trips, status = self._drt_transit(person, ban_rail=True)
         return drt_trips, status
 
     def _drt_local(self, person: Person):
