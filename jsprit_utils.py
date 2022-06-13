@@ -256,8 +256,8 @@ class VRPReadWriter(object):
         unassigned_job_ids = []
         # there could be unroutable or undeliverable requests
         if unassigned_jobs_elements is not None:
-            for unassigned_jobs_element in unassigned_jobs_elements:
-                unassigned_job_ids.append(int(unassigned_jobs_element.find('xmlns:job', namespace).attrib.get('id')))
+            for unassigned_jobs_element in unassigned_jobs_elements[0].findall('xmlns:job', namespace):
+                unassigned_job_ids.append(int(unassigned_jobs_element.attrib.get('id')))
 
         solution = JspritSolution(cost=float(solution_element.find('xmlns:cost', namespace).text),
                                   routes=routes,
