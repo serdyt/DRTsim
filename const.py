@@ -31,6 +31,8 @@ class LegMode(object):
 
     _MAIN_MODES = ['CAR', 'BICYCLE', 'BUS', 'RAIL', 'WALK']
 
+    _PT_MODES = ['BUS', 'RAIL', 'TRAM', 'SUBWAY']
+
     @staticmethod
     def get_all_modes():
         return [LegMode.__dict__.get(item) for item in LegMode._DICT]
@@ -38,6 +40,10 @@ class LegMode(object):
     @staticmethod
     def get_main_modes():
         return [LegMode.__dict__.get(item) for item in LegMode._MAIN_MODES]
+
+    @staticmethod
+    def get_pt_modes():
+        return [LegMode.__dict__.get(item) for item in LegMode._PT_MODES]
 
     @staticmethod
     def contains(other):
@@ -155,6 +161,9 @@ class TripAttr(Enum):
     DIST = 'DIST'
 
 
+# TODO: The whole idea need to be reworked or removed
+# we have multiple cycles of finding DRT trip, they all have their own statuses
+# it is meaningless to save them all
 class DrtStatus(Enum):
     routed = 'routed'  # normal DRT operation, currently all routed trips are executed
     undeliverable = 'undeliverable'  # request cannot be delivered due to OTP errors (if no path found)

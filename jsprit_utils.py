@@ -101,7 +101,8 @@ class VRPReadWriter(object):
             time_element = ET.SubElement(vehicle_element, 'timeSchedule')
             ET.SubElement(time_element, 'start').text = str(coord_time[1])
             # working time form 0 to infinity
-            ET.SubElement(time_element, 'end').text = '1.7976931348623157E308'
+            # ET.SubElement(time_element, 'end').text = '1.7976931348623157E308'
+            ET.SubElement(time_element, 'end').text = str(vehicle.return_time)
             ET.SubElement(vehicle_element, 'returnToDepot').text = 'true'
 
         # Writing vehicle types
@@ -118,7 +119,7 @@ class VRPReadWriter(object):
         # Writing services
         services_element = ET.SubElement(root, 'services')
         for person in service_persons:
-            # if a person is in a vehicle, it must be delivered
+            # if a person is in a vehicle, person must be delivered
             service_element = ET.SubElement(services_element, 'service', attrib={
                                                                                  'id': str(person.id),
                                                                                  'type': 'delivery'
@@ -128,8 +129,8 @@ class VRPReadWriter(object):
             ET.SubElement(service_element, 'duration').text = str(person.leaving_time)
             self._write_capacity_dimensions(service_element, person.dimensions.items())
             self._write_time_windows(service_element,
-                                     person.get_drt_tw_left(),
-                                     person.get_drt_tw_right())
+                                     person.get_drt_tw_end_left(),
+                                     person.get_drt_tw_end_right())
             self._write_max_in_vehicle_time(service_element, person, service=True)
 
         # Writing shipments
@@ -139,12 +140,12 @@ class VRPReadWriter(object):
             self._write_shipment_step(shipment_element, 'pickup', person.drt_leg.start_coord,
                                       coord_to_geoid.get(person.drt_leg.start_coord),
                                       person.boarding_time,
-                                      person.get_drt_tw_left(), person.get_drt_tw_right()
+                                      person.get_drt_tw_start_left(), person.get_drt_tw_start_right()
                                       )
             self._write_shipment_step(shipment_element, 'delivery', person.drt_leg.end_coord,
                                       coord_to_geoid.get(person.drt_leg.end_coord),
                                       person.leaving_time,
-                                      person.get_drt_tw_left(), person.get_drt_tw_right()
+                                      person.get_drt_tw_end_left(), person.get_drt_tw_end_right()
                                       )
             self._write_capacity_dimensions(shipment_element, person.dimensions.items())
             self._write_max_in_vehicle_time(shipment_element, person)
@@ -152,7 +153,7 @@ class VRPReadWriter(object):
         # Write initial routes
         initial_routes_element = ET.SubElement(root, 'initialRoutes')
         for vehicle, coord_time in zip(vehicles, vehicle_coords_times):
-            if vehicle.get_route_len == 0:
+            if vehicle.get_route_len() == 0:
                 continue
             route_element = ET.SubElement(initial_routes_element, 'route')
             ET.SubElement(route_element, 'driverId').text = 'noDriver'
@@ -183,10 +184,11 @@ class VRPReadWriter(object):
 
     @staticmethod
     def _write_time_windows(parent, tw_start, tw_end):
-        time_windows_element = ET.SubElement(parent, 'timeWindows')
-        time_window_element = ET.SubElement(time_windows_element, 'timeWindow')
-        ET.SubElement(time_window_element, 'start').text = str(tw_start)
-        ET.SubElement(time_window_element, 'end').text = str(tw_end)
+        if tw_start is not None and tw_end is not None:
+            time_windows_element = ET.SubElement(parent, 'timeWindows')
+            time_window_element = ET.SubElement(time_windows_element, 'timeWindow')
+            ET.SubElement(time_window_element, 'start').text = str(tw_start)
+            ET.SubElement(time_window_element, 'end').text = str(tw_end)
 
     @staticmethod
     def _write_capacity_dimensions(parent, dimensions):
@@ -197,10 +199,10 @@ class VRPReadWriter(object):
     @staticmethod
     def _write_max_in_vehicle_time(parent, person, service=False):
         if service:
-            text = str(person.get_rest_drt_duration())
+            num = person.get_rest_drt_duration()
         else:
-            text = str(person.get_max_drt_duration())
-        ET.SubElement(parent, 'maxInVehicleTime').text = text
+            num = person.get_max_drt_duration()
+        ET.SubElement(parent, 'maxInVehicleTime').text = "{:f}".format(num)
 
     @staticmethod
     def _write_coord(parent, location_type, coord, geoid):
@@ -253,9 +255,9 @@ class VRPReadWriter(object):
         unassigned_jobs_elements = solution_element.findall('xmlns:unassignedJobs', namespace)
         unassigned_job_ids = []
         # there could be unroutable or undeliverable requests
-        if unassigned_jobs_elements is not None:
-            for unassigned_jobs_element in unassigned_jobs_elements:
-                unassigned_job_ids.append(int(unassigned_jobs_element.find('xmlns:job', namespace).attrib.get('id')))
+        if unassigned_jobs_elements is not None and unassigned_jobs_elements != []:
+            for unassigned_jobs_element in unassigned_jobs_elements[0].findall('xmlns:job', namespace):
+                unassigned_job_ids.append(int(unassigned_jobs_element.attrib.get('id')))
 
         solution = JspritSolution(cost=float(solution_element.find('xmlns:cost', namespace).text),
                                   routes=routes,

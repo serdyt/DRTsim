@@ -66,7 +66,8 @@ class Leg(object):
     # TODO:assignment of mode as a string is confusing, remove it, or use constant
     def __init__(self, mode=None, start_coord=None, from_stop=None, end_coord=None, to_stop=None,
                  start_time=None, end_time=None,
-                 distance=None, duration=None, steps=None):
+                 distance=None, duration=None, steps=None,
+                 trip_id=None, route=None, route_id=None):
         self.mode = mode
         self.start_coord = start_coord
         self.end_coord = end_coord
@@ -76,6 +77,10 @@ class Leg(object):
         # The two below only used for PT legs
         self.from_stop = from_stop
         self.to_stop = to_stop
+        # To measure occupancy
+        self.trip_id = trip_id
+        self.route = route
+        self.route_id = route_id
 
         self.start_time = start_time
         self.end_time = end_time
@@ -94,7 +99,11 @@ class Leg(object):
                    end_time=copy.copy(self.end_time),
                    distance=copy.copy(self.distance),
                    duration=copy.copy(self.duration),
-                   steps=steps)
+                   steps=steps,
+                   trip_id=copy.copy(self.trip_id),
+                   route=copy.copy(self.route),
+                   route_id=copy.copy(self.route_id)
+                   )
 
     def __str__(self):
         return 'leg from {} to {}, mode {}, start {} end {}'\
@@ -102,6 +111,7 @@ class Leg(object):
 
     def __repr__(self):
         return self.__str__()
+
 
 class Step(object):
     """Arguments:|
@@ -224,13 +234,16 @@ class UnassignedTrip(object):
         self.person = person
         self.start_activity = person.curr_activity
         self.end_activity = person.next_activity
-        self.tw_left = person.get_drt_tw_left()
-        self.tw_right = person.get_drt_tw_right()
+        self.tw_start_left = person.get_drt_tw_start_left()
+        self.tw_start_right = person.get_drt_tw_start_right()
+        self.tw_end_left = person.get_drt_tw_end_left()
+        self.tw_end_right = person.get_drt_tw_end_right()
 
     def __str__(self):
-        return 'Person {} tried to go from {} to {} in interval [{} - {}]'\
+        return 'Person {} tried to go from {} to {} in interval [{} - {}, {} - {}]'\
             .format(self.person.id, self.start_activity, self.end_activity,
-                    get_sec(self.tw_left), get_sec(self.tw_right))
+                    get_sec(self.tw_start_left), get_sec(self.tw_start_right),
+                    get_sec(self.tw_end_left), get_sec(self.tw_end_right))
 
 
 class ActType(object):
@@ -257,9 +270,9 @@ class ActType(object):
         return {ActType.PICK_UP: 'pickupShipment',
                 ActType.DROP_OFF: 'deliverShipment',
                 ActType.DELIVERY: 'delivery',
-                ActType.RETURN: 'drive',
+                ActType.RETURN: 'return',
                 ActType.WAIT: 'wait',
-                ActType.DRIVE: 'return',
+                ActType.DRIVE: 'drive',
                 ActType.IDLE: 'idle',
                 }[act_type]
 
@@ -309,8 +322,9 @@ class DrtAct(ActType):
         self.steps = steps
 
     def __str__(self):
-        return '{}, type {}, duration {}, distance {}, start_time {}, end_time {}'\
-            .format(self.person, self.type, self.duration, self.distance, self.start_time, self.end_time)
+        return 'Person {}, type {}, duration {}, distance {}, start_time {}, end_time {}'\
+            .format(self.person.id if self.person is not None else None,
+                    self.get_string_from_type(self.type), self.duration, self.distance, self.start_time, self.end_time)
 
     def __repr__(self):
         return self.__str__()

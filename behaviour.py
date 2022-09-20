@@ -74,7 +74,7 @@ class DefaultBehaviour(StateMachine):
                 self.person.update_travel_log(TravellerEventType.ACT_STARTED, self.person.curr_activity)
             yield self.person.env.timeout(timeout)
             self.env.process(self.plan())
-        except (OTPNoPath, OTPTrivialPath) as e:
+        except (OTPNoPath, OTPTrivialPath, OTPUnreachable) as e:
             log.warning('{}: {}\n{}'.format(self.env.now, e.msg, e.context))
             log.warning('{}: Person {} will be excluded from the simulation'.format(self.env.now, self.person))
             yield Event(self.env).succeed()
@@ -99,7 +99,7 @@ class DefaultBehaviour(StateMachine):
                 self.person.alternatives = alternatives
                 self.person.update_travel_log(TravellerEventType.TRIP_ALTERNATIVES_RECEIVED, self.person.curr_activity)
                 self.env.process(self.choose())
-            except (OTPTrivialPath, OTPUnreachable) as e:
+            except OTPTrivialPath as e:
                 log.warning('{}'.format(e.msg))
                 log.warning('{}: Excluding person from simulation. {}'.format(self.env.now, self.person))
                 self.env.process(self.unplannable())
@@ -146,6 +146,7 @@ class DefaultBehaviour(StateMachine):
                           'maxWalkDistance': self.env.config.get('drt.default_max_walk'),
                           'numItineraries': 1}
         self.person.update_otp_params()
+
         if self._activity_time_screwed():
             yield Event(self.env).succeed()
             self.env.process(self.unreactivatable())

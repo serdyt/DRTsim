@@ -47,3 +47,9 @@ class PTStopServiceOutsideZone(Exception):
     def __init__(self, msg):
         super(PTStopServiceOutsideZone, self).__init__(msg)
         self.msg = msg
+
+
+class PersonNotRelatedToStudyZones(Exception):
+    def __init__(self, msg):
+        super(PersonNotRelatedToStudyZones, self).__init__(msg)
+        self.msg = msg

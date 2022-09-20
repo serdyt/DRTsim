@@ -23,7 +23,8 @@ from population import Population
 from service import ServiceProvider
 from const import OtpMode, LegMode, DrtStatus
 from jsprit_utils import jsprit_tdm_interface
-from db_utils import db_conn
+# from db_utils import db_conn
+from sim_utils import Coord
 from const import CapacityDimensions as CD
 
 
@@ -44,7 +45,7 @@ class Top(Component):
         self._init_results()
 
         jsprit_tdm_interface.set_writer(self.env.config.get('jsprit.tdm_file'), 'w')
-        db_conn.connect(self.env.config.get('db.file'))
+        # db_conn.connect(self.env.config.get('db.file'))
 
     def connect_children(self):
         for person in self.population.person_list:
@@ -70,21 +71,21 @@ class Top(Component):
         # self.env.results['no_suitable_pt_stop'] = 0
 
 
-os.environ['TZ'] = 'Sweden'
+# os.environ['TZ'] = 'Denmark'
 time.tzset()
 config = {
     'sim.duration': '86400 s',
     'sim.duration_sec': 86400,
     'sim.seed': 42,
-    'sim.email_notification': True,
+    'sim.email_notification': False,
     'sim.create_excel': True,
-    'sim.purpose': 'All pt test',
+    'sim.purpose': 'debugging',
 
     'person.behaviour': 'DefaultBehaviour',
     # 'person.mode_choice': 'DefaultModeChoice',
     'person.mode_choice': 'TimeWindowsModeChoice',
     'service.routing': 'DefaultRouting',
-    'service.router_address': 'http://localhost:8080/otp/routers/skane/plan',
+    'service.router_address': 'http://localhost:8801/otp/routers/skane/plan',
     # 'service.router_scripting_address': 'http://localhost:8080/otp/scripting/run',
     'service.osrm_route': 'http://0.0.0.0:5000/route/v1/driving/',
     'service.osrm_tdm': 'http://0.0.0.0:5000/table/v1/driving/',
@@ -101,28 +102,33 @@ config = {
     'person.default_attr.leaving_time': 60,
     # 'person.default_attr.maxWalkDistance': 2000,
 
-    'population.input_file': 'data/population_VEHITS_divided_to_pt_and_others_kommun_cut_work_distr.json',
-    'population.input_percentage': 1.0,
+    'population.input_file': 'data/population_sjobo_others.json',
+    'population.input_percentage': 0.01,
     # ['all_within', 'pt_only', 'drtable_all', 'drtable_outside', 'all']
     'population.scenario': 'drtable_all',
 
     # 'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],  # Sjöbo + Tomelilla
-    'drt.zones': [z for z in range(12650001, 12650018)],
+    'drt.zones': [1263],
 
     # maximum of these two will be taken as pre-booking time
     'drt.planning_in_advance': td(hours=2).total_seconds(),
     # 'drt.planning_in_advance_multiplier': 2,
 
     # # Parameters that determine maximum travel time for DRT leg
-    'pt.drt_time_window_multiplier_in': 1.55,
-    'pt.drt_time_window_constant_in': 0,
-    'pt.drt_time_window_multiplier_out': 1.95,
-    'pt.drt_time_window_constant_out': 0,
-    'pt.drt_time_window_multiplier_within': 1.7,
-    'pt.drt_time_window_constant_within': 0,
+    'pt.max_trip_duration_multiplier_in': 1.55,
+    'pt.max_trip_duration_constant_in': td(minutes=2.0).total_seconds(),
+    'pt.max_trip_duration_constant_in': td(hours=1.0).total_seconds(),
+    'pt.trip_time_window_multiplier_in': 0,
 
-    'pt.trip_time_window_multiplier': 1,
-    'pt.trip_time_window_constant': td(hours=1).total_seconds(),
+    'pt.max_trip_duration_multiplier_out': 1.95,
+    'pt.max_trip_duration_constant_out': td(minutes=2.0).total_seconds(),
+    'pt.trip_time_window_constant_out': td(hours=1.0).total_seconds(),
+    'pt.trip_time_window_multiplier_out': 0,
+
+    'pt.max_trip_duration_multiplier_within': 1.7,
+    'pt.max_trip_duration_constant_within': td(minutes=2.0).total_seconds(),
+    'pt.trip_time_window_constant_within': td(hours=1.0).total_seconds(),
+    'pt.trip_time_window_multiplier_within': 0,
 
     'drt.PT_stops_file': 'data/zone_stops.csv',
     'drt.min_distance': 1000,
@@ -142,22 +148,36 @@ config = {
             'capacity_dimensions': {CD.SEATS: 4}
         }
     },
+    'otp.default_attributes': {
+        'arriveBy': 'False',
+        'maxWalkDistance': 1000,
+        'maxTransfers': 10
+    },
 
 }
 
-folder = '-p-{}-pre-{}-dwc-{}-dwm-{}-twc-{}-twm-{}-nv-{}'.\
-    format([config.get('population.scenario'),
-            config.get('population.input_percentage')],
+folder = '{}-p-{}-pre-{}-dwc-{}-dwm-{}-twc-{}-twm-{}-nv-{}'.\
+    format(config.get('sim.purpose'),
+           [
+            config.get('population.scenario'),
+            config.get('population.input_percentage')
+           ],
             config.get('drt.planning_in_advance'),
             [
-                config.get('pt.drt_time_window_constant_within'),
-                config.get('pt.drt_time_window_constant_in'),
-                config.get('pt.drt_time_window_constant_out')
+                config.get('pt.max_trip_duration_constant_in'),
+                config.get('pt.trip_time_window_constant_in'),
+                config.get('pt.max_trip_duration_constant_out'),
+                config.get('pt.trip_time_window_constant_out'),
+                config.get('pt.max_trip_duration_constant_within'),
+                config.get('pt.trip_time_window_constant_within')
             ],
             [
-                config.get('pt.drt_time_window_multiplier_within'),
-                config.get('pt.drt_time_window_multiplier_in'),
-                config.get('pt.drt_time_window_multiplier_out')
+                config.get('pt.max_trip_duration_multiplier_in'),
+                config.get('pt.trip_time_window_multiplier_in'),
+                config.get('pt.max_trip_duration_multiplier_out'),
+                config.get('pt.trip_time_window_multiplier_out'),
+                config.get('pt.max_trip_duration_multiplier_within'),
+                config.get('pt.trip_time_window_multiplier_within')
             ],
            config.get('pt.trip_time_window_constant'),
            config.get('pt.trip_time_window_multiplier'),
@@ -177,6 +197,7 @@ config.update({
     'sim.person_log_folder': '{}/person_logs'.format(folder),
     'sim.vehicle_log_folder': '{}/vehicle_logs'.format(folder),
     'sim.log': '{}/log'.format(folder),
+    'sim_summary.log': '{}/log_summary.log'.format(folder),
     'sim.log_zip': '{}/log.zip'.format(folder),
     'sim.folder': folder,
 
@@ -249,7 +270,7 @@ if __name__ == '__main__':
 
     if config.get('sim.email_notification'):
         send_email(subject='Simulation success', text='{}\n{}'.format(message, 'congratulations'),
-                   zip_file=zip_file)
+                   zip_file=config.get('sim_summary.log'))
 
 # if __name__ == '__main__':
 #     import cProfile

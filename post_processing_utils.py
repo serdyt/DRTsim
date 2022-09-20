@@ -2,7 +2,7 @@ from sim_utils import Coord, Trip, Step, Leg
 from const import OtpMode
 import json
 import requests
-import logging
+import logging, logging.handlers
 import pprint
 import os
 
@@ -11,6 +11,20 @@ from xls_utils import xls_create_occupancy_charts
 from const import CapacityDimensions as CD
 
 log = logging.getLogger(__name__)
+
+
+def setup_logger(name, log_file, level=logging.INFO):
+    """To setup as many loggers as you want"""
+
+    # handler = logging.FileHandler(log_file)
+    handler = logging.handlers.WatchedFileHandler(log_file)
+
+    # logger = logging.getLogger(name)
+    logger = logging.getLogger(__name__)
+    # logger.setLevel(level)
+    logger.addHandler(handler)
+
+    return logger
 
 
 def _try(o):
@@ -170,9 +184,16 @@ def zipdir(path, ziph):
 
 def gather_logs(config, folder, res):
 
+    sumlog = setup_logger('summary logger', config.get('sim_summary.log'))
+
     log.info('Total {} persons'.format(res.get('total_persons')))
     persons = res.get('Persons')  # List(Person)
     executed_trips = [trip for person in persons for trip in person.executed_trips]
+    trip_dump = json.loads(PopulationWrapper(persons).to_json())
+    with open('{}/trip_dump.json'.format(folder), 'w') as outfile:
+        json.dump(trip_dump, outfile)
+
+
     log.info('Executed trips: {}'.format(len(executed_trips)))
     log.info('Excluded persons due to none or a trivial path {}'
              .format(res.get('unactivatable_persons') +
@@ -237,8 +258,6 @@ def gather_logs(config, folder, res):
                  .format(sum(delivered_travelers) / (sum(vehicle_meters) / 1000)))
     except ZeroDivisionError:
         pass
-    log.info('delivered travelers per vehicle kilometer {}'
-             .format(sum(delivered_travelers) / (sum(vehicle_meters) / 1000)))
 
     log.info('Delivered travelers: {}'.format(delivered_travelers))
     log.info('Vehicle kilometers: {}'.format([int(vm / 1000) for vm in vehicle_meters]))
@@ -267,7 +286,7 @@ def gather_logs(config, folder, res):
     log.info('Deviation time per total travel time: {}'.format(sum(deviation_times) / sum(travel_times)))
 
     try:
-        drt_legs = [leg for trip in person.executed_trips for leg in trip.legs if leg.mode == OtpMode.DRT]
+        drt_legs = [leg for trip in executed_trips for leg in trip.legs if leg.mode == OtpMode.DRT]
         direct_seconds_drt_only = sum([osrm_route_request(config, leg.start_coord, leg.end_coord).duration for leg in drt_legs])
         # direct_legs = [leg for trip in direct_trips for leg in trip.legs if leg.mode == OtpMode.DRT]
         # direct_seconds_drt_only = sum([leg.duration for leg in direct_legs])
@@ -286,7 +305,7 @@ def gather_logs(config, folder, res):
     pp = pprint.PrettyPrinter()
     log.info(pp.pformat(config))
 
-    files = [config.get('sim.log')]
+    files = [config.get('sim.log'), config.get('sim_summary.log')]
 
     if config.get('sim.create_excel'):
         try:
@@ -301,11 +320,6 @@ def gather_logs(config, folder, res):
             log.error(e)
 
     files.append('{}/drt_routed.json'.format(folder))
-
-    trip_dump = json.loads(PopulationWrapper(persons).to_json())
-    with open('{}/trip_dump.json'.format(folder), 'w') as outfile:
-        json.dump(trip_dump, outfile)
-
     files.append('{}/trip_dump.json'.format(folder))
 
     return files

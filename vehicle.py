@@ -54,6 +54,7 @@ class Vehicle(Component):
         self.coord = return_coord
         # TODO: add possibilities to return to different depot
         self.return_coord = return_coord
+        self.return_time = self.env.config.get('sim.duration_sec')
         self.vehicle_type = vehicle_type
         self.id = attrib.get('id')
         self.capacity_dimensions = copy.deepcopy(vehicle_type.capacity_dimensions)
@@ -68,6 +69,7 @@ class Vehicle(Component):
         self.meters_by_occupancy = [0 for _ in range(self.capacity_dimensions.get(CD.SEATS) + 1)]
         self.delivered_travelers = 0
         self.travel_log = []
+        self.trace_log = []
 
         self.rerouted = self.env.event()
 
@@ -149,27 +151,46 @@ class Vehicle(Component):
     def _save_vehicle_travel_logs(self):
         log_folder = self.env.config.get('sim.vehicle_log_folder')
         try:
-            with open('{}/vehicle_{}'.format(log_folder, self.id), 'w') as f:
-                for record in self.travel_log:
-                    if len(record) > 2:
-                        f.write(VehicleEventType.to_str(record[0], record[1], *record[2]))
+            if len(self.travel_log) > 0:
+                with open('{}/vehicle_{}'.format(log_folder, self.id), 'w') as f:
+                    for record in self.travel_log:
+                        if len(record) > 2:
+                            f.write(VehicleEventType.to_str(record[0], record[1], *record[2]))
+                        else:
+                            f.write(VehicleEventType.to_str(record[0], record[1]))
+
+            if len(self.occupancy_stamps) > 0:
+                with open('{}/vehicle_occupancy_{}'.format(log_folder, self.id), 'w') as f:
+                    spam_writer = csv.writer(f, delimiter=',',
+                                             quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                    spam_writer.writerow(("time", "#passengers"))
+                    spam_writer.writerows(self.occupancy_stamps)
+
+            if len(self.status_stamps) > 0:
+                with open('{}/vehicle_status_{}'.format(log_folder, self.id), 'w') as f:
+                    spam_writer = csv.writer(f, delimiter=',',
+                                             quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                    spam_writer.writerow(("time", "status (PICK_UP={}, DELIVERY={}, DRIVE={},"
+                                                  "WAIT={}, RETURN={}, IDLE={})"
+                                          .format(DrtAct.PICK_UP, DrtAct.DELIVERY, DrtAct.DRIVE,
+                                                  DrtAct.WAIT, DrtAct.RETURN, DrtAct.IDLE)))
+                    spam_writer.writerows(self.status_stamps)
+
+            if len(self.trace_log) > 0:
+                with open('{}/vehicle_trace_{}'.format(log_folder, self.id), 'w') as f:
+                    spam_writer = csv.writer(f, delimiter=',',
+                                             quotechar='|', quoting=csv.QUOTE_MINIMAL)
+                    spam_writer.writerow(["lat", "lon", "time"])
+                    if type(self.trace_log[0]) == Step:
+                        coords = [(self.trace_log[0].start_coord.lat, self.trace_log[0].start_coord.lon)]
                     else:
-                        f.write(VehicleEventType.to_str(record[0], record[1]))
-
-            with open('{}/vehicle_occupancy_{}'.format(log_folder, self.id), 'w') as f:
-                spam_writer = csv.writer(f, delimiter=',',
-                                        quotechar='|', quoting=csv.QUOTE_MINIMAL)
-                spam_writer.writerow(("time", "#passengers"))
-                spam_writer.writerows(self.occupancy_stamps)
-
-            with open('{}/vehicle_status_{}'.format(log_folder, self.id), 'w') as f:
-                spam_writer = csv.writer(f, delimiter=',',
-                                         quotechar='|', quoting=csv.QUOTE_MINIMAL)
-                spam_writer.writerow(("time", "status (PICK_UP={}, DELIVERY={}, DRIVE={},"
-                                              "WAIT={}, RETURN={}, IDLE={})"
-                                      .format(DrtAct.PICK_UP, DrtAct.DELIVERY, DrtAct.DRIVE,
-                                              DrtAct.WAIT, DrtAct.RETURN, DrtAct.IDLE)))
-                spam_writer.writerows(self.status_stamps)
+                        coords = [(self.trace_log[0][0].start_coord.lat, self.trace_log[0][0].start_coord.lon, self.trace_log[0])]
+                    for step in self.trace_log:
+                        if type(step) == Step:
+                            coords.extend([(step.end_coord.lat, step.end_coord.lon)])
+                        else:
+                            coords.extend([(step[0].end_coord.lat, step[0].end_coord.lon, step[1])])
+                    spam_writer.writerows(coords)
 
         except OSError as e:
             log.critical(e.strerror)
@@ -211,8 +232,8 @@ class Vehicle(Component):
             # wait for the end of current action or for a rerouted event
             timeout = self.get_act(0).end_time - self.env.now
             if timeout < 0:
-                log.error('{}: Negative delay of {} is encountered. Resetting it to zero,'
-                          .format(self.env.now, timeout))
+                log.error('Vehicle {}:{}: Negative delay of {} is encountered. Resetting it to zero,'
+                          .format(self.id, self.env.now, timeout))
                 timeout = 0
             act_executed = self.env.timeout(timeout)  # type: Timeout
             yield self.rerouted | act_executed
@@ -238,26 +259,30 @@ class Vehicle(Component):
                 self.ride_time += act.duration
                 self.coord = act.end_coord
 
-                # if len(self.passengers) != 0:
+                self._update_trace_log(act.steps)
                 self._update_executed_passengers_routes(act.steps, act.end_coord)
                 self._update_passengers_travel_log(TravellerEventType.DRT_STOP_FINISHED)
 
-                if act.type == act.DRIVE or act.type == act.WAIT:
+                if act.type == DrtAct.DRIVE or act.type == DrtAct.WAIT:
                     if self.get_route_len() == 0:
                         log.error('{}: Vehicle {} drove to no action. Probably to depot. Check if this happen'
                                   .format(self.env.now, self.id))
                         continue
                     else:
-                        log.info('{}: Vehicle {} drove to serve {}'
-                                 .format(self.env.now, self.id, self._route[0].person))
+                        if act.type == DrtAct.DRIVE:
+                            log.info('{}: Vehicle {} drove to serve {}'
+                                     .format(self.env.now, self.id, self._route[0].person))
+                        else:
+                            log.info('{}: Vehicle {} waited to serve {}'
+                                     .format(self.env.now, self.id, self._route[0].person))
 
                     new_act = self.get_act(0)
-                    if new_act.type == new_act.DROP_OFF or new_act.type == new_act.DELIVERY:
-                        log.info('{}: Vehicle {} delivering person {}'
+                    if new_act.type == DrtAct.DROP_OFF or new_act.type == DrtAct.DELIVERY:
+                        log.info('{}: Vehicle {} starts delivering person {}'
                                  .format(self.env.now, self.id, new_act.person.id))
 
-                    elif new_act.type == new_act.PICK_UP:
-                        log.info('{}: Vehicle {} picking up person {}'
+                    elif new_act.type == DrtAct.PICK_UP:
+                        log.info('{}: Vehicle {} starts picking up person {}'
                                  .format(self.env.now, self.id, new_act.person.id))
                         self._pickup_travelers([new_act.person])
                         # When a person request a trip, person is a shipment with PICK_UP and DROP_OFF acts
@@ -266,18 +291,18 @@ class Vehicle(Component):
                         delivery_act = [a for a in drop_offs if a.person.id == new_act.person.id]
                         delivery_act[0].type = DrtAct.DELIVERY
 
-                elif act.type == act.DROP_OFF or act.type == act.DELIVERY:
+                elif act.type == DrtAct.DROP_OFF or act.type == DrtAct.DELIVERY:
                     log.info('{}: Vehicle {} delivered person {}'.format(self.env.now, self.id, act.person.id))
                     # self._update_travel_log(VehicleEventType.VEHICLE_AT_STOP_DROPPING, [act.person.id])
                     self._drop_off_travelers([act.person])
-                elif act.type == act.PICK_UP:
+                elif act.type == DrtAct.PICK_UP:
                     # self._update_travel_log(VehicleEventType.VEHICLE_AT_STOP_PICKING, [act.person.id])
                     log.info('{}: Vehicle {} picked up person {}'.format(self.env.now, self.id, act.person.id))
-                elif act.type == act.WAIT:
+                elif act.type == DrtAct.WAIT:
                     # self._update_travel_log(VehicleEventType.VEHICLE_AT_DEPOT_WAIT)
-                    log.info('{}: Vehicle {} ended waiting after picking up a person'
+                    log.info('{}: Vehicle {} ended waiting before picking up a person'
                              .format(self.env.now, self.id))
-                elif act.type == act.RETURN:
+                elif act.type == DrtAct.RETURN:
                     # self._update_travel_log(VehicleEventType.VEHICLE_AT_DEPOT_IDLE)
                     log.info('{}: Vehicle {} returned to depot'.format(self.env.now, self.id))
                 else:
@@ -295,7 +320,7 @@ class Vehicle(Component):
                 log.error('{} drt_executed event has not been created'.format(person))
             person.drt_executed.succeed()
 
-            self._is_person_served_within_tw(person)
+            self._is_person_served_within_tw(person, pickup=False)
 
         n = len(persons)
         self.delivered_travelers += n
@@ -319,6 +344,11 @@ class Vehicle(Component):
         else:
             raise Exception('unsupported activity type {}, cannot make a log'.format(self.get_act(0).type))
 
+    def _update_trace_log(self, steps):
+        if len(steps) != 0:
+            self.trace_log.extend(steps)
+            self.trace_log[-1] = (self.trace_log[-1], self.env.now)
+
     def _pickup_travelers(self, persons):
         """Append persons to the list of current passengers
         and reduce capacity dimensions according to traveler's attributes"""
@@ -330,15 +360,32 @@ class Vehicle(Component):
                 if self.capacity_dimensions[dimension[0]] < 0:
                     raise Exception('Person has boarded to a vehicle while it has not enough space')
 
-            self._is_person_served_within_tw(person)
+            self._is_person_served_within_tw(person, pickup=True)
 
-    def _is_person_served_within_tw(self, person):
-        if person.get_drt_tw_left() <= self.env.now <= person.get_drt_tw_right():
-            return True
+    def _is_person_served_within_tw(self, person, pickup=True):
+        if pickup:
+            if person.get_drt_tw_start_left() <= self.env.now <= person.get_drt_tw_start_right():
+                return True
         else:
-            log.error('{}: Person {} has been served  outside the requested time window: {} - {}'
-                      .format(self.env.now, person.id, person.get_drt_tw_left(), person.get_drt_tw_right()))
-            return False
+            if person.get_drt_tw_end_left() <= self.env.now <= person.get_drt_tw_end_right():
+                return True
+
+        msg = '{}: Vehicle {}: Person {} has been served outside the requested time window: [{} - {}, {} - {}]'\
+            .format(self.env.now, self.id, person.id,
+                    person.get_drt_tw_start_left(), person.get_drt_tw_start_right(),
+                    person.get_drt_tw_end_left(), person.get_drt_tw_end_right())
+
+        if pickup:
+            if self.env.now - person.get_drt_tw_start_right() > 60 or person.get_drt_tw_start_left() - self.env.now > 60:
+                log.error(msg)
+            else:
+                log.debug(msg)
+        else:
+            if self.env.now - person.get_drt_tw_end_right() > 60 or person.get_drt_tw_end_left() - self.env.now > 60:
+                log.error(msg)
+            else:
+                log.debug(msg)
+        return False
 
     def _update_passengers_travel_log(self, travel_event_type):
         for person in self.passengers:
@@ -350,6 +397,7 @@ class Vehicle(Component):
             self._update_passengers_travel_log(TravellerEventType.DRT_ON_ROUTE_REROUTED)
             passed_steps = self.get_passed_steps()
             if len(passed_steps) > 0:
+                self._update_trace_log(passed_steps)
                 self._update_executed_passengers_routes(passed_steps, self.get_current_coord_time()[0])
                 self.vehicle_kilometers += sum([step.distance for step in passed_steps])
                 self.ride_time += sum([step.duration for step in passed_steps])
@@ -390,9 +438,11 @@ class Vehicle(Component):
         if self.get_route_len() == 0:
             return self.coord, self.env.now
 
-        act = self._route[0]
+        act = self.get_act(0)
+        # if vehicle is waiting - we can reroute it immediately
         if act.type == act.WAIT:
             return act.end_coord, self.env.now
+        # if vehicle is serving a traveller, we need to finnish that act before allowing rerouting
         elif act.type in [act.PICK_UP, act.DROP_OFF, act.DELIVERY]:
             return act.end_coord, act.end_time
         else:
@@ -401,6 +451,10 @@ class Vehicle(Component):
     def get_current_coord_time_from_step(self):
         act = self._route[0]
         current_time = act.start_time
+        if act.steps is None:
+            log.warning('{}:{}:No steps in act, probably two request at the same time came\n{}'.format(self.id, self.env.now, act))
+            return act.start_coord, act.start_time
+
         if len(act.steps) == 0:
             log.error('{}: Getting current vehicle position, vehicle {} got no steps in {}\n'
                       'Returning end position of the act'.format(self.env.now, self.id, act))
@@ -420,8 +474,8 @@ class Vehicle(Component):
         if current_time >= self.env.now:
             return act.end_coord, current_time
         else:
-            log.error('{}: There is not enough of steps at_time to fill the act, returning end of a current act.\n{}'
-                      .format(self.env.now, act.flush()))
+            log.error('{}:{}: There is not enough of steps at_time to fill the act, returning end of a current act.\n{}'
+                      .format(self.id, self.env.now, act.flush()))
             return act.end_coord, current_time
             # raise Exception('There is not enough of steps at_time to fill the act')
 
@@ -452,8 +506,8 @@ class Vehicle(Component):
             else:
                 pass
 
-        log.error('{}: There is not enough of steps at_time to fill the act, returning the last step.\n{}'
-                  .format(self.env.now, act.flush()))
+        log.error('{}:{}: There is not enough of steps at_time to fill the act, returning the last step.\n{}'
+                  .format(self.id, self.env.now, act.flush()))
         return act.steps[-1]
         # raise Exception('There is not enough of steps at_time to fill the act')
 

@@ -49,10 +49,17 @@ class DefaultRouting(object):
         Tries to repeat request if OTP exception has occured
         """
 
-        try:
-            return self._otp_request(from_place, to_place, at_time, mode, attributes)
-        except OTPGeneralRouting as e:
-            return self._otp_request(from_place, to_place, at_time, mode, attributes)
+        trips = []
+        for attempt in range(0, 5):
+            try:
+                trips = self._otp_request(from_place, to_place, at_time, mode, attributes)
+                break
+            except OTPGeneralRouting as e:
+                if attempt == 4:
+                    log.error('Could not perform OTP request from {} to {}, mode, attributes'
+                              .format(from_place, to_place, mode, attributes), e.context)
+                continue
+        return trips
 
     def _otp_request(self,
                      from_place,
@@ -60,13 +67,13 @@ class DefaultRouting(object):
                      at_time,
                      mode: str,
                      attributes=None):
-        default_attributes = {'fromPlace': str(from_place),
-                              'toPlace': str(to_place),
-                              'time': trunc_microseconds(str(td(seconds=at_time))),
-                              'date': self.env.config.get('date'),
-                              'mode': mode,
-                              'arriveBy': 'True',
-                              'maxWalkDistance': 2000}
+        default_attributes = self.env.config.get('otp.default_attributes').copy()
+        default_attributes.update({'fromPlace': str(from_place),
+                                   'toPlace': str(to_place),
+                                   'time': trunc_microseconds(str(td(seconds=at_time))),
+                                   'date': self.env.config.get('date'),
+                                   'mode': mode
+                                   })
         if attributes is not None:
             default_attributes.update(attributes)
         resp = requests.get(self.url, params=default_attributes)
@@ -131,6 +138,11 @@ class DefaultRouting(object):
                     # we are not interested in the first part
                     leg.from_stop = int(raw_from.get('stopId').split(':')[1])
                     leg.to_stop = int(raw_to.get('stopId').split(':')[1])
+
+                    leg.trip_id = int(raw_leg.get('tripId').split(':')[1])
+                    leg.route = str(raw_leg.get('route'))
+                    leg.route_id = int(raw_leg.get('routeId').split(':')[1])
+
                 trip.append_leg(leg)
 
                 trip.main_mode = trip.main_mode_from_legs()
@@ -314,11 +326,13 @@ class DefaultRouting(object):
         self.env.rand.setstate(rstate)
 
         if jsprit_call.returncode != 0:
-            file_id = 'vrp.xml' + str(time.time())
+            vrp_id = 'vrp.xml' + str(time.time())
+            tdm_id = 'time_distance_matrix.csv' + str(time.time())
             log.error("Jsprit has crashed. Saving input vrp to {}/{}"
-                      .format(self.env.config.get('jsprit.debug_folder'), file_id))
+                      .format(self.env.config.get('jsprit.debug_folder'), vrp_id))
             log.error(jsprit_call.stderr.decode("utf-8") .replace('\\n', '\n'))
-            copyfile(self.env.config.get('jsprit.vrp_file'), self.env.config.get('jsprit.debug_folder')+'/'+file_id)
+            copyfile(self.env.config.get('jsprit.vrp_file'), self.env.config.get('jsprit.debug_folder')+'/'+vrp_id)
+            copyfile(self.env.config.get('jsprit.tdm_file'), self.env.config.get('jsprit.debug_folder')+'/'+tdm_id)
         log.debug('jsprit takes {}ms of system time'.format(time.time() - start))
 
         # ***********************************************************
@@ -335,10 +349,14 @@ class DefaultRouting(object):
                                    'Check this.\n'
                                    'The person will ignore DRT mode.')
         if person.id in solution.unassigned:
-            file_id = 'vrp_{}_{}.xml'.format(str(time.time()), person.id)
-            copyfile(self.env.config.get('jsprit.vrp_file'), self.env.config.get('jsprit.debug_folder')+'/'+file_id)
-            log.debug('Person {} cannot be delivered by DRT. Arrive by {}, tw left {}, tw right {}'
-                      .format(person.id, person.next_activity.start_time, person.get_drt_tw_left(), person.get_drt_tw_right()))
+            vrp_id = 'vrp_{}_{}.xml'.format(str(time.time()), person.id)
+            tdm_id = 'time_distance_matrix_{}_{}.csv'.format(str(time.time()), person.id)
+            copyfile(self.env.config.get('jsprit.vrp_file'), self.env.config.get('jsprit.debug_folder')+'/'+vrp_id)
+            copyfile(self.env.config.get('jsprit.tdm_file'), self.env.config.get('jsprit.debug_folder')+'/'+tdm_id)
+            log.debug('Person {} cannot be delivered by DRT. Arrive by {}, tw [{}-{}, {}-{}]'
+                      .format(person.id, person.next_activity.start_time,
+                              person.get_drt_tw_start_left(), person.get_drt_tw_start_right(),
+                              person.get_drt_tw_end_left(), person.get_drt_tw_end_right()))
             raise DrtUnassigned('Person {} cannot be delivered by DRT'.format(person.id))
 
         # TODO: I assume that only one route is changed, i.e. insertion algorithm is used.
@@ -346,7 +364,9 @@ class DefaultRouting(object):
         modified_route = self._get_person_route(person, solution)
         if modified_route is None:
             log.error('Person {} has likely caused jsprit to crash. That may happen if time-windows as screwd.\n'
-                      'Time window from {} to {}'.format(person.id, person.get_drt_tw_left(), person.get_drt_tw_right()))
+                      'Time windows [{}-{}, {}-{}]'.format(person.id,
+                                                           person.get_drt_tw_start_left(), person.get_drt_tw_start_right(),
+                                                           person.get_drt_tw_end_left(), person.get_drt_tw_end_right()))
             # raise DrtUnassigned('Person {} is not listed in any jsprit routes'.format(person.id))
         solution.routes = None
         solution.modified_route = modified_route
@@ -354,7 +374,9 @@ class DefaultRouting(object):
         # jsprit may route vehicles to pick up travelers long before requested start time,
         # thus we calculate actual trip duration based on the end of pickup event
 
-        person.drt_leg.duration = (acts[-1].arrival_time - acts[0].end_time)
+        person.drt_leg.start_time = acts[0].end_time - person.boarding_time
+        person.drt_leg.end_time = acts[-1].end_time
+        person.drt_leg.duration = person.drt_leg.end_time - person.drt_leg.start_time
         # TODO: calculate distance for all the changed trips (need to call OTP to extract the distance)
         self.service.pending_drt_requests[person.id] = solution
 
@@ -383,78 +405,6 @@ class DefaultRouting(object):
         Output from OTP and a local database are merged into a one file.
         """
         jsprit_tdm_interface.set_writer(self.env.config.get('jsprit.tdm_file'), 'w')
-
-        # start = time.time()
-        # coords_to_process_with_router = []
-        #
-        # vehicle_coords = set(vehicle_coords)
-        # return_coords = set(return_coords)
-        # shipment_start_coords = set(shipment_start_coords)
-        # shipment_end_coords = set(shipment_end_coords)
-        # delivery_end_coord = set(delivery_end_coord)
-        #
-        # self._process_tdm_in_database(vehicle_coords, shipment_start_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(vehicle_coords, delivery_end_coord, coords_to_process_with_otp)
-        # self._process_tdm_in_database(vehicle_coords, return_coords, coords_to_process_with_otp)
-        #
-        # self._process_tdm_in_database(shipment_start_coords, vehicle_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(shipment_end_coords, vehicle_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(delivery_end_coord, vehicle_coords, coords_to_process_with_otp)
-        #
-        # self._process_tdm_in_database(shipment_start_coords, shipment_end_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(shipment_start_coords, shipment_start_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(shipment_start_coords, delivery_end_coord, coords_to_process_with_otp)
-        #
-        # self._process_tdm_in_database(shipment_end_coords, shipment_start_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(shipment_end_coords, delivery_end_coord, coords_to_process_with_otp)
-        # self._process_tdm_in_database(shipment_end_coords, shipment_end_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(shipment_end_coords, return_coords, coords_to_process_with_otp)
-        #
-        # self._process_tdm_in_database(delivery_end_coord, return_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(delivery_end_coord, shipment_start_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(delivery_end_coord, shipment_end_coords, coords_to_process_with_otp)
-        # self._process_tdm_in_database(delivery_end_coord, delivery_end_coord, coords_to_process_with_otp)
-        #
-        # log.debug('DB processing time {}'.format(time.time() - start))
-        # log.debug('TDM to process with OTP: {} out of {}'
-        #           .format(len(set(coords_to_process_with_otp)),
-        #                   len(vehicle_coords)*len(shipment_start_coords) +
-        #                   len(vehicle_coords)*len(delivery_end_coord) +
-        #                   len(vehicle_coords)*len(return_coords) +
-        #
-        #                   len(shipment_start_coords)*len(vehicle_coords) +
-        #                   len(delivery_end_coord)*len(vehicle_coords) +
-        #
-        #                   len(shipment_start_coords)*len(shipment_end_coords) +
-        #                   len(shipment_start_coords)*len(shipment_start_coords) +
-        #                   len(shipment_start_coords)*len(delivery_end_coord) +
-        #
-        #                   len(shipment_end_coords)*len(shipment_start_coords) +
-        #                   len(shipment_end_coords)*len(delivery_end_coord) +
-        #                   len(shipment_end_coords)*len(shipment_end_coords) +
-        #                   len(shipment_end_coords)*len(return_coords) +
-        #
-        #                   len(delivery_end_coord)*len(return_coords) +
-        #                   len(delivery_end_coord)*len(shipment_start_coords) +
-        #                   len(delivery_end_coord)*len(shipment_end_coords) +
-        #                   len(delivery_end_coord)*len(delivery_end_coord)
-        #                   ))
-        #
-        # log.debug('saved tdm records {}'.format(
-        #     len(vehicle_coords)*len(shipment_end_coords) +
-        #
-        #     len(shipment_start_coords)*len(return_coords) +
-        #     len(shipment_start_coords)*len(return_coords) +
-        #
-        #     len(return_coords)*len(vehicle_coords) +
-        #     len(return_coords)*len(shipment_start_coords) +
-        #     len(return_coords)*len(shipment_end_coords) +
-        #     len(return_coords)*len(delivery_end_coord)+
-        #
-        #     len(shipment_end_coords)*len(vehicle_coords)
-        # ))
-        #
-        # coords_to_process_with_otp = list(set(coords_to_process_with_otp))
 
         coords_to_process_with_router = set(vehicle_coords + return_coords +
                                             shipment_start_coords + shipment_end_coords + delivery_end_coord)
