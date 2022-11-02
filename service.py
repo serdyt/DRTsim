@@ -918,7 +918,7 @@ class ServiceProvider(Component):
 
         new_route = self._jsprit_to_drt(vehicle=vehicle, jsprit_route=jsprit_route)
         vehicle.update_partially_executed_trips()
-        person.update_planned_drt_trip(new_route)
+        # person.update_planned_drt_trip(new_route)
         vehicle.set_route(new_route)
 
         # If several request come at the same time, the same event will be triggered several times

@@ -496,27 +496,26 @@ class Person(Component):
     def set_drt_status(self, status):
         self.drt_status.append(status)
 
-    def update_planned_drt_trip(self, drt_route):
-        """Jsprit solution does not provide distances. # TODO: check if it is possible to include this in jsprit
-        After service provider reconstructs DRT route with OTP, it calls for this to recalculate actual planned route,
-        that will be compared with actual and direct trips.
-        """
-        drt_acts = [act for act in drt_route if act.person == self and \
-                    act.type in [ActType.PICK_UP, ActType.DROP_OFF, ActType.DELIVERY]]
+    # def update_planned_drt_trip(self, drt_route):
+    #     """Jsprit solution does not provide distances. # TODO: check if it is possible to include this in jsprit
+    #     After service provider reconstructs DRT route with OTP, it calls for this to recalculate actual planned route,
+    #     that will be compared with actual and direct trips.
+    #     """
+    #     drt_acts = [act for act in drt_route if act.person == self and \
+    #                 act.type in [ActType.PICK_UP, ActType.DROP_OFF, ActType.DELIVERY]]
+    #
+    #     # jsprit has no distance and steps
+    #     drt_leg = self.get_planned_drt_leg()
+    #     if drt_acts[-1].type in [ActType.DELIVERY, ActType.DROP_OFF]:
+    #         drt_leg.duration = drt_acts[-1].end_time - drt_leg.start_time
+    #         drt_leg.end_time = drt_acts[-1].end_time
+    #     else:
+    #         drt_leg.duration = drt_acts[-1].end_time - drt_acts[0].start_time
+    #         drt_leg.end_time = drt_acts[-1].end_time
+    #         drt_leg.start_time = drt_acts[0].start_time
+    #
+    #     self.planned_trip.set_duration(self.planned_trip.legs[-1].end_time - self.planned_trip.legs[0].start_time)
 
-        # jsprit has no distance and steps
-        drt_leg = self.get_planned_drt_leg()
-        if drt_acts[-1].type == ActType.DELIVERY:
-            drt_leg.duration = drt_acts[-1].end_time - drt_leg.start_time
-            drt_leg.end_time = drt_acts[-1].end_time
-        else:
-            drt_leg.duration = drt_acts[-1].end_time - drt_acts[-1].start_time
-            drt_leg.end_time = drt_acts[-1].end_time
-            drt_leg.start_time = drt_acts[-1].start_time
-
-        self.planned_trip.set_duration(self.planned_trip.legs[-1].end_time - self.planned_trip.legs[0].start_time)
-        # self.planned_trip.legs[0].duration = self.planned_trip.duration
-        # self.planned_trip.legs[0].distance = self.planned_trip.distance
 
     def get_planned_drt_leg(self):
         return self.planned_trip.legs[self.planned_trip.get_leg_modes().index(OtpMode.DRT)]
