@@ -255,9 +255,10 @@ class VRPReadWriter(object):
         unassigned_jobs_elements = solution_element.findall('xmlns:unassignedJobs', namespace)
         unassigned_job_ids = []
         # there could be unroutable or undeliverable requests
-        if unassigned_jobs_elements is not None and unassigned_jobs_elements != []:
-            for unassigned_jobs_element in unassigned_jobs_elements[0].findall('xmlns:job', namespace):
-                unassigned_job_ids.append(int(unassigned_jobs_element.attrib.get('id')))
+        if unassigned_jobs_elements is not None:
+            if len(unassigned_jobs_elements) is not 0:
+                for unassigned_jobs_element in unassigned_jobs_elements[0].findall('xmlns:job', namespace):
+                    unassigned_job_ids.append(int(unassigned_jobs_element.attrib.get('id')))
 
         solution = JspritSolution(cost=float(solution_element.find('xmlns:cost', namespace).text),
                                   routes=routes,

@@ -263,9 +263,9 @@ class Person(Component):
             tc = self.env.config.get('pt.max_trip_duration_constant_in')
             t = TravelType.IN
         else:
-            log.error('Person does not seem to be related to  "drt.zones".'
+            log.error('Person does not seem to be related to "drt.zones".'
                       'Excluding.'
-                      'Person {}, activities'.format(self.id, self.activities))
+                      'Person {}, activities {}'.format(self.id, self.activities))
             raise PersonNotRelatedToStudyZones('Person {}, activities'.format(self.id, self.activities))
 
         self.trip_time_window_multiplier = self.env.config.get('pt.trip_time_window_multiplier')

@@ -69,6 +69,7 @@ class DefaultBehaviour(StateMachine):
         try:
             direct_trip = self.person.serviceProvider.standalone_osrm_request(self.person)
             self.person.set_direct_trip(direct_trip)
+            self.person.set_trip_tw()
             timeout = self.person.get_planning_time(direct_trip)
             if timeout > 0:
                 self.person.update_travel_log(TravellerEventType.ACT_STARTED, self.person.curr_activity)
@@ -88,8 +89,6 @@ class DefaultBehaviour(StateMachine):
             yield self.person.env.timeout(0.000001)
         self.person.update_travel_log(TravellerEventType.ACT_FINISHED, self.person.curr_activity)
 
-        self.person.set_trip_tw()
-
         if self.person.planned_trip is None:
             try:
                 self.person.update_travel_log(TravellerEventType.TRIP_REQUEST_SUBMITTED, self.person.curr_activity)
@@ -99,7 +98,7 @@ class DefaultBehaviour(StateMachine):
                 self.person.alternatives = alternatives
                 self.person.update_travel_log(TravellerEventType.TRIP_ALTERNATIVES_RECEIVED, self.person.curr_activity)
                 self.env.process(self.choose())
-            except OTPTrivialPath as e:
+            except OTPTrivialPath or OTPUnreachable as e:
                 log.warning('{}'.format(e.msg))
                 log.warning('{}: Excluding person from simulation. {}'.format(self.env.now, self.person))
                 self.env.process(self.unplannable())
@@ -153,11 +152,9 @@ class DefaultBehaviour(StateMachine):
             return
         try:
             direct_trip = self.person.serviceProvider.standalone_osrm_request(self.person)
+            self.person.set_trip_tw()
             timeout = self.person.get_planning_time(direct_trip)
             self.person.set_direct_trip(direct_trip)
-            # transit_trip = self.person.serviceProvider.standalone_otp_request(self.person, OtpMode.TRANSIT,
-            #                                                                   otp_attributes)
-            # timeout = self.person.get_planning_time(transit_trip[0])
             if timeout > 0:
                 self.person.update_travel_log(TravellerEventType.ACT_STARTED, self.person.curr_activity)
             yield self.person.env.timeout(timeout)
