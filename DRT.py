@@ -102,13 +102,13 @@ config = {
     'person.default_attr.leaving_time': 60,
     # 'person.default_attr.maxWalkDistance': 2000,
 
-    'population.input_file': 'data/population_sjobo_others.json',
+    'population.input_file': 'data/population_sjobo_others_only_sjobo.json',
     'population.input_percentage': 0.01,
     # ['all_within', 'pt_only', 'drtable_all', 'drtable_outside', 'all']
     'population.scenario': 'drtable_all',
 
     # 'drt.zones': [z for z in range(12650001, 12650018)] + [z for z in range(12700001, 12700021)],  # Sjöbo + Tomelilla
-    'drt.zones': [1263],
+    'drt.zones': [1265],
 
     # maximum of these two will be taken as pre-booking time
     'drt.planning_in_advance': td(hours=2).total_seconds(),

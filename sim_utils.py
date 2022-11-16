@@ -119,6 +119,7 @@ class Step(object):
     distance    <int>|
     duration    <int>|
     """
+
     def __init__(self, start_coord, end_coord, distance, duration):
         self.start_coord = start_coord
         self.end_coord = end_coord
@@ -201,15 +202,15 @@ class Trip(object):
 
     def set_main_mode(self, mode):
         self.main_mode = mode
-    
+
     def set_distance(self, dist):
         self.distance = dist
-    
+
     def append_leg(self, leg):
         self.legs.append(leg)
-        
+
     def __str__(self):
-        return '{} trip, takes {} distance {}, start at {}, ends at {}'\
+        return '{} trip, takes {} distance {}, start at {}, ends at {}' \
             .format(self.main_mode, self.duration, self.distance, self.legs[0].start_time, self.legs[-1].end_time)
 
     def __repr__(self):
@@ -217,16 +218,16 @@ class Trip(object):
 
     # def find_main_mode(self):
     #     modes = [leg.mode for leg in self.legs]
-        # if Mode.CAR in modes:
-        #     self.main_mode = Mode.CAR
-        # elif Mode.TRANSIT in modes:
-        #     self.main_mode = Mode.TRANSIT
-        # elif Mode.BUS in modes:
-        #     self.main_mode = Mode.BUS
-        # elif Mode.TRAIN in modes:
-        #     self.main_mode = Mode.TRAIN
-        # elif Mode.BICYCLE in modes:
-        #     self.main_mode = Mode.BICYCLE
+    # if Mode.CAR in modes:
+    #     self.main_mode = Mode.CAR
+    # elif Mode.TRANSIT in modes:
+    #     self.main_mode = Mode.TRANSIT
+    # elif Mode.BUS in modes:
+    #     self.main_mode = Mode.BUS
+    # elif Mode.TRAIN in modes:
+    #     self.main_mode = Mode.TRAIN
+    # elif Mode.BICYCLE in modes:
+    #     self.main_mode = Mode.BICYCLE
 
 
 class UnassignedTrip(object):
@@ -240,7 +241,7 @@ class UnassignedTrip(object):
         self.tw_end_right = person.get_drt_tw_end_right()
 
     def __str__(self):
-        return 'Person {} tried to go from {} to {} in interval [{} - {}, {} - {}]'\
+        return 'Person {} tried to go from {} to {} in interval [{} - {}, {} - {}]' \
             .format(self.person.id, self.start_activity, self.end_activity,
                     get_sec(self.tw_start_left), get_sec(self.tw_start_right),
                     get_sec(self.tw_end_left), get_sec(self.tw_end_right))
@@ -322,7 +323,7 @@ class DrtAct(ActType):
         self.steps = steps
 
     def __str__(self):
-        return 'Person {}, type {}, duration {}, distance {}, start_time {}, end_time {}'\
+        return 'Person {}, type {}, duration {}, distance {}, start_time {}, end_time {}' \
             .format(self.person.id if self.person is not None else None,
                     self.get_string_from_type(self.type), self.duration, self.distance, self.start_time, self.end_time)
 
@@ -399,6 +400,7 @@ class Coord(object):
     lon : <float> longitude
     latlon : <list> list with both lat and long. Latitude first!
     """
+
     def __init__(self, lat=None, lon=None, latlon=None):
         if latlon is not None:
             if len(latlon) != 2:
@@ -422,7 +424,7 @@ class Coord(object):
             return o.__dict__
         except:
             return str(o)
-        
+
     def __str__(self):
         return str(self.lat) + ',' + str(self.lon)
 
@@ -459,7 +461,7 @@ def get_sec(time_str):
 
 
 def otp_time_to_sec(otp_time):
-    return seconds_from_str(datetime.fromtimestamp(otp_time/1000).strftime('%H:%M:%S'))
+    return seconds_from_str(datetime.fromtimestamp(otp_time / 1000).strftime('%H:%M:%S'))
 
 
 def seconds_from_str(string):
