@@ -98,7 +98,7 @@ class DefaultBehaviour(StateMachine):
                 self.person.alternatives = alternatives
                 self.person.update_travel_log(TravellerEventType.TRIP_ALTERNATIVES_RECEIVED, self.person.curr_activity)
                 self.env.process(self.choose())
-            except OTPTrivialPath or OTPUnreachable as e:
+            except (OTPTrivialPath, OTPUnreachable) as e:
                 log.warning('{}'.format(e.msg))
                 log.warning('{}: Excluding person from simulation. {}'.format(self.env.now, self.person))
                 self.env.process(self.unplannable())

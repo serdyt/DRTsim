@@ -44,8 +44,11 @@ class Population(Component):
         with open(self.env.config.get('population.input_file'), 'r') as input_file:
             raw_json = json.load(input_file)
             persons = raw_json.get('persons')
-            pers_id = 0
+            # pers_id = 0
             for json_pers in persons:
+
+                # if json_pers['id'] != 2887600:
+                #     continue
 
                 if self.env.rand.choices([False, True],
                                          [self.env.config.get('population.input_percentage'),
@@ -53,16 +56,14 @@ class Population(Component):
                     continue
 
                 try:
-                    pers = self._person_from_json(json_pers, pers_id)
+                    pers = self._person_from_json(json_pers)
                 except PersonNotRelatedToStudyZones:
                     continue
-                finally:
-                    pers_id += 1
+                # finally:
+                #     pers_id += 1
 
                 # if pers.activities[0].zone in self.env.config.get('drt.zones') \
                 #         or pers.activities[1].zone in self.env.config.get('drt.zones'):
-
-
 
                 self.person_list.append(pers)
 
