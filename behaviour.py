@@ -70,6 +70,7 @@ class DefaultBehaviour(StateMachine):
             self.person.set_direct_trip(direct_trip)
             self.person.set_default_trip_tw()
             shortest_pt_alt = self.person.serviceProvider.fastest_pt_trip_within_hour_otp_request(self.person)
+            self.person.shortest_pt_alt = shortest_pt_alt
 
             if shortest_pt_alt is not None:
                 buses = [leg.route for leg in shortest_pt_alt.legs]

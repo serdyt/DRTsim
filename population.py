@@ -280,6 +280,7 @@ class Person(Component):
         self.curr_activity = self.activities.pop(0)
         self.next_activity = self.activities.pop(0)
         self.planned_trip = trip
+        self.shortest_pt_alt = None
         self.direct_trip = None
         # self.time_window = 0
         self.alternatives = []
@@ -290,6 +291,7 @@ class Person(Component):
         self.executed_trips = []
         self.direct_trips = []
         self.planned_trips = []
+        self.shortest_pt_alts = []
         self.drt_status = []
 
         # has [time, eventType, *args] structure
@@ -478,6 +480,7 @@ class Person(Component):
         """After a trip has been executed, save it and related direct trip"""
 
         self.planned_trips.append(self.planned_trip)
+        self.shortest_pt_alts.append(self.shortest_pt_alt)
         self.executed_trips.append(self.actual_trip)
         self.direct_trips.append(self.direct_trip)
 
@@ -760,6 +763,7 @@ class Person(Component):
     def dumps(self):
         return {'actual_trips': self.executed_trips,
                 'planned_trips': self.planned_trips,
+                'pt_alt': self.shortest_pt_alts,
                 'direct_trips': self.direct_trips,
                 'id': self.id}
 
