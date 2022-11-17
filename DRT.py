@@ -85,7 +85,7 @@ config = {
     # 'person.mode_choice': 'DefaultModeChoice',
     'person.mode_choice': 'TimeWindowsModeChoice',
     'service.routing': 'DefaultRouting',
-    'service.router_address': 'http://localhost:8801/otp/routers/skane/plan',
+    'service.router_address': 'http://localhost:8080/otp/routers/skane/plan',
     # 'service.router_scripting_address': 'http://localhost:8080/otp/scripting/run',
     'service.osrm_route': 'http://0.0.0.0:5000/route/v1/driving/',
     'service.osrm_tdm': 'http://0.0.0.0:5000/table/v1/driving/',
