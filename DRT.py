@@ -116,17 +116,17 @@ config = {
 
     # # Parameters that determine maximum travel time for DRT leg
     'pt.max_trip_duration_multiplier_in': 1.55,
-    'pt.max_trip_duration_constant_in': td(minutes=2.0).total_seconds(),
+    'pt.max_trip_duration_constant_in': td(minutes=0.0).total_seconds(),
     'pt.max_trip_duration_constant_in': td(hours=1.0).total_seconds(),
     'pt.trip_time_window_multiplier_in': 0,
 
     'pt.max_trip_duration_multiplier_out': 1.95,
-    'pt.max_trip_duration_constant_out': td(minutes=2.0).total_seconds(),
+    'pt.max_trip_duration_constant_out': td(minutes=0.0).total_seconds(),
     'pt.trip_time_window_constant_out': td(hours=1.0).total_seconds(),
     'pt.trip_time_window_multiplier_out': 0,
 
     'pt.max_trip_duration_multiplier_within': 1.7,
-    'pt.max_trip_duration_constant_within': td(minutes=2.0).total_seconds(),
+    'pt.max_trip_duration_constant_within': td(minutes=0.0).total_seconds(),
     'pt.trip_time_window_constant_within': td(hours=1.0).total_seconds(),
     'pt.trip_time_window_multiplier_within': 0,
 

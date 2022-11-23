@@ -245,21 +245,21 @@ class Person(Component):
         if self.curr_activity.zone in self.env.config.get('drt.zones') and \
                 self.next_activity.zone in self.env.config.get('drt.zones'):
             wm = self.env.config.get('pt.trip_time_window_multiplier_within')
-            wc = self.env.config.get('pt.max_trip_duration_constant_within')
+            wc = self.env.config.get('pt.trip_time_window_constant_within')
             tm = self.env.config.get('pt.max_trip_duration_multiplier_within')
             tc = self.env.config.get('pt.max_trip_duration_constant_within')
             t = TravelType.WITHIN
         elif self.curr_activity.zone in self.env.config.get('drt.zones') and \
                 self.next_activity.zone not in self.env.config.get('drt.zones'):
             wm = self.env.config.get('pt.trip_time_window_multiplier_out')
-            wc = self.env.config.get('pt.max_trip_duration_constant_out')
+            wc = self.env.config.get('pt.trip_time_window_constant_out')
             tm = self.env.config.get('pt.max_trip_duration_multiplier_out')
             tc = self.env.config.get('pt.max_trip_duration_constant_out')
             t = TravelType.OUT
         elif self.curr_activity.zone not in self.env.config.get('drt.zones') and \
                 self.next_activity.zone in self.env.config.get('drt.zones'):
             wm = self.env.config.get('pt.trip_time_window_multiplier_in')
-            wc = self.env.config.get('pt.max_trip_duration_constant_in')
+            wc = self.env.config.get('pt.trip_time_window_constant_in')
             tm = self.env.config.get('pt.max_trip_duration_multiplier_in')
             tc = self.env.config.get('pt.max_trip_duration_constant_in')
             t = TravelType.IN
