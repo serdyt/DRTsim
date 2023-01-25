@@ -47,7 +47,7 @@ class Population(Component):
             # pers_id = 0
             for json_pers in persons:
 
-                # if json_pers['id'] != 2887600:
+                # if json_pers['id'] != 2297605:
                 #     continue
 
                 if self.env.rand.choices([False, True],
@@ -87,7 +87,7 @@ class Population(Component):
         for json_activity in json_activities:
             type_str = json_activity.get('type')
             # type_ = actType.get_activity(type_str)
-            type_ = int(type_str)
+            type_ = type_str
 
             start_time = int(json_activity.get('start_time'))
             end_time = int(json_activity.get('end_time'))

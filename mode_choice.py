@@ -53,7 +53,12 @@ class TimeWindowsModeChoice(object):
                 times.append(self.person.get_max_trip_duration(self.person.get_direct_trip_duration()))
             else:
                 times.append(alt.duration)
-        return min(zip(times, alts_cheat), key=lambda x: x[0])[1]
+
+        drt_alts = [alt for alt in alts_cheat if alt.main_mode in [OtpMode.DRT, OtpMode.DRT_TRANSIT]]
+        if len(drt_alts) > 0:
+            return drt_alts[0]
+        else:
+            return min(zip(times, alts_cheat), key=lambda x: x[0])[1]
 
 
 class DefaultModeChoice(object):

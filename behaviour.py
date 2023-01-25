@@ -118,8 +118,16 @@ class DefaultBehaviour(StateMachine):
         else:
             log.info('{}: Person {} have chosen trip {}'.format(self.env.now, self.person.id, chosen_trip))
             self.person.planned_trip = chosen_trip.deepcopy()
-            self.person.init_actual_trip()
-            self.person.serviceProvider.start_trip(self.person)
+
+            modes = [leg.mode for leg in self.person.planned_trip.legs]
+            if any([mode == OtpMode.DRT for mode in modes]):
+                self.person.planned_trip.drt_tw_start_left = self.person.drt_tw_start_left
+                self.person.planned_trip.drt_tw_start_right = self.person.drt_tw_start_right
+                self.person.planned_trip.drt_tw_end_left = self.person.drt_tw_end_left
+                self.person.planned_trip.drt_tw_end_right = self.person.drt_tw_end_right
+                self.person.planned_trip.max_drt_duration = self.person.max_drt_duration
+            # self.person.init_actual_trip()
+            # self.person.serviceProvider.start_trip(self.person)
             self.person.update_travel_log(TravellerEventType.TRIP_CHOSEN, chosen_trip.deepcopy())
 
             # TODO: after choosing, a traveler should wait for beginning of a trip
@@ -127,12 +135,13 @@ class DefaultBehaviour(StateMachine):
             self.env.process(self.execute_trip())
 
     def on_execute_trip(self):
-        self.env.process(self.person.serviceProvider.execute_trip(self.person))
-        self.person.update_travel_log(TravellerEventType.TRIP_STARTED)
-        yield self.person.delivered
-        self.person.update_travel_log(TravellerEventType.TRIP_FINISHED)
-        log.info('{}: Person {} has finished trip {}'.format(self.env.now, self.person.id, self.person.actual_trip))
-        self.person.reset_delivery()
+        yield Event(self.env).succeed()
+        # self.env.process(self.person.serviceProvider.execute_trip(self.person))
+        # self.person.update_travel_log(TravellerEventType.TRIP_STARTED)
+        # yield self.person.delivered
+        # self.person.update_travel_log(TravellerEventType.TRIP_FINISHED)
+        # log.info('{}: Person {} has finished trip {}'.format(self.env.now, self.person.id, self.person.actual_trip))
+        # self.person.reset_delivery()
         self.person.log_executed_trip()
         if self.person.change_activity() == -1:
             self.env.process(self.finalize())

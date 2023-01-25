@@ -243,16 +243,16 @@ class ServiceProvider(Component):
         person.drt_leg = drt_leg.deepcopy()
         person.set_drt_tw(person.get_direct_trip_duration(), single_leg=True)
 
-        try:
-            self._drt_request_routine(person)
-        except DrtUndeliverable as e:
-            log.warning(e.msg)
-            self._drt_undeliverable += 1
-            return [], DrtStatus.undeliverable
-        except DrtUnassigned as e:
-            log.warning(e.msg)
-            self._drt_unassigned += 1
-            return [], DrtStatus.unassigned
+        # try:
+        #     self._drt_request_routine(person)
+        # except DrtUndeliverable as e:
+        #     log.warning(e.msg)
+        #     self._drt_undeliverable += 1
+        #     return [], DrtStatus.undeliverable
+        # except DrtUnassigned as e:
+        #     log.warning(e.msg)
+        #     self._drt_unassigned += 1
+        #     return [], DrtStatus.unassigned
 
         drt_trip.legs[0] = person.drt_leg.deepcopy()
         drt_trip.duration = drt_trip.legs[0].duration
@@ -535,14 +535,14 @@ class ServiceProvider(Component):
                 continue
 
             person.drt_leg = drt_leg.deepcopy()
-            try:
-                self._drt_request_routine(person)
-            except DrtUnassigned:
-                status_log[DrtStatus.unassigned] += 1
-                continue
-            except DrtUndeliverable:
-                status_log[DrtStatus.undeliverable] += 1
-                continue
+            # try:
+            #     self._drt_request_routine(person)
+            # except DrtUnassigned:
+            #     status_log[DrtStatus.unassigned] += 1
+            #     continue
+            # except DrtUndeliverable:
+            #     status_log[DrtStatus.undeliverable] += 1
+            #     continue
 
             drt_trip.legs[pt_car_leg_index] = person.drt_leg.deepcopy()
             # drt_trip.legs[pt_car_leg_index].start_coord = person.drt_leg.start_coord

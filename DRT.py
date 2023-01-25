@@ -102,8 +102,8 @@ config = {
     'person.default_attr.leaving_time': 60,
     # 'person.default_attr.maxWalkDistance': 2000,
 
-    'population.input_file': 'data/population_sjobo_others_only_sjobo.json',
-    'population.input_percentage': 0.01,
+    'population.input_file': 'data/sjöbo_trips_others_directions_51000_DRT_TRANSIT_only.json',
+    'population.input_percentage': 1.0,
     # ['all_within', 'pt_only', 'drtable_all', 'drtable_outside', 'all']
     'population.scenario': 'drtable_all',
 
@@ -115,17 +115,17 @@ config = {
     # 'drt.planning_in_advance_multiplier': 2,
 
     # # Parameters that determine maximum travel time for DRT leg
-    'pt.max_trip_duration_multiplier_in': 1.55,
+    'pt.max_trip_duration_multiplier_in': 1.5,
     'pt.max_trip_duration_constant_in': td(minutes=0.0).total_seconds(),
     'pt.trip_time_window_constant_in': td(hours=1.0).total_seconds(),
     'pt.trip_time_window_multiplier_in': 0,
 
-    'pt.max_trip_duration_multiplier_out': 1.95,
+    'pt.max_trip_duration_multiplier_out': 1.5,
     'pt.max_trip_duration_constant_out': td(minutes=0.0).total_seconds(),
     'pt.trip_time_window_constant_out': td(hours=1.0).total_seconds(),
     'pt.trip_time_window_multiplier_out': 0,
 
-    'pt.max_trip_duration_multiplier_within': 1.7,
+    'pt.max_trip_duration_multiplier_within': 1.5,
     'pt.max_trip_duration_constant_within': td(minutes=0.0).total_seconds(),
     'pt.trip_time_window_constant_within': td(hours=1.0).total_seconds(),
     'pt.trip_time_window_multiplier_within': 0,
